@@ -1,15 +1,14 @@
 """Regression tests for prompt-injection audit findings.
 
-Three user-controlled surfaces were found to be concatenated directly into
+User-controlled surfaces were found to be concatenated directly into
 the trusted system role in _build_system_prompt:
 
-  1. email_writing_style setting (user-editable via settings UI)
-  2. Integration descriptions (user-editable via integrations API)
-  3. MCP tool descriptions (sourced from external MCP servers)
+  1. Integration descriptions (user-editable via integrations API)
+  2. MCP tool descriptions (sourced from external MCP servers)
 
 The fix wraps each surface in untrusted_context_message(), placing it in a
 user-role message with metadata.trusted=False, matching the existing pattern
-for active documents, email context, and skills.
+for active documents and skills.
 """
 
 import sys
@@ -53,86 +52,7 @@ def _bust_prompt_cache():
     agent_loop._cached_base_prompt_key = None
 
 
-# ── 1. Email writing style ───────────────────────────────────────────────────
-
-def _patch_email_style(monkeypatch, style_text: str):
-    """Patch load_settings so email_writing_style returns style_text."""
-    fake_settings = types.ModuleType("src.settings")
-    existing = sys.modules.get("src.settings")
-
-    # Preserve any real attributes already on the module.
-    if existing:
-        for attr in dir(existing):
-            if not attr.startswith("__"):
-                setattr(fake_settings, attr, getattr(existing, attr))
-
-    fake_settings.load_settings = lambda: {"email_writing_style": style_text}
-    fake_settings.get_setting = getattr(existing, "get_setting", lambda k, d=None: d)
-    monkeypatch.setitem(sys.modules, "src.settings", fake_settings)
-    _bust_prompt_cache()
-
-
-def test_email_style_not_in_system_role(monkeypatch):
-    """A malicious email_writing_style value must not reach the system role."""
-    _patch_email_style(monkeypatch, MALICIOUS_PAYLOAD)
-
-    from src.agent_loop import _build_system_prompt
-
-    messages = [{"role": "user", "content": "write an email to my boss"}]
-    out, _ = _build_system_prompt(
-        messages=messages, model="test-model",
-        active_document=None, mcp_mgr=None, owner=None,
-        relevant_tools={"send_email"},
-    )
-
-    assert MALICIOUS_PAYLOAD not in _sys_role_text(out), (
-        "SECURITY: email_writing_style content was concatenated into the "
-        "trusted system role. It must be wrapped in untrusted_context_message."
-    )
-
-
-def test_email_style_lands_in_untrusted_message(monkeypatch):
-    """A non-empty email_writing_style must appear in an untrusted user message."""
-    style = "Sign off as: Best, Alice"
-    _patch_email_style(monkeypatch, style)
-
-    from src.agent_loop import _build_system_prompt
-
-    messages = [{"role": "user", "content": "reply to this email"}]
-    out, _ = _build_system_prompt(
-        messages=messages, model="test-model",
-        active_document=None, mcp_mgr=None, owner=None,
-        relevant_tools={"reply_to_email"},
-    )
-
-    found = [m for m in _untrusted_messages(out) if style in (m.get("content") or "")]
-    assert found, (
-        "Expected the email writing style to appear in an untrusted user-role "
-        "message; got none."
-    )
-    assert found[0]["role"] == "user"
-
-
-def test_email_style_hardcoded_rules_stay_in_system_role(monkeypatch):
-    """The hardcoded identity/style rules must still be in the system prompt."""
-    _patch_email_style(monkeypatch, "Sign off as: Cheers, Bob")
-
-    from src.agent_loop import _build_system_prompt
-
-    messages = [{"role": "user", "content": "draft an email"}]
-    out, _ = _build_system_prompt(
-        messages=messages, model="test-model",
-        active_document=None, mcp_mgr=None, owner=None,
-        relevant_tools={"send_email"},
-    )
-
-    sys_text = _sys_role_text(out)
-    assert "Hard identity rule" in sys_text, (
-        "Hardcoded identity rules must remain in the trusted system prompt."
-    )
-
-
-# ── 2. Integration descriptions ─────────────────────────────────────────────
+# ── 1. Integration descriptions ─────────────────────────────────────────────
 
 def _patch_integrations(monkeypatch, description: str):
     fake_integ = types.ModuleType("src.integrations")
@@ -196,7 +116,7 @@ def test_integration_description_suppressed_with_local_context(monkeypatch):
     assert "SensitiveAPI" not in all_text
 
 
-# ── 3. MCP tool descriptions ─────────────────────────────────────────────────
+# ── 2. MCP tool descriptions ─────────────────────────────────────────────────
 
 def _make_mcp_mgr(desc_text: str):
     mgr = MagicMock()

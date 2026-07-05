@@ -1,6 +1,6 @@
 """PR #3681 — fenced tool calls with inline args, and the fence-tag boundary.
 
-Local fenced-block models (Ollama etc.) emit calls like ```list_email_accounts {}
+Local fenced-block models (Ollama etc.) emit calls like ```list_sessions {}
 with the args on the same line as the tag; the parser must execute those. The
 relaxed tag pattern must NOT prefix-match longer fence tags: ```python3 is a
 language hint, not a "python" tool call with content "3\n...".
@@ -23,15 +23,15 @@ from src.tool_parsing import parse_tool_blocks, strip_tool_blocks  # noqa: E402
 
 
 def test_inline_args_on_tag_line_parse():
-    # The original bug: ```list_email_accounts {}  (args on the tag line)
+    # The original bug: ```list_sessions {}  (args on the tag line)
     # never matched because the regex required a newline right after the tag.
-    blocks = parse_tool_blocks('```list_email_accounts {}\n```')
-    assert [(b.tool_type, b.content) for b in blocks] == [("list_email_accounts", "{}")]
+    blocks = parse_tool_blocks('```list_sessions {}\n```')
+    assert [(b.tool_type, b.content) for b in blocks] == [("list_sessions", "{}")]
 
 
-def test_inline_json_args_parse_for_email_tools():
-    blocks = parse_tool_blocks('```list_emails {"max_results": 5}\n```')
-    assert [(b.tool_type, b.content) for b in blocks] == [("list_emails", '{"max_results": 5}')]
+def test_inline_json_args_parse_for_json_tools():
+    blocks = parse_tool_blocks('```web_search {"query": "hello"}\n```')
+    assert [(b.tool_type, b.content) for b in blocks] == [("web_search", '{"query": "hello"}')]
 
 
 def test_next_line_content_still_parses():
@@ -71,30 +71,24 @@ def test_markdown_info_string_is_not_executable_bash():
     assert blocks == [], blocks
 
 
-def test_empty_email_fence_is_an_executable_call():
-    # ```list_email_accounts``` with no body is a real shape local models emit
-    # for no-arg tools — it must dispatch (with empty args), not vanish.
-    blocks = parse_tool_blocks('```list_email_accounts\n```')
-    assert [(b.tool_type, b.content) for b in blocks] == [("list_email_accounts", "")]
-
-
-def test_empty_non_email_fence_still_skipped():
-    # Empty bash/python/other fences stay inert: empty content is nothing to run.
-    for tag in ("bash", "python", "manage_memory"):
+def test_empty_fence_is_never_dispatched():
+    # Empty fences stay inert for every tag: empty content is nothing to run.
+    for tag in ("bash", "python", "manage_memory", "list_sessions"):
         assert parse_tool_blocks(f'```{tag}\n```') == []
 
 
-def test_empty_email_fence_is_stripped_from_display():
-    # Executed (empty-args) email fences mirror like any executed fence.
-    text = 'One sec.\n```list_email_accounts\n```\nDone.'
+def test_empty_tool_fence_is_stripped_from_display():
+    # An empty known-tool fence is never executed, but it is stripped from the
+    # displayed text as noise (pre-PR behavior, kept deliberately).
+    text = 'One sec.\n```manage_memory\n```\nDone.'
     assert strip_tool_blocks(text) == 'One sec.\n\nDone.'
 
 
 def test_inline_json_array_args_still_parse():
     # The narrowed same-line rule must keep accepting JSON args: { or [.
-    blocks = parse_tool_blocks('```bulk_email {"action": "archive", "uids": [1, 2]}\n```')
+    blocks = parse_tool_blocks('```web_search {"queries": ["a", "b"]}\n```')
     assert [(b.tool_type, b.content) for b in blocks] == [
-        ("bulk_email", '{"action": "archive", "uids": [1, 2]}')
+        ("web_search", '{"queries": ["a", "b"]}')
     ]
 
 
@@ -112,18 +106,18 @@ def test_valid_json_metadata_on_python_is_not_executable():
     assert blocks == [], blocks
 
 
-def test_invalid_inline_json_on_email_tool_is_not_executable():
+def test_invalid_inline_json_on_json_tool_is_not_executable():
     # JSON-args tools only execute same-line content that parses as JSON —
     # {title="x"} is metadata/garbage, not arguments.
-    blocks = parse_tool_blocks('```list_emails {title="x"}\n```')
+    blocks = parse_tool_blocks('```list_sessions {title="x"}\n```')
     assert blocks == [], blocks
 
 
 def test_inline_json_continuing_on_next_lines_still_parses():
     # A JSON object opened on the tag line may close on a later line.
-    blocks = parse_tool_blocks('```list_emails {"folder": "INBOX",\n"max_results": 5}\n```')
+    blocks = parse_tool_blocks('```web_search {"query": "hello",\n"max_pages": 5}\n```')
     assert [(b.tool_type, b.content) for b in blocks] == [
-        ("list_emails", '{"folder": "INBOX",\n"max_results": 5}')
+        ("web_search", '{"query": "hello",\n"max_pages": 5}')
     ]
 
 
@@ -132,7 +126,7 @@ def test_brace_metadata_fences_left_intact_in_display():
     for text in (
         'Example:\n```bash {title="setup"}\necho hi\n```',
         'Example:\n```python {"title": "example.py"}\nprint("hi")\n```',
-        'Example:\n```list_emails {title="x"}\n```',
+        'Example:\n```list_sessions {title="x"}\n```',
     ):
         assert strip_tool_blocks(text) == text
 
@@ -140,7 +134,7 @@ def test_brace_metadata_fences_left_intact_in_display():
 def test_inline_args_fence_is_stripped_from_display():
     # strip must mirror parse: an executed inline-args fence must not leak
     # into the displayed text.
-    text = 'Checking now.\n```list_email_accounts {}\n```\nDone.'
+    text = 'Checking now.\n```list_sessions {}\n```\nDone.'
     assert strip_tool_blocks(text) == 'Checking now.\n\nDone.'
 
 
@@ -160,12 +154,11 @@ def test_markdown_info_string_fence_is_left_intact_in_display():
 def test_parse_strip_mirror_across_fence_shape_grid():
     # Invariant for ANY single fence: either it executes AND is stripped, or
     # it doesn't execute AND stays fully visible. The one allowed exception is
-    # an empty NON-EMAIL tool fence (no header, no body): never executed, but
-    # stripped as noise — pre-PR behavior, kept deliberately. (Empty EMAIL
-    # fences execute with empty args, so they fall under the first branch.)
+    # an empty tool fence (no header, no body): never executed, but stripped
+    # as noise — pre-PR behavior, kept deliberately.
     from src.agent_tools import TOOL_TAGS
 
-    tags = ["bash", "python", "list_emails", "bulk_email", "manage_memory",
+    tags = ["bash", "python", "web_search", "list_sessions", "manage_memory",
             "python3", "bash-session", "notatool"]
     headers = ["", " ", ' title="x"', ' {title="x"}', ' {"a": 1}', " [1, 2]",
                " {bad json", ' {"a": 1} extra']

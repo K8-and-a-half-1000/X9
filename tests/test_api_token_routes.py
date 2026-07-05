@@ -355,7 +355,7 @@ def test_update_token_rename_preserves_scopes(monkeypatch, token_routes_mod):
 
     token = SimpleNamespace(
         id="tok123", name="original", owner="alice",
-        token_prefix="ody_orig", scopes="email:read,email:draft", is_active=True,
+        token_prefix="ody_orig", scopes="todos:read,todos:write", is_active=True,
     )
     fake_session = MagicMock()
     fake_session.query.return_value.filter.return_value.first.return_value = token
@@ -366,8 +366,8 @@ def test_update_token_rename_preserves_scopes(monkeypatch, token_routes_mod):
     update_token = _get_handler(mod, "PATCH", "/tokens/{token_id}")
     resp = asyncio.run(update_token(request=req, token_id="tok123"))
 
-    assert token.scopes == "email:read,email:draft"  # untouched
-    assert resp["scopes"] == ["email:read", "email:draft"]
+    assert token.scopes == "todos:read,todos:write"  # untouched
+    assert resp["scopes"] == ["todos:read", "todos:write"]
     assert token.name == "renamed"
     invalidator.assert_called_once()
 
@@ -379,7 +379,7 @@ def test_update_token_applies_explicit_scopes(monkeypatch, token_routes_mod):
 
     token = SimpleNamespace(
         id="tok123", name="original", owner="alice",
-        token_prefix="ody_orig", scopes="email:read,email:draft", is_active=True,
+        token_prefix="ody_orig", scopes="todos:read,todos:write", is_active=True,
     )
     fake_session = MagicMock()
     fake_session.query.return_value.filter.return_value.first.return_value = token
@@ -516,7 +516,7 @@ def test_update_token_with_array_body_does_not_500(monkeypatch, token_routes_mod
 
     token = SimpleNamespace(
         id="tok123", name="original", owner="alice",
-        token_prefix="ody_orig", scopes="email:read", is_active=True,
+        token_prefix="ody_orig", scopes="todos:read", is_active=True,
     )
     fake_session = MagicMock()
     fake_session.query.return_value.filter.return_value.first.return_value = token
@@ -529,7 +529,7 @@ def test_update_token_with_array_body_does_not_500(monkeypatch, token_routes_mod
 
     # Name and scopes must be unchanged — payload was normalised to {}
     assert token.name == "original"
-    assert token.scopes == "email:read"
+    assert token.scopes == "todos:read"
     assert resp["name"] == "original"
 
 
@@ -562,7 +562,7 @@ def test_update_token_normal_object_still_works(monkeypatch, token_routes_mod):
 
     token = SimpleNamespace(
         id="tok123", name="original", owner="alice",
-        token_prefix="ody_orig", scopes="email:read", is_active=True,
+        token_prefix="ody_orig", scopes="todos:read", is_active=True,
     )
     fake_session = MagicMock()
     fake_session.query.return_value.filter.return_value.first.return_value = token

@@ -26,7 +26,7 @@ SECURITY_KEYWORDS = frozenset({
 CLI_KEYWORDS = frozenset({"cli"})
 ROUTES_KEYWORDS = frozenset({"route", "routes", "api"})
 SERVICES_KEYWORDS = frozenset({
-    "llm", "provider", "cookbook", "session", "history", "email",
+    "llm", "provider", "cookbook", "session", "history",
     "calendar", "memory", "gallery", "document", "research", "mcp",
     "scheduler", "webhook", "embedding",
 })
@@ -37,7 +37,7 @@ UNIT_KEYWORDS = frozenset({
 
 # Keyword-matched areas, in priority order (first match wins). Security is a
 # cross-cutting concern and intentionally outranks the feature areas, so e.g.
-# ``test_email_owner_scope.py`` classifies as ``security``, not ``services``.
+# ``test_calendar_owner_scope.py`` classifies as ``security``, not ``services``.
 # ``js`` and ``helpers`` are matched by dedicated rules in ``_match_area``.
 KEYWORD_AREAS = (
     ("security", SECURITY_KEYWORDS),

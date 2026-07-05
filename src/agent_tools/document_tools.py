@@ -88,8 +88,6 @@ def _sniff_doc_language(text: str) -> str:
         return "markdown"
     head = s[:600]
     hl = head.lower()
-    if _looks_like_email_document(s):
-        return "email"
     # Markup (unambiguous)
     if "<svg" in hl:
         return "svg"
@@ -119,40 +117,6 @@ def _sniff_doc_language(text: str) -> str:
     if _re2.search(r"(?m)^[.#]?[\w-]+\s*\{[^{}]*:[^{}]*;", s):
         return "css"
     return "markdown"
-
-def _looks_like_email_document(text: str = "", title: str = "") -> bool:
-    import re as _re
-    title_l = (title or "").strip().lower()
-    if title_l in {"new email", "new mail", "new message"}:
-        return True
-    s = (text or "").lstrip()
-    if "\n---\n" in s and _re.search(r"(?im)^To:\s*", s) and _re.search(r"(?im)^Subject:\s*", s):
-        return True
-    return bool(_re.search(r"(?im)^To:\s*", s) and _re.search(r"(?im)^Subject:\s*", s))
-
-def _coerce_email_document_content(existing: str, incoming: str) -> str:
-    """Keep email docs in the To/Subject/---/body shape even if a model writes
-    only the body or dumps header labels without the separator."""
-    import re as _re
-    old = existing or ""
-    new = (incoming or "").strip()
-    if "\n---\n" in new:
-        return new
-    header = old.split("\n---\n", 1)[0] if "\n---\n" in old else "To: \nSubject: "
-    if _looks_like_email_document(new):
-        lines = new.splitlines()
-        last_header_idx = -1
-        header_re = _re.compile(r"^(To|Cc|Bcc|Subject|In-Reply-To|References|X-Source-UID|X-Source-Folder|X-Attachments):", _re.I)
-        for i, line in enumerate(lines):
-            if header_re.match(line.strip()):
-                last_header_idx = i
-        body_lines = lines[last_header_idx + 1:] if last_header_idx >= 0 else lines
-        while body_lines and not body_lines[0].strip():
-            body_lines.pop(0)
-        body = "\n".join(body_lines).strip()
-    else:
-        body = new
-    return header.rstrip() + "\n---\n" + body
 
 def parse_edit_blocks(content: str) -> list:
     """Parse <<<FIND>>>...<<<REPLACE>>>...<<<END>>> blocks."""
@@ -267,7 +231,7 @@ class CreateDocumentTool:
         _KNOWN_LANGS = {
             "python", "javascript", "typescript", "html", "css", "markdown", "json",
             "yaml", "bash", "sql", "rust", "go", "java", "c", "cpp", "xml", "toml",
-            "ini", "ruby", "php", "csv", "email", "text", "plain", "svg",
+            "ini", "ruby", "php", "csv", "text", "plain", "svg",
         }
 
         # Try XML tag extraction first
@@ -305,8 +269,6 @@ class CreateDocumentTool:
             # No explicit language — sniff it from the content so an SVG / HTML / JSON
             # / code document isn't silently saved as markdown. Prose → markdown.
             language = _sniff_doc_language(content)
-        if _looks_like_email_document(content, title):
-            language = "email"
 
         if not title:
             title = "Untitled"
@@ -392,12 +354,9 @@ class UpdateDocumentTool:
             if not doc:
                 return {"error": "No documents exist to update"}
 
-            is_email_doc = doc.language == "email" or _looks_like_email_document(doc.current_content or "", doc.title or "")
-            new_content = _coerce_email_document_content(doc.current_content or "", content) if is_email_doc else content.strip()
-            if is_email_doc:
-                doc.language = "email"
+            new_content = content.strip()
 
-            if not is_email_doc and _pdf_source_upload_id(doc.current_content or ""):
+            if _pdf_source_upload_id(doc.current_content or ""):
                 return _create_pdf_text_derivative(
                     db,
                     source_doc=doc,

@@ -54,7 +54,6 @@ SUB_AREA_ALIASES: dict[str, tuple[str, ...]] = {
         "service_health_chromadb",
         "service_health_search",
         "service_health_ntfy",
-        "service_health_email",
         "service_health_providers",
         "service_health_collect",
     ),

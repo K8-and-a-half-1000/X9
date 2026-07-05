@@ -1154,7 +1154,7 @@ document.addEventListener('click', function(e) {
   if (!a) return;
   const href = a.getAttribute('href') || '';
   if (!href.startsWith('#')) return;
-  const m = href.match(/^#(session|document|note|image|email|event|task|skill|research)-(.+)$/);
+  const m = href.match(/^#(session|document|note|image|event|task|skill|research)-(.+)$/);
   if (!m) return;
   e.preventDefault();
   e.stopPropagation();
@@ -1180,11 +1180,6 @@ document.addEventListener('click', function(e) {
     import('./gallery.js').then(mod => {
       const open = mod.openGalleryImage || (mod.default && mod.default.openGalleryImage);
       if (open) open(id);
-    }).catch(() => {});
-  } else if (kind === 'email') {
-    import('./emailLibrary.js').then(mod => {
-      const open = mod.openEmailLibrary || (mod.default && mod.default.openEmailLibrary);
-      if (open) open({ uid: id });
     }).catch(() => {});
   } else if (kind === 'event') {
     import('./calendar.js').then(mod => {

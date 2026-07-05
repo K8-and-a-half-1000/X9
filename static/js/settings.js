@@ -12,7 +12,6 @@ import { bindMenuDismiss } from './escMenuStack.js';
 
 let initialized = false;
 let modalEl = null;
-let _authPolicy = { password_min_length: 8 };
 
 function el(id) { return document.getElementById(id); }
 function esc(s) { return uiModule.esc(s); }
@@ -129,7 +128,7 @@ function initClose() {
     // If an integration edit/add form is open inside the modal, close
     // just that — don't dismiss the whole settings modal. (Pressing
     // ESC mid-edit and losing the modal was a fast-typing footgun.)
-    const innerForm = modalEl.querySelector('#unified-intg-form, #set-email-accounts-form');
+    const innerForm = modalEl.querySelector('#unified-intg-form');
     if (innerForm && innerForm.style.display !== 'none' && innerForm.children.length > 0) {
       e.preventDefault();
       e.stopPropagation();
@@ -2129,192 +2128,6 @@ async function initShortcuts() {
 /* ═══════════════════════════════════════════
    INIT & REFRESH
    ═══════════════════════════════════════════ */
-function initAccount() {
-  // Populate user info
-  fetch('/api/auth/status', { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(d => {
-      const nameEl = el('settings-account-username');
-      const roleEl = el('settings-account-role');
-      const avatarEl = el('settings-account-avatar');
-      if (nameEl) nameEl.textContent = d.username || 'Unknown';
-      if (roleEl) roleEl.textContent = d.is_admin ? 'Admin' : 'User';
-      if (avatarEl) {
-        const initial = (d.username || '?')[0].toUpperCase();
-        avatarEl.textContent = initial;
-      }
-    }).catch(() => {});
-
-  // Update password placeholder and policy from server
-  fetch('/api/auth/policy', { credentials: 'same-origin' })
-    .then(r => r.ok ? r.json() : null)
-    .then(policy => {
-      if (!policy) return;
-      _authPolicy = policy;
-      const pwNew = el('settings-pw-new');
-      if (pwNew) pwNew.placeholder = `New password (min ${policy.password_min_length})`;
-    }).catch(() => {});
-
-  // Change password
-  const saveBtn = el('settings-pw-save');
-  const msgEl = el('settings-pw-msg');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', async () => {
-      const cur = el('settings-pw-current').value;
-      const nw = el('settings-pw-new').value;
-      const conf = el('settings-pw-confirm').value;
-      msgEl.style.color = '';
-      if (!cur || !nw) { msgEl.textContent = 'Fill in all fields'; msgEl.style.color = 'var(--red)'; return; }
-      if (nw.length < _authPolicy.password_min_length) { msgEl.textContent = `Min ${_authPolicy.password_min_length} characters`; msgEl.style.color = 'var(--red)'; return; }
-      if (nw !== conf) { msgEl.textContent = 'Passwords don\'t match'; msgEl.style.color = 'var(--red)'; return; }
-      saveBtn.disabled = true;
-      try {
-        const res = await fetch('/api/auth/change-password', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ current_password: cur, new_password: nw })
-        });
-        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'Failed'); }
-        msgEl.style.color = 'var(--green)';
-        msgEl.textContent = 'Password updated';
-        el('settings-pw-current').value = '';
-        el('settings-pw-new').value = '';
-        el('settings-pw-confirm').value = '';
-      } catch (e) {
-        msgEl.style.color = 'var(--red)';
-        msgEl.textContent = e.message;
-      } finally {
-        saveBtn.disabled = false;
-      }
-    });
-  }
-
-  // ── Two-Factor Authentication ──
-  const tfaContent = el('settings-2fa-content');
-  if (tfaContent) {
-    async function render2FA() {
-      try {
-        const res = await fetch('/api/auth/2fa/status', { credentials: 'same-origin' });
-        const data = await res.json();
-        if (data.enabled) {
-          // 2FA is ON — show disable option
-          tfaContent.innerHTML = `
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <span style="color:var(--color-save-green, #4caf50);font-size:12px;font-weight:600;">&#x2713; Enabled</span>
-              <span style="font-size:11px;opacity:0.5;">Authenticator app required on login</span>
-            </div>
-            <input id="tfa-disable-pw" type="password" placeholder="Enter password to disable" autocomplete="current-password" style="padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--fg);font-family:inherit;font-size:12px;width:100%;box-sizing:border-box;margin-bottom:6px;">
-            <div class="settings-row" style="justify-content:flex-end;">
-              <span id="tfa-msg" style="font-size:11px;margin-right:auto;"></span>
-              <button class="admin-btn-add" id="tfa-disable-btn" style="opacity:0.7;">Disable 2FA</button>
-            </div>`;
-          el('tfa-disable-btn').addEventListener('click', async () => {
-            const pw = el('tfa-disable-pw').value;
-            const msg = el('tfa-msg');
-            if (!pw) { msg.textContent = 'Enter your password'; msg.style.color = 'var(--red)'; return; }
-            try {
-              const r = await fetch('/api/auth/2fa/disable', {
-                method: 'POST', credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw })
-              });
-              if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Failed'); }
-              render2FA();
-            } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
-          });
-        } else {
-          // 2FA is OFF — show setup button
-          tfaContent.innerHTML = `
-            <div style="font-size:12px;opacity:0.6;margin-bottom:8px;">Add an extra layer of security with an authenticator app (Aegis, Google Authenticator, etc.)</div>
-            <div class="settings-row" style="justify-content:flex-end;">
-              <span id="tfa-msg" style="font-size:11px;margin-right:auto;"></span>
-              <button class="admin-btn-add" id="tfa-setup-btn">Set Up 2FA</button>
-            </div>`;
-          el('tfa-setup-btn').addEventListener('click', async () => {
-            const msg = el('tfa-msg');
-            try {
-              const r = await fetch('/api/auth/2fa/setup', { method: 'POST', credentials: 'same-origin' });
-              if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Failed'); }
-              const setup = await r.json();
-              const qrCode = safeRasterDataUrl(setup.qr_code);
-              // Show QR code + manual secret + verify input
-              tfaContent.innerHTML = `
-                <div style="text-align:center;margin-bottom:12px;">
-                  ${qrCode ? `<img src="${esc(qrCode)}" alt="QR Code" style="border-radius:8px;max-width:200px;">` : ''}
-                </div>
-                <div style="font-size:11px;opacity:0.5;text-align:center;margin-bottom:8px;">
-                  Scan with your authenticator app, or enter manually:
-                </div>
-                <div style="font-family:monospace;font-size:12px;text-align:center;padding:6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-bottom:12px;word-break:break-all;user-select:all;cursor:text;">${esc(setup.secret)}</div>
-                <input id="tfa-verify-code" type="text" placeholder="Enter 6-digit code to verify" autocomplete="one-time-code" inputmode="numeric" maxlength="8" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--fg);font-family:inherit;font-size:13px;box-sizing:border-box;text-align:center;letter-spacing:3px;margin-bottom:6px;">
-                <div class="settings-row" style="justify-content:flex-end;">
-                  <span id="tfa-msg" style="font-size:11px;margin-right:auto;"></span>
-                  <button class="admin-btn-add" id="tfa-cancel-btn" style="opacity:0.5;">Cancel</button>
-                  <button class="admin-btn-add" id="tfa-verify-btn">Verify & Enable</button>
-                </div>`;
-              el('tfa-verify-code').focus();
-              el('tfa-cancel-btn').addEventListener('click', () => render2FA());
-              el('tfa-verify-btn').addEventListener('click', async () => {
-                const code = el('tfa-verify-code').value.trim();
-                const vmsg = el('tfa-msg');
-                if (!code) { vmsg.textContent = 'Enter the code'; vmsg.style.color = 'var(--red)'; return; }
-                try {
-                  const vr = await fetch('/api/auth/2fa/confirm', {
-                    method: 'POST', credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
-                  });
-                  if (!vr.ok) { const d = await vr.json(); throw new Error(d.detail || 'Invalid code'); }
-                  const result = await vr.json();
-                  // Show backup codes
-                  const codes = result.backup_codes || [];
-                  tfaContent.innerHTML = `
-                    <div style="color:var(--color-save-green, #4caf50);font-size:13px;font-weight:600;margin-bottom:8px;">&#x2713; 2FA Enabled!</div>
-                    <div style="font-size:12px;opacity:0.7;margin-bottom:8px;">Save these backup codes somewhere safe. Each can be used once if you lose your authenticator:</div>
-                    <div style="font-family:monospace;font-size:12px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;columns:2;column-gap:16px;margin-bottom:8px;">${codes.map(c => '<div style="margin-bottom:2px;">' + c + '</div>').join('')}</div>
-                    <button class="admin-btn-add" id="tfa-done-btn">Done</button>`;
-                  el('tfa-done-btn').addEventListener('click', () => render2FA());
-                } catch (e) { vmsg.textContent = e.message; vmsg.style.color = 'var(--red)'; }
-              });
-            } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; }
-          });
-        }
-      } catch (_) {
-        tfaContent.innerHTML = '<div style="font-size:11px;opacity:0.4;">Could not load 2FA status</div>';
-      }
-    }
-    render2FA();
-  }
-
-  // Logout
-  const logoutBtn = el('settings-logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('mouseenter', () => { logoutBtn.style.opacity = '1'; logoutBtn.style.borderColor = 'var(--red)'; logoutBtn.style.color = 'var(--red)'; });
-    logoutBtn.addEventListener('mouseleave', () => { logoutBtn.style.opacity = ''; logoutBtn.style.borderColor = ''; logoutBtn.style.color = ''; });
-    logoutBtn.addEventListener('click', async () => {
-      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (_) {}
-      // SECURITY: wipe all client-side state on logout so the next user that
-      // signs in on this browser doesn't inherit the previous account's
-      // session id, last-used model, draft chat input, or any cached lists.
-      // Keep "odysseus-last-user" so the login form remembers the username
-      // (if "Remember me" was on). Without this the chat composer pre-loaded
-      // the previous user's last model into a fresh session, which read as
-      // cross-account leakage.
-      try {
-        const _keepKeys = new Set(['odysseus-last-user']);
-        const _toRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && !_keepKeys.has(k)) _toRemove.push(k);
-        }
-        _toRemove.forEach(k => localStorage.removeItem(k));
-        sessionStorage.clear();
-      } catch (_) {}
-      window.location.href = '/login';
-    });
-  }
-}
-
 function initAll() {
   modalEl = el('settings-modal');
   initTabs();
@@ -2336,10 +2149,7 @@ function initAll() {
   initAgentSettings();
   initAppearance();
   initShortcuts();
-  initAccount();
   initIntegrations();
-  initEmailSettings();
-  initEmailAccountsSettings();
   initReminderSettings();
   initUnifiedIntegrations();
 }
@@ -2354,7 +2164,7 @@ async function initReminderSettings() {
   const root = el('settings-modal');
   if (!root || !root.querySelector('[data-settings-panel="reminders"]')) return;
 
-  // Public URL field (used for deep-links in outgoing alert emails)
+  // Public URL field (used for deep-links in outgoing reminders)
   const pubUrlIn = el('set-app-public-url');
   const pubUrlMsg = el('set-app-public-url-msg');
   if (pubUrlIn) {
@@ -2387,14 +2197,13 @@ async function initReminderSettings() {
   }
 
   const channelSel = el('set-reminder-channel');
-  const emailOpt = el('set-reminder-channel-email-opt');
   const ntfyOpt = el('set-reminder-channel-ntfy-opt');
   const webhookOpt = el('set-reminder-channel-webhook-opt');
   const hint = el('set-reminder-channel-hint');
   const llmToggle = el('set-reminder-llm-toggle');
   // "Integrations" link in the channel-hint copy. Jumps to the
-  // Integrations tab so the user can configure the underlying accounts
-  // (email, ntfy server) the channel dropdown depends on. Idempotent.
+  // Integrations tab so the user can configure the underlying services
+  // (ntfy server, webhooks) the channel dropdown depends on. Idempotent.
   const openIntgBtn = el('set-reminders-open-integrations');
   if (openIntgBtn && !openIntgBtn.dataset.wired) {
     openIntgBtn.dataset.wired = '1';
@@ -2405,26 +2214,6 @@ async function initReminderSettings() {
     });
   }
   if (!channelSel || !llmToggle) return;
-
-  // Detect configured email accounts. The legacy single-account
-  // `/api/email/config` endpoint was a no-op stub for most installs;
-  // the real per-account list lives at `/api/email/accounts` and is
-  // what the Integrations panel manages. Treat the email channel as
-  // configured if there's at least one account with SMTP set.
-  let emailAccounts = [];
-  try {
-    const res = await fetch('/api/email/accounts', { credentials: 'same-origin' });
-    if (res.ok) {
-      const d = await res.json();
-      emailAccounts = (d.accounts || []).filter(a => a.smtp_host && a.smtp_user && a.has_smtp_password);
-    }
-  } catch (_) {}
-  let smtpConfigured = emailAccounts.length > 0;
-
-  if (!smtpConfigured && emailOpt) {
-    emailOpt.disabled = true;
-    emailOpt.textContent = 'Email (add an account in Integrations)';
-  }
 
   // Detect whether ntfy integration exists — try admin endpoint, fall back to
   // checking if an ntfy integration was saved in settings (non-admin users).
@@ -2469,25 +2258,12 @@ async function initReminderSettings() {
     webhookOpt.textContent = 'Webhook (add an Integration first)';
   }
 
-  const emailFromRow = el('set-reminder-email-from-row');
-  const emailAcctSel = el('set-reminder-email-account');
-  const emailToRow = el('set-reminder-email-to-row');
-  const emailToIn = el('set-reminder-email-to');
   const ntfyTopicRow = el('set-reminder-ntfy-topic-row');
   const ntfyTopicIn = el('set-reminder-ntfy-topic');
   const webhookIntgRow = el('set-reminder-webhook-intg-row');
   const webhookIntgSel = el('set-reminder-webhook-intg');
   const webhookTemplateRow = el('set-reminder-webhook-template-row');
   const webhookTemplateIn = el('set-reminder-webhook-template');
-
-  function populateReminderEmailAccounts(selectedId = '') {
-    if (!emailAcctSel) return;
-    emailAcctSel.innerHTML = emailAccounts.map(a =>
-      `<option value="${a.id}">${esc(a.name || a.from_address || a.imap_user || 'Unnamed')}${a.is_default ? ' (default)' : ''}</option>`
-    ).join('');
-    const fallback = (emailAccounts.find(a => a.is_default) || emailAccounts[0] || {}).id || '';
-    emailAcctSel.value = (selectedId && emailAccounts.some(a => a.id === selectedId)) ? selectedId : fallback;
-  }
 
   function populateWebhookIntegrations(selectedId = '') {
     if (!webhookIntgSel) return;
@@ -2498,10 +2274,6 @@ async function initReminderSettings() {
   }
 
   function applyReminderChannelAvailability() {
-    if (emailOpt) {
-      emailOpt.disabled = !smtpConfigured;
-      emailOpt.textContent = smtpConfigured ? 'Email' : 'Email (add an account in Integrations)';
-    }
     if (ntfyOpt) {
       ntfyOpt.disabled = !ntfyConfigured;
       ntfyOpt.textContent = ntfyConfigured ? 'ntfy' : 'ntfy (add in Integrations first)';
@@ -2514,16 +2286,7 @@ async function initReminderSettings() {
 
   async function refreshReminderChannelAvailability() {
     const currentChannel = channelSel.value || 'browser';
-    const currentEmailAccount = emailAcctSel?.value || '';
     const currentWebhookIntg = webhookIntgSel?.value || '';
-    try {
-      const res = await fetch('/api/email/accounts', { credentials: 'same-origin' });
-      if (res.ok) {
-        const d = await res.json();
-        emailAccounts = (d.accounts || []).filter(a => a.smtp_host && a.smtp_user && a.has_smtp_password);
-      }
-    } catch (_) {}
-    smtpConfigured = emailAccounts.length > 0;
 
     ntfyConfigured = false;
     try {
@@ -2546,24 +2309,16 @@ async function initReminderSettings() {
     }
 
     applyReminderChannelAvailability();
-    populateReminderEmailAccounts(currentEmailAccount);
     populateWebhookIntegrations(currentWebhookIntg);
-    if (currentChannel === 'email' && !smtpConfigured) channelSel.value = 'browser';
-    else if (currentChannel === 'ntfy' && !ntfyConfigured) channelSel.value = 'browser';
+    if (currentChannel === 'ntfy' && !ntfyConfigured) channelSel.value = 'browser';
     else if (currentChannel === 'webhook' && !webhookConfigured) channelSel.value = 'browser';
     else channelSel.value = currentChannel;
     if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
     syncChannelRows();
   }
 
-  // Populate the "Send from" picker with all configured email accounts.
-  populateReminderEmailAccounts();
-
   function syncChannelRows() {
-    const isEmail = channelSel.value === 'email';
     const isWebhook = channelSel.value === 'webhook';
-    if (emailFromRow) emailFromRow.style.display = (isEmail && emailAccounts.length > 1) ? 'flex' : 'none';
-    if (emailToRow) emailToRow.style.display = isEmail ? 'flex' : 'none';
     if (ntfyTopicRow) ntfyTopicRow.style.display = channelSel.value === 'ntfy' ? 'flex' : 'none';
     if (webhookIntgRow) webhookIntgRow.style.display = isWebhook ? 'flex' : 'none';
     if (webhookTemplateRow) webhookTemplateRow.style.display = isWebhook ? 'flex' : 'none';
@@ -2574,8 +2329,7 @@ async function initReminderSettings() {
   // regardless of channel). The hint should make that clear so
   // users don't think they have to choose between channels.
   const CHANNEL_HINTS = {
-    browser: 'Reminders appear as browser notifications inside Odysseus.',
-    email: 'Reminders are emailed and shown as a browser notification.',
+    browser: 'Reminders appear as browser notifications inside the app.',
     ntfy: 'Reminders are pushed via ntfy AND shown as a browser notification.',
     webhook: 'Reminders are POSTed to the selected integration AND shown as a browser notification. Use {{title}} and {{message}} in the payload template.',
   };
@@ -2600,7 +2354,7 @@ async function initReminderSettings() {
     const res = await fetch('/api/auth/settings', { credentials: 'same-origin' });
     const s = await res.json();
     let savedChannel = s.reminder_channel || 'browser';
-    if (savedChannel === 'email' && !smtpConfigured) savedChannel = 'browser';
+    if (savedChannel === 'email') savedChannel = 'browser';
     if (savedChannel === 'ntfy' && !ntfyConfigured) savedChannel = 'browser';
     if (savedChannel === 'webhook' && !webhookConfigured) savedChannel = 'browser';
     channelSel.value = savedChannel;
@@ -2637,7 +2391,6 @@ async function initReminderSettings() {
         save({ reminder_llm_persona: personaSel.value });
       });
     }
-    if (emailToIn) emailToIn.value = s.reminder_email_to || '';
     if (ntfyTopicIn) ntfyTopicIn.value = s.reminder_ntfy_topic || 'Reminders';
     populateWebhookIntegrations(s.reminder_webhook_integration_id || '');
     if (webhookTemplateIn) {
@@ -2648,16 +2401,6 @@ async function initReminderSettings() {
         const intg = allIntegrations.find(i => i.id === webhookIntgSel.value);
         const tpl = WEBHOOK_PRESET_TEMPLATES[intg?.preset] || '';
         if (tpl) { webhookTemplateIn.value = tpl; save({ reminder_webhook_payload_template: tpl }); }
-      }
-    }
-    // Restore the previously-picked email account (if any), otherwise
-    // default to the account flagged is_default in the integrations
-    // list. Falls through to the first option if neither exists.
-    if (emailAcctSel) {
-      const savedId = s.reminder_email_account_id;
-      populateReminderEmailAccounts(savedId || '');
-      if (emailAcctSel.value && emailAcctSel.value !== (savedId || '')) {
-        save({ reminder_email_account_id: emailAcctSel.value || null });
       }
     }
     if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
@@ -2679,22 +2422,7 @@ async function initReminderSettings() {
     if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
     syncChannelRows();
     save({ reminder_channel: channelSel.value });
-    // Email reminder bell visibility tracks this — broadcast so the
-    // email library can re-evaluate without waiting for a re-open.
-    try { window.dispatchEvent(new CustomEvent('odysseus-reminder-channel-changed', { detail: { channel: channelSel.value } })); } catch (_) {}
   });
-  if (emailToIn) {
-    let emailDebounce;
-    emailToIn.addEventListener('input', () => {
-      clearTimeout(emailDebounce);
-      emailDebounce = setTimeout(() => save({ reminder_email_to: emailToIn.value.trim() }), 600);
-    });
-  }
-  if (emailAcctSel) {
-    emailAcctSel.addEventListener('change', () => {
-      save({ reminder_email_account_id: emailAcctSel.value || null });
-    });
-  }
   if (ntfyTopicIn) {
     let topicDebounce;
     ntfyTopicIn.addEventListener('input', () => {
@@ -2777,9 +2505,6 @@ async function initReminderSettings() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Server error');
-        if (channelSel.value === 'email' && !data.email_sent) {
-          throw new Error(data.email_error || 'Email reminder was not sent');
-        }
         if (channelSel.value === 'ntfy' && !data.ntfy_sent) {
           throw new Error(data.ntfy_error || 'ntfy reminder was not sent');
         }
@@ -2789,7 +2514,6 @@ async function initReminderSettings() {
         }
         let status = 'Delivered via ' + channelSel.value;
         if (data.synthesis) status += ' (AI: "' + data.synthesis.slice(0, 60) + '...")';
-        if (data.email_sent) status += ' — email sent';
         if (data.ntfy_sent) status += ' — ntfy sent';
         if (data.webhook_sent) status += ' — webhook sent';
         if (testMsg) { testMsg.textContent = status; testMsg.style.color = 'var(--green, #50fa7b)'; }
@@ -2811,460 +2535,6 @@ async function initReminderSettings() {
       }
     });
   }
-}
-
-async function initEmailAccountsSettings() {
-  const root = el('settings-modal');
-  if (!root || !root.querySelector('[data-settings-panel="email"]')) return;
-  const manageBtn = el('set-email-open-integrations');
-  if (manageBtn && manageBtn.dataset.bound !== '1') {
-    manageBtn.dataset.bound = '1';
-    manageBtn.addEventListener('click', () => open('integrations'));
-  }
-  const tasksBtn = el('set-email-open-tasks');
-  if (tasksBtn && tasksBtn.dataset.bound !== '1') {
-    tasksBtn.dataset.bound = '1';
-    tasksBtn.addEventListener('click', async () => {
-      try {
-        const mod = await import('./tasks.js');
-        const openTasks = mod.openTasks || (mod.default && mod.default.openTasks);
-        if (typeof openTasks === 'function') openTasks(null, { filter: 'Email' });
-        else document.getElementById('tool-tasks-btn')?.click();
-      } catch (_) {
-        document.getElementById('tool-tasks-btn')?.click();
-      }
-    });
-  }
-  const listEl = el('set-email-accounts-list');
-  const msgEl = el('set-email-accounts-msg');
-  const formEl = el('set-email-accounts-form');
-  const addBtn = el('set-email-accounts-add-btn');
-  if (!listEl || !addBtn || !formEl) return;
-
-  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-  async function fetchAccounts() {
-    const r = await fetch('/api/email/accounts', { credentials: 'same-origin' });
-    const d = await r.json();
-    return d.accounts || [];
-  }
-
-  function renderRow(a) {
-    const imap = a.imap_host ? `${a.imap_host}:${a.imap_port}` : '<no IMAP>';
-    const badge = a.is_default
-      ? '<span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:1px 6px;border-radius:3px;background:color-mix(in srgb, var(--accent,#50fa7b) 15%, transparent);color:var(--accent,#50fa7b)">Default</span>'
-      : (a.enabled ? '' : '<span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:1px 6px;border-radius:3px;opacity:0.4">Disabled</span>');
-    return `<div class="email-account-row" data-acc-id="${esc(a.id)}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">${esc(a.name)} ${badge}</div>
-        <div style="font-size:11px;opacity:0.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.imap_user || a.from_address || '')} — ${esc(imap)}</div>
-      </div>
-      ${a.is_default ? '' : `<button class="admin-btn-sm email-acc-default-btn" style="font-size:10px">Make Default</button>`}
-      <button class="admin-btn-sm email-acc-edit-btn" style="font-size:10px">Edit</button>
-      <button class="admin-btn-sm email-acc-del-btn" style="font-size:10px;opacity:0.6">Delete</button>
-    </div>`;
-  }
-
-  async function renderList() {
-    const accs = await fetchAccounts();
-    if (!accs.length) {
-      listEl.innerHTML = '<div style="padding:12px;opacity:0.5;font-size:12px;text-align:center">No email accounts configured</div>';
-      return;
-    }
-    listEl.innerHTML = accs.map(renderRow).join('');
-    listEl.querySelectorAll('.email-account-row').forEach(row => {
-      const id = row.dataset.accId;
-      row.querySelector('.email-acc-default-btn')?.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await fetch(`/api/email/accounts/${id}/set-default`, { method: 'POST', credentials: 'same-origin' });
-        renderList();
-      });
-      row.querySelector('.email-acc-edit-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showForm(accs.find(a => a.id === id));
-      });
-      row.querySelector('.email-acc-del-btn')?.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!await window.styledConfirm(`Delete account "${accs.find(a => a.id === id)?.name}"?`, { confirmText: 'Delete', danger: true })) return;
-        await fetch(`/api/email/accounts/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-        renderList();
-      });
-    });
-  }
-
-  function showForm(existing) {
-    const a = existing || {};
-    const isEdit = !!existing;
-    formEl.style.display = '';
-    // Small `?` indicator next to each label. Hover/focus to read the
-    // hint via the native `title` tooltip. tabindex makes it
-    // keyboard-focusable too.
-    const _hint = (tip) =>
-      `<span class="eaf-hint" title="${esc(tip)}" aria-label="${esc(tip)}" tabindex="0" `
-      + `style="display:inline-block;width:13px;height:13px;border-radius:50%;`
-      + `border:1px solid currentColor;font-size:9px;line-height:11px;text-align:center;`
-      + `opacity:0.45;margin-left:5px;cursor:help;vertical-align:1px;font-weight:600;">?</span>`;
-    // Provider presets — picking one fills host/port/STARTTLS for both
-    // IMAP and SMTP. Dovecot is IMAP-only here; the host is intentionally
-    // blank because it may live on another machine (DNS, LAN, Tailscale).
-    const PROVIDERS = {
-      gmail:             { label: 'Gmail',                       imap: { host: 'imap.gmail.com',        port: 993, starttls: false }, smtp: { host: 'smtp.gmail.com',        port: 465 } },
-      google_workspace:  { label: 'Google Workspace / .edu',   imap: { host: 'imap.gmail.com',        port: 993, starttls: false }, smtp: { host: 'smtp.gmail.com',        port: 587 }, oauth: 'google' },
-      migadu:            { label: 'Migadu',                     imap: { host: 'imap.migadu.com',       port: 993, starttls: false }, smtp: { host: 'smtp.migadu.com',       port: 465 } },
-      icloud:            { label: 'iCloud',                     imap: { host: 'imap.mail.me.com',      port: 993, starttls: false }, smtp: { host: 'smtp.mail.me.com',      port: 587 } },
-      outlook:           { label: 'Outlook / Office 365',       imap: { host: 'outlook.office365.com', port: 993, starttls: false }, smtp: { host: 'smtp.office365.com',    port: 587 } },
-      fastmail:          { label: 'Fastmail',                   imap: { host: 'imap.fastmail.com',     port: 993, starttls: false }, smtp: { host: 'smtp.fastmail.com',     port: 465 } },
-      yahoo:             { label: 'Yahoo',                      imap: { host: 'imap.mail.yahoo.com',   port: 993, starttls: false }, smtp: { host: 'smtp.mail.yahoo.com',   port: 465 } },
-      dovecot:           { label: 'Dovecot IMAP (no SMTP)',     imap: { host: '',                      port: 31143, starttls: false }, smtp: { host: '',                     port: 465 } },
-    };
-    const _providerOptions = Object.entries(PROVIDERS)
-      .map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`)
-      .join('');
-    const _smtpSecurity = (acct) => acct?.smtp_security || ((parseInt(acct?.smtp_port || 465) === 587) ? 'starttls' : 'ssl');
-    formEl.innerHTML = `
-      <h3 style="font-size:12px;margin:0 0 8px">${isEdit ? 'Edit Account' : 'New Account'}</h3>
-      <div class="settings-col">
-        <div class="settings-row"><label class="settings-label">Provider${_hint('Pick a known provider to auto-fill the IMAP and SMTP host/port. Choose Custom to type your own.')}</label><select id="eaf-provider" class="settings-select"><option value="">Custom…</option>${_providerOptions}</select></div>
-        <div id="eaf-provider-note" style="display:none;font-size:11px;line-height:1.5;padding:8px 10px;margin:2px 0 4px;border:1px solid color-mix(in srgb, var(--fg) 15%, transparent);border-left:3px solid var(--accent, var(--red));border-radius:4px;background:color-mix(in srgb, var(--fg) 4%, transparent);"></div>
-        <div class="settings-row"><label class="settings-label">Name${_hint('Optional label for this account (e.g. “Work” or “Personal”). Leave blank to use the email address.')}</label><input id="eaf-name" class="settings-input" placeholder="(optional — leave blank to use email)" value="${esc(a.name || '')}"></div>
-        <div class="settings-row"><label class="settings-label">Email${_hint('Your email address. Used as the From: header on outgoing mail and as the display label when Name is blank.')}</label><input id="eaf-from" class="settings-input" placeholder="you@example.com" value="${esc(a.from_address || '')}"></div>
-        <div class="settings-row"><label class="settings-label">Display Name${_hint('Your name as it appears in the From: field of emails you send, e.g. Jane Smith. Auto-filled from Google during OAuth.')}</label><input id="eaf-display-name" class="settings-input" placeholder="Your Name" value="${esc(a.display_name || '')}"></div>
-        <div id="eaf-oauth-section" style="display:none;margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:6px;background:color-mix(in srgb,var(--accent,#50fa7b) 6%,transparent)">
-          <div style="font-size:11px;font-weight:600;margin-bottom:6px">Google OAuth2 — required for Workspace / .edu accounts</div>
-          <div id="eaf-oauth-status" style="font-size:11px;opacity:0.7;margin-bottom:6px">${a.oauth_provider === 'google' ? '✓ Connected via Google OAuth' : 'Not connected — click below to authorize'}</div>
-          <button type="button" id="eaf-oauth-btn" class="admin-btn-add" style="font-size:11px">${a.oauth_provider === 'google' ? 'Reconnect with Google' : 'Connect with Google'}</button>
-        </div>
-        <div style="font-size:11px;font-weight:600;opacity:0.6;margin:6px 0 2px">IMAP (Receiving)</div>
-        <div class="settings-row"><label class="settings-label">Host${_hint('Your IMAP server, e.g. imap.gmail.com, imap.migadu.com, a LAN host, or a Tailscale IP for Dovecot.')}</label><input id="eaf-imap-host" class="settings-input" value="${esc(a.imap_host || '')}"></div>
-        <div class="settings-row"><label class="settings-label">Port${_hint('993 for IMAPS (most providers), 143 for plain or STARTTLS. Local servers often use a custom port like 31143.')}</label><input id="eaf-imap-port" class="settings-input" type="number" value="${esc(a.imap_port || 993)}" style="max-width:100px"></div>
-        <div class="settings-row"><label class="settings-label">Username${_hint('Usually your full email address.')}</label><input id="eaf-imap-user" class="settings-input" value="${esc(a.imap_user || '')}"></div>
-        <div class="eaf-password-section"><div class="settings-row"><label class="settings-label">Password${_hint('Your IMAP login password. Use an app-specific password if your provider requires 2FA. Outlook / Office 365 generally requires OAuth and will not work with a normal password here.')}</label><input id="eaf-imap-pass" class="settings-input" type="password" placeholder="${isEdit && a.has_imap_password ? '(unchanged)' : ''}"></div></div>
-        <div class="settings-row"><label class="settings-label">STARTTLS${_hint('Turn ON for port 143/587 to upgrade plain to TLS. Turn OFF for port 993 (IMAPS — already encrypted) or a local server with no TLS configured.')}</label><label class="admin-switch"><input type="checkbox" id="eaf-imap-starttls" ${a.imap_starttls !== false ? 'checked' : ''}><span class="admin-slider"></span></label></div>
-        <div style="font-size:11px;font-weight:600;opacity:0.6;margin:8px 0 2px">SMTP (Sending) <span style="font-weight:normal;opacity:0.7">— optional, leave blank for read-only</span></div>
-        <div class="settings-row"><label class="settings-label">Host${_hint('Your outgoing-mail server, e.g. smtp.gmail.com, smtp.migadu.com. Leave blank to make this account read-only.')}</label><input id="eaf-smtp-host" class="settings-input" value="${esc(a.smtp_host || '')}"></div>
-        <div class="settings-row"><label class="settings-label">Port${_hint('465 for SSL/SMTPS, 587 for STARTTLS. 25 is usually blocked by ISPs.')}</label><input id="eaf-smtp-port" class="settings-input" type="number" value="${esc(a.smtp_port || 465)}" style="max-width:100px"></div>
-        <div class="settings-row"><label class="settings-label">Security${_hint('SSL for port 465, STARTTLS for port 587, or None for local SMTP bridges such as Proton Mail Bridge.')}</label><select id="eaf-smtp-security" class="settings-select"><option value="ssl">SSL</option><option value="starttls">STARTTLS</option><option value="none">None</option></select></div>
-        <div class="settings-row"><label class="settings-label">Same as IMAP${_hint('Use the IMAP username and password for SMTP too (this is right for almost every provider). Turn off to enter separate SMTP credentials.')}</label><label class="admin-switch"><input type="checkbox" id="eaf-smtp-same" ${(!isEdit || (a.smtp_user && a.imap_user && a.smtp_user === a.imap_user)) ? 'checked' : ''}><span class="admin-slider"></span></label></div>
-        <div class="settings-row eaf-smtp-creds"><label class="settings-label">Username${_hint('Usually the same as your IMAP username (your email address).')}</label><input id="eaf-smtp-user" class="settings-input" value="${esc(a.smtp_user || '')}"></div>
-        <div class="settings-row eaf-smtp-creds"><label class="settings-label">Password${_hint('Your SMTP password — often the same as your IMAP password. Outlook / Office 365 generally requires OAuth and will not work with a normal password here.')}</label><input id="eaf-smtp-pass" class="settings-input" type="password" placeholder="${isEdit && a.has_smtp_password ? '(unchanged)' : ''}"></div>
-        <div class="settings-row" style="margin-top:10px;align-items:center;">
-          <button class="admin-btn-add" id="eaf-save" style="background:var(--red);border-color:var(--red);color:#fff;display:inline-flex;align-items:center;gap:5px;font-weight:600;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-            ${isEdit ? 'Save' : 'Create'}
-          </button>
-          <span id="eaf-msg" style="font-size:11px;flex:1;margin-left:8px;"></span>
-          <button class="admin-btn-add" id="eaf-cancel" style="opacity:0.7;display:inline-flex;align-items:center;gap:5px;position:relative;top:1px;margin-left:auto;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Cancel
-          </button>
-        </div>
-      </div>
-    `;
-
-    // Show/hide OAuth section and password fields based on provider selection.
-    function _syncOauthUI(providerKey) {
-      const p = PROVIDERS[providerKey];
-      const isOauth = !!(p && p.oauth);
-      el('eaf-oauth-section').style.display = isOauth ? '' : 'none';
-      formEl.querySelectorAll('.eaf-password-section').forEach(r => {
-        r.style.display = isOauth ? 'none' : '';
-      });
-    }
-
-    const eafProviderNotes = {
-      outlook: {
-        title: 'Outlook / Office 365 needs OAuth',
-        body: 'Microsoft disables normal password login for IMAP/SMTP in most Outlook and Microsoft 365 accounts. Odysseus does not support Microsoft OAuth/Graph mail yet, so this preset is only a placeholder for future support.',
-      },
-    };
-    const eafNoteEl = el('eaf-provider-note');
-    const _renderEafProviderNote = (key) => {
-      const n = eafProviderNotes[key];
-      if (!eafNoteEl || !n) {
-        if (eafNoteEl) {
-          eafNoteEl.style.display = 'none';
-          eafNoteEl.innerHTML = '';
-        }
-        return;
-      }
-      eafNoteEl.style.display = '';
-      eafNoteEl.innerHTML = `<div style="font-weight:600;margin-bottom:3px;">${esc(n.title)}</div><div style="opacity:0.8;">${esc(n.body)}</div>`;
-    };
-
-    // Provider preset → autofill host/port/STARTTLS for both halves.
-    el('eaf-provider').addEventListener('change', (e) => {
-      _renderEafProviderNote(e.target.value);
-      const p = PROVIDERS[e.target.value];
-      if (!p) { _syncOauthUI(''); return; }
-      el('eaf-imap-host').value = p.imap.host;
-      el('eaf-imap-port').value = p.imap.port;
-      el('eaf-imap-starttls').checked = !!p.imap.starttls;
-      el('eaf-smtp-host').value = p.smtp.host;
-      el('eaf-smtp-port').value = p.smtp.port;
-      el('eaf-smtp-security').value = p.smtp.security || ((parseInt(p.smtp.port || 465) === 587) ? 'starttls' : 'ssl');
-      _syncOauthUI(e.target.value);
-    });
-
-    // Init OAuth UI for accounts already connected via OAuth.
-    if (a.oauth_provider === 'google') _syncOauthUI('google_workspace');
-
-    // "Connect with Google" button — save the account first, then redirect to OAuth.
-    el('eaf-oauth-btn').addEventListener('click', async () => {
-      // Must save the account first to get an account_id to pass to the OAuth flow.
-      const body = {
-        name: el('eaf-name').value.trim() || el('eaf-from').value.trim(),
-        from_address: el('eaf-from').value.trim(),
-        imap_host: el('eaf-imap-host').value.trim(),
-        imap_port: parseInt(el('eaf-imap-port').value) || 993,
-        imap_user: el('eaf-imap-user').value.trim(),
-        imap_starttls: el('eaf-imap-starttls').checked,
-        smtp_host: el('eaf-smtp-host').value.trim(),
-        smtp_port: parseInt(el('eaf-smtp-port').value) || 587,
-        smtp_user: el('eaf-imap-user').value.trim(),
-      };
-      if (!body.name) { el('eaf-msg').textContent = 'Enter a Name or Email first'; el('eaf-msg').style.color = 'var(--red)'; return; }
-      const url = isEdit ? `/api/email/accounts/${a.id}` : '/api/email/accounts';
-      const method = isEdit ? 'PUT' : 'POST';
-      const r = await fetch(url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!d.ok) { el('eaf-msg').textContent = d.error || 'Save failed'; el('eaf-msg').style.color = 'var(--red)'; return; }
-      const accId = isEdit ? a.id : d.id;
-      window.location.href = `/api/email/oauth/google/authorize?account_id=${encodeURIComponent(accId)}`;
-    });
-    el('eaf-smtp-security').value = _smtpSecurity(a);
-
-    // "Same as IMAP" toggle — hide the SMTP creds rows when on. The save
-    // handler copies the IMAP user/password into SMTP at submit time.
-    const _syncSmtpSame = () => {
-      const same = el('eaf-smtp-same').checked;
-      formEl.querySelectorAll('.eaf-smtp-creds').forEach(r => {
-        r.style.display = same ? 'none' : '';
-      });
-    };
-    el('eaf-smtp-same').addEventListener('change', _syncSmtpSame);
-    _syncSmtpSame();
-
-    el('eaf-cancel').addEventListener('click', () => { formEl.style.display = 'none'; });
-    el('eaf-save').addEventListener('click', async () => {
-      const body = {
-        name: el('eaf-name').value.trim(),
-        from_address: el('eaf-from').value.trim(),
-        display_name: el('eaf-display-name').value.trim(),
-        imap_host: el('eaf-imap-host').value.trim(),
-        imap_port: parseInt(el('eaf-imap-port').value) || 993,
-        imap_user: el('eaf-imap-user').value.trim(),
-        imap_starttls: el('eaf-imap-starttls').checked,
-        smtp_host: el('eaf-smtp-host').value.trim(),
-        smtp_port: parseInt(el('eaf-smtp-port').value) || 465,
-        smtp_security: el('eaf-smtp-security').value,
-        smtp_user: el('eaf-smtp-user').value.trim(),
-      };
-      if (el('eaf-imap-pass').value) body.imap_password = el('eaf-imap-pass').value;
-      if (el('eaf-smtp-pass').value) body.smtp_password = el('eaf-smtp-pass').value;
-      // "Same as IMAP" toggle — copy IMAP username/password into SMTP at
-      // save time, so the hidden SMTP-creds rows don't matter. We only
-      // mirror the password if the user actually typed an IMAP one
-      // (otherwise SMTP keeps whatever it already had on the server).
-      if (el('eaf-smtp-same').checked) {
-        body.smtp_user = body.imap_user;
-        if (body.imap_password) body.smtp_password = body.imap_password;
-      }
-      // Name is optional — fall back to the From address so the list view
-      // still has a label to render. Only refuse if both are blank.
-      if (!body.name) body.name = body.from_address;
-      if (!body.name) { el('eaf-msg').textContent = 'Need at least a Name or Email'; el('eaf-msg').style.color = 'var(--red)'; return; }
-
-      try {
-        const url = isEdit ? `/api/email/accounts/${a.id}` : '/api/email/accounts';
-        const method = isEdit ? 'PUT' : 'POST';
-        const r = await fetch(url, {
-          method, credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const d = await r.json();
-        if (d.ok || d.id) {
-          el('eaf-msg').textContent = 'Saved';
-          el('eaf-msg').style.color = 'var(--green,#50fa7b)';
-          setTimeout(() => { formEl.style.display = 'none'; renderList(); }, 400);
-        } else {
-          el('eaf-msg').textContent = d.error || 'Save failed';
-          el('eaf-msg').style.color = 'var(--red)';
-        }
-      } catch (e) {
-        el('eaf-msg').textContent = 'Error: ' + e.message;
-        el('eaf-msg').style.color = 'var(--red)';
-      }
-    });
-  }
-
-  addBtn.addEventListener('click', () => showForm(null));
-  await renderList();
-}
-
-async function initEmailSettings() {
-  const root = el('settings-modal');
-  if (!root || !root.querySelector('[data-settings-panel="email"]')) return;
-
-  // Load current email config
-  try {
-    const res = await fetch('/api/email/config');
-    const cfg = await res.json();
-    if (el('set-email-imap-host')) el('set-email-imap-host').value = cfg.imap_host || '';
-    if (el('set-email-imap-port')) el('set-email-imap-port').value = cfg.imap_port || '';
-    if (el('set-email-imap-user')) el('set-email-imap-user').value = cfg.imap_user || '';
-    if (el('set-email-imap-pass')) el('set-email-imap-pass').value = ''; // never prefill
-    if (el('set-email-smtp-host')) el('set-email-smtp-host').value = cfg.smtp_host || '';
-    if (el('set-email-smtp-port')) el('set-email-smtp-port').value = cfg.smtp_port || '';
-    if (el('set-email-smtp-user')) el('set-email-smtp-user').value = cfg.smtp_user || '';
-    if (el('set-email-smtp-pass')) el('set-email-smtp-pass').value = '';
-    if (el('set-email-from')) el('set-email-from').value = cfg.from_address || '';
-    if (el('set-email-auto-translate')) el('set-email-auto-translate').checked = !!cfg.email_auto_translate;
-    if (el('set-email-translate-language')) el('set-email-translate-language').value = cfg.email_translate_language || 'English';
-  } catch (_) {}
-
-  // Load contacts config
-  try {
-    const res = await fetch('/api/contacts/config');
-    const cfg = await res.json();
-    if (el('set-carddav-url')) el('set-carddav-url').value = cfg.url || '';
-    if (el('set-carddav-user')) el('set-carddav-user').value = cfg.username || '';
-    if (el('set-carddav-pass')) el('set-carddav-pass').value = '';
-  } catch (_) {}
-
-  // Load writing style
-  try {
-    const res = await fetch('/api/email/style');
-    const data = await res.json();
-    if (el('set-email-style')) el('set-email-style').value = data.style || '';
-  } catch (_) {}
-
-  // Save email config
-  el('set-email-save')?.addEventListener('click', async () => {
-    const msg = el('set-email-msg');
-    if (msg) msg.textContent = 'Saving...';
-    const data = {
-      imap_host: el('set-email-imap-host').value,
-      imap_port: parseInt(el('set-email-imap-port').value) || 0,
-      imap_user: el('set-email-imap-user').value,
-      smtp_host: el('set-email-smtp-host').value,
-      smtp_port: parseInt(el('set-email-smtp-port').value) || 0,
-      smtp_user: el('set-email-smtp-user').value,
-      email_from: el('set-email-from').value,
-      email_auto_translate: !!el('set-email-auto-translate')?.checked,
-      email_translate_language: (el('set-email-translate-language')?.value || 'English').trim() || 'English',
-    };
-    const imapPass = el('set-email-imap-pass').value;
-    const smtpPass = el('set-email-smtp-pass').value;
-    if (imapPass) data.imap_password = imapPass;
-    if (smtpPass) data.smtp_password = smtpPass;
-    try {
-      const res = await fetch('/api/email/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (msg) msg.textContent = result.success ? '✓ Saved' : (result.error || 'Failed');
-      const translateMsg = el('set-email-translate-msg');
-      if (translateMsg) translateMsg.textContent = result.success ? '✓ Saved' : (result.error || 'Failed');
-      setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
-      setTimeout(() => { const translateMsg = el('set-email-translate-msg'); if (translateMsg) translateMsg.textContent = ''; }, 3000);
-    } catch (e) {
-      if (msg) msg.textContent = 'Failed';
-    }
-  });
-
-  // Save CardDAV config
-  el('set-carddav-save')?.addEventListener('click', async () => {
-    const msg = el('set-carddav-msg');
-    if (msg) msg.textContent = 'Saving...';
-    const data = {
-      carddav_url: el('set-carddav-url').value,
-      carddav_username: el('set-carddav-user').value,
-    };
-    const pass = el('set-carddav-pass').value;
-    if (pass) data.carddav_password = pass;
-    try {
-      const res = await fetch('/api/contacts/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (msg) msg.textContent = result.success ? '✓ Saved' : (result.error || 'Failed');
-      setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
-    } catch (e) {
-      if (msg) msg.textContent = 'Failed';
-    }
-  });
-
-  // Extract writing style
-  el('set-email-style-extract')?.addEventListener('click', async () => {
-    const btn = el('set-email-style-extract');
-    const msg = el('set-email-style-msg');
-    btn.disabled = true;
-    // Render whirlpool + label inside the status area (same pattern as
-    // the "Find" / network-discover button in Add Models).
-    let wp = null;
-    if (msg) {
-      msg.className = '';
-      msg.innerHTML = '';
-      try {
-        const sp = window.spinnerModule || (await import('./spinner.js')).default;
-        wp = sp.createWhirlpool(16);
-        wp.element.style.cssText = 'display:inline-block;vertical-align:middle;margin:0 8px 0 0;';
-        const wrap = document.createElement('span');
-        wrap.style.cssText = 'display:inline-flex;align-items:center;';
-        wrap.appendChild(wp.element);
-        const txt = document.createElement('span');
-        txt.textContent = 'Analyzing your sent emails…';
-        txt.style.cssText = 'font-size:12px;opacity:0.7;';
-        wrap.appendChild(txt);
-        msg.appendChild(wrap);
-      } catch (_) {
-        msg.textContent = 'Analyzing your sent emails…';
-      }
-    }
-    try {
-      const res = await fetch('/api/email/extract-style', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sample_count: 15 }),
-      });
-      const data = await res.json();
-      if (data.success && data.style) {
-        if (el('set-email-style')) el('set-email-style').value = data.style;
-        if (msg) msg.textContent = '✓ Style extracted';
-      } else {
-        if (msg) msg.textContent = data.error || 'Failed';
-      }
-    } catch (e) {
-      if (msg) msg.textContent = 'Failed to extract';
-    } finally {
-      if (wp && wp.destroy) { try { wp.destroy(); } catch (_) {} }
-      btn.disabled = false;
-      setTimeout(() => { if (msg) msg.textContent = ''; }, 5000);
-    }
-  });
-
-  // Save writing style manually
-  el('set-email-style-save')?.addEventListener('click', async () => {
-    const msg = el('set-email-style-msg');
-    if (msg) msg.textContent = 'Saving...';
-    try {
-      const res = await fetch('/api/email/style', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ style: el('set-email-style').value }),
-      });
-      const result = await res.json();
-      if (msg) msg.textContent = result.success ? '✓ Saved' : 'Failed';
-      setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
-    } catch (e) {
-      if (msg) msg.textContent = 'Failed';
-    }
-  });
 }
 
 async function initIntegrations() {
@@ -3479,7 +2749,6 @@ const INTG_TYPES = {
   caldav:  { label: 'CalDAV',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
   contacts: { label: 'Contacts', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
   carddav: { label: 'CardDAV', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
-  email:   { label: 'Email',   icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' },
   mcp:     { label: 'MCP',     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>' },
   codex:   { label: 'Codex',   icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 10.696.453a6.023 6.023 0 0 0-5.75 4.172 6.061 6.061 0 0 0-3.946 2.945 6.024 6.024 0 0 0 .742 7.099 5.98 5.98 0 0 0 .516 4.911 6.046 6.046 0 0 0 6.51 2.9A5.996 5.996 0 0 0 13.26 23.547a6.023 6.023 0 0 0 5.75-4.172 6.061 6.061 0 0 0 3.946-2.945 6.024 6.024 0 0 0-.674-6.609zM13.26 21.047a4.508 4.508 0 0 1-2.886-1.041l.143-.082 4.793-2.769a.777.777 0 0 0 .391-.676V10.34l2.026 1.17a.072.072 0 0 1 .039.061v5.596a4.532 4.532 0 0 1-4.506 4.48zM3.968 17.64a4.473 4.473 0 0 1-.537-3.018l.143.086 4.793 2.769a.79.79 0 0 0 .782 0l5.852-3.379v2.34a.072.072 0 0 1-.029.062l-4.845 2.796a4.532 4.532 0 0 1-6.159-1.656zM2.804 7.922a4.49 4.49 0 0 1 2.348-1.973V11.6a.778.778 0 0 0 .391.676l5.852 3.378-2.026 1.17a.072.072 0 0 1-.068 0L4.456 14.03a4.532 4.532 0 0 1-1.652-6.108zm16.423 3.823L13.375 8.367l2.026-1.17a.072.072 0 0 1 .068 0l4.845 2.796a4.525 4.525 0 0 1-.7 8.08V12.42a.778.778 0 0 0-.387-.676zm2.015-3.025l-.143-.086-4.793-2.769a.79.79 0 0 0-.782 0L9.672 9.243V6.903a.072.072 0 0 1 .029-.062l4.845-2.796a4.525 4.525 0 0 1 6.696 4.675zM8.598 12.66L6.57 11.49a.072.072 0 0 1-.039-.061V5.833a4.525 4.525 0 0 1 7.413-3.48l-.143.082-4.793 2.769a.777.777 0 0 0-.391.676l-.019 6.78zm1.1-2.379l2.607-1.505 2.607 1.505v3.01l-2.607 1.505-2.607-1.505z"/></svg>' },
   claude:  { label: 'Claude',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/></svg>' },
@@ -3571,17 +2840,12 @@ async function initUnifiedIntegrations() {
     _syncAddBtnWrap();
   }
 
-  function _openEmailSettings() {
-    open('email');
-  }
-
   async function fetchAll() {
-    const [apiRes, calRes, cardRes, contactsRes, emailAccountsRes, mcpRes, vaultRes, tokenRes, calendarsRes] = await Promise.all([
+    const [apiRes, calRes, cardRes, contactsRes, mcpRes, vaultRes, tokenRes, calendarsRes] = await Promise.all([
       fetch('/api/auth/integrations', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { integrations: [] }).catch(() => ({ integrations: [] })),
       fetch('/api/calendar/config/accounts', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
       fetch('/api/contacts/config', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
       fetch('/api/contacts/list', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { contacts: [], count: 0 }).catch(() => ({ contacts: [], count: 0 })),
-      fetch('/api/email/accounts', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
       fetch('/api/mcp/servers', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/vault/config', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
       fetch('/api/tokens', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
@@ -3618,12 +2882,6 @@ async function initUnifiedIntegrations() {
         data: cardRes,
       });
     }
-    // Email — one entry per EmailAccount row
-    for (const acc of (emailAccountsRes.accounts || [])) {
-      const label = acc.name + (acc.is_default ? ' (default)' : '');
-      const detail = [acc.from_address || acc.imap_user, acc.imap_host].filter(Boolean).join(' — ');
-      items.push({ type: 'email', id: acc.id, name: label, detail, enabled: acc.enabled !== false, data: acc });
-    }
     // MCP servers
     const mcpList = Array.isArray(mcpRes) ? mcpRes : (mcpRes.servers || []);
     for (const srv of mcpList) {
@@ -3636,7 +2894,7 @@ async function initUnifiedIntegrations() {
       let agentType = null;
       if (lowerName.startsWith('claude agent')) agentType = 'claude';
       else if (lowerName.startsWith('codex agent')) agentType = 'codex';
-      else if (scopes.some(s => String(s || '').startsWith('todos:') || String(s || '').startsWith('email:') || String(s || '').startsWith('documents:'))) {
+      else if (scopes.some(s => String(s || '').startsWith('todos:') || String(s || '').startsWith('documents:'))) {
         // Legacy / un-prefixed scoped tokens fall back to Codex for backwards compat.
         agentType = 'codex';
       }
@@ -3651,8 +2909,7 @@ async function initUnifiedIntegrations() {
   function renderCard(item) {
     const t = INTG_TYPES[item.type] || INTG_TYPES.api;
     // Static enabled/disabled indicator — same dot every integration
-    // type gets. (The clickable glow-on-test variant for email was
-    // removed earlier; this matches the API/CalDAV/MCP pattern.)
+    // type gets (matches the API/CalDAV/MCP pattern).
     const statusDot = item.enabled
       ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--color-success,#50fa7b);flex-shrink:0;--notif-glow:var(--color-success,#50fa7b);animation:cookbook-notif-pulse 2s ease-in-out infinite;" title="Active"></span>'
       : '<span style="width:8px;height:8px;border-radius:50%;background:var(--fg);opacity:0.3;flex-shrink:0" title="Disabled"></span>';
@@ -3674,17 +2931,12 @@ async function initUnifiedIntegrations() {
     const noticeHtml = integrationNotice ? `
       <div class="intg-followup-note" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:8px;border:1px solid color-mix(in srgb, var(--accent, var(--red)) 35%, transparent);border-left:3px solid var(--accent, var(--red));border-radius:5px;background:color-mix(in srgb, var(--accent, var(--red)) 8%, transparent);font-size:11px;">
         <span style="flex:1;line-height:1.35">${integrationNotice}</span>
-        <button type="button" class="admin-btn-sm intg-open-email-settings" style="white-space:nowrap;">Email settings</button>
       </div>` : '';
     if (items.length === 0) {
       listEl.innerHTML = noticeHtml + '<div style="padding:12px;opacity:0.5;font-size:12px;text-align:center">No integrations configured</div>';
     } else {
       listEl.innerHTML = noticeHtml + items.map(renderCard).join('');
     }
-    listEl.querySelector('.intg-open-email-settings')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      _openEmailSettings();
-    });
     // Wire edit clicks
     listEl.querySelectorAll('.intg-card').forEach(card => {
       card.addEventListener('click', (e) => {
@@ -3716,7 +2968,6 @@ async function initUnifiedIntegrations() {
           else if (type === 'carddav') {
             await fetch('/api/contacts/config', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carddav_url: '', carddav_username: '', carddav_password: '' }) });
           }
-          else if (type === 'email') await fetch(`/api/email/accounts/${id}`, { method: 'DELETE', credentials: 'same-origin' });
           else if (type === 'mcp') await fetch(`/api/mcp/servers/${id}`, { method: 'DELETE', credentials: 'same-origin' });
           else if (type === 'codex' || type === 'claude') await fetch(`/api/tokens/${id}`, { method: 'DELETE', credentials: 'same-origin' });
           else if (type === 'vault') await fetch('/api/vault/logout', { method: 'POST', credentials: 'same-origin' });
@@ -3733,7 +2984,6 @@ async function initUnifiedIntegrations() {
     if (type === 'api') showApiForm(editId);
     else if (type === 'caldav') showCalDavForm(editId);
     else if (type === 'contacts' || type === 'carddav') showCardDavForm();
-    else if (type === 'email') showEmailForm(editId);
     else if (type === 'mcp') showMcpForm(editId);
     else if (type === 'codex') showAgentForm('codex', editId);
     else if (type === 'claude') showAgentForm('claude', editId);
@@ -4341,518 +3591,6 @@ async function initUnifiedIntegrations() {
     });
   }
 
-  // ── Email form (multi-account) ──
-  // When editId is a real account id, edit that row. When editId is falsy or 'new',
-  // create a fresh account. Posts to /api/email/accounts, never to the legacy
-  // /api/email/config which would overwrite the default.
-  async function showEmailForm(editId) {
-    const isEdit = editId && editId !== 'new' && editId !== '__email__';
-    let existing = null;
-    if (isEdit) {
-      try {
-        const r = await fetch('/api/email/accounts', { credentials: 'same-origin' });
-        const d = await r.json();
-        existing = (d.accounts || []).find(a => a.id === editId) || null;
-      } catch (_) {}
-    }
-    const placeholderPass = (isEdit && existing) ? '(leave blank to keep current)' : '';
-    // Small `?` indicator next to each label (native title tooltip).
-    const _hint = (tip) =>
-      `<span class="uf-hint" title="${esc(tip)}" aria-label="${esc(tip)}" tabindex="0" `
-      + `style="display:inline-block;width:13px;height:13px;border-radius:50%;`
-      + `border:1px solid currentColor;font-size:9px;line-height:11px;text-align:center;`
-      + `opacity:0.45;margin-left:5px;cursor:help;vertical-align:1px;font-weight:600;">?</span>`;
-    // Provider presets — picking one auto-fills IMAP + SMTP host/port.
-    // Dovecot is IMAP-only here; the host is intentionally blank because
-    // it may be remote (DNS, LAN, Tailscale), not localhost.
-    const PROVIDERS = {
-      gmail:    { label: 'Gmail',                   emailEx: 'you@gmail.com',     imap: { host: 'imap.gmail.com',           port: 993, starttls: false }, smtp: { host: 'smtp.gmail.com',     port: 465 } },
-      google_workspace: { label: 'Google Workspace / .edu', emailEx: 'you@yourschool.edu', imap: { host: 'imap.gmail.com', port: 993, starttls: false }, smtp: { host: 'smtp.gmail.com', port: 587 }, oauth: 'google' },
-      migadu:   { label: 'Migadu',                  emailEx: 'you@yourdomain.com', imap: { host: 'imap.migadu.com',          port: 993, starttls: false }, smtp: { host: 'smtp.migadu.com',    port: 465 } },
-      icloud:   { label: 'iCloud',                  emailEx: 'you@icloud.com',    imap: { host: 'imap.mail.me.com',         port: 993, starttls: false }, smtp: { host: 'smtp.mail.me.com',   port: 587 } },
-      outlook:  { label: 'Outlook / Office 365',    emailEx: 'you@outlook.com',   imap: { host: 'outlook.office365.com',    port: 993, starttls: false }, smtp: { host: 'smtp.office365.com', port: 587 } },
-      fastmail: { label: 'Fastmail',                emailEx: 'you@fastmail.com',  imap: { host: 'imap.fastmail.com',        port: 993, starttls: false }, smtp: { host: 'smtp.fastmail.com',  port: 465 } },
-      yahoo:    { label: 'Yahoo',                   emailEx: 'you@yahoo.com',     imap: { host: 'imap.mail.yahoo.com',      port: 993, starttls: false }, smtp: { host: 'smtp.mail.yahoo.com', port: 465 } },
-      dovecot:  { label: 'Dovecot IMAP (no SMTP)',  emailEx: 'you@example.com',   imap: { host: '',                         port: 31143, starttls: false }, smtp: { host: '',                   port: 465 } },
-    };
-    const _providerOptions = Object.entries(PROVIDERS)
-      .map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('');
-    // Provider logos — small SVGs the custom dropdown renders next to each
-    // option. Letter-in-brand-color circle for known providers; outline
-    // envelope for "Custom…". Inline SVG (no external assets, no emoji).
-    const _letterLogo = (letter, bg) => `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0"><circle cx="12" cy="12" r="11" fill="${bg}"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif">${letter}</text></svg>`;
-    const _customLogo = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;opacity:0.7"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
-    const PROV_LOGO = {
-      '':       _customLogo,
-      gmail:    _letterLogo('G', '#ea4335'),
-      google_workspace: _letterLogo('G', '#ea4335'),
-      migadu:   _letterLogo('M', '#3aa39d'),
-      icloud:   _letterLogo('i', '#3693f3'),
-      outlook:  _letterLogo('O', '#0078d4'),
-      fastmail: _letterLogo('F', '#4a5fbb'),
-      yahoo:    _letterLogo('Y', '#6001d2'),
-      dovecot:  _letterLogo('D', '#6b7280'),
-    };
-    const _provOptionRows = [['', 'Custom…'], ...Object.entries(PROVIDERS).map(([k, v]) => [k, v.label])]
-      .map(([k, label]) => `<button type="button" class="ufp-option" data-value="${esc(k)}" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:transparent;border:0;color:var(--fg);font:inherit;cursor:pointer;text-align:left;">${PROV_LOGO[k] || _customLogo}<span>${esc(label)}</span></button>`).join('');
-    const _smtpSecurity = (acct) => acct?.smtp_security || ((parseInt(acct?.smtp_port || 465) === 587) ? 'starttls' : 'ssl');
-    formEl.innerHTML = `
-      <div class="admin-card" style="margin-top:8px">
-        <h2 style="font-size:13px">${isEdit ? 'Edit' : 'Add'} Email Account</h2>
-        <div class="settings-col">
-          <div class="settings-row"><label class="settings-label">Provider${_hint('Pick a known provider to auto-fill the IMAP and SMTP host/port. Choose Custom to type your own.')}</label>
-            <div class="ufp-wrap" style="position:relative;flex:1;min-width:0;">
-              <select id="uf-email-provider" tabindex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"><option value="">Custom…</option>${_providerOptions}</select>
-              <button type="button" id="uf-email-provider-trigger" class="settings-select" style="display:flex;align-items:center;gap:8px;cursor:pointer;text-align:left;width:100%;padding-right:24px;position:relative;">
-                <span class="ufp-icon" style="display:inline-flex;align-items:center;">${PROV_LOGO['']}</span>
-                <span class="ufp-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Custom…</span>
-                <span aria-hidden="true" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);opacity:0.5;font-size:10px;pointer-events:none;">▾</span>
-              </button>
-              <div id="uf-email-provider-menu" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:1000;background:var(--panel);border:1px solid var(--border);border-radius:6px;max-height:280px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,0.25);">${_provOptionRows}</div>
-            </div>
-          </div>
-          <div id="uf-email-provider-note" style="display:none;font-size:11px;line-height:1.5;padding:8px 10px;margin:2px 0 4px;border:1px solid color-mix(in srgb, var(--fg) 15%, transparent);border-left:3px solid var(--accent, var(--red));border-radius:4px;background:color-mix(in srgb, var(--fg) 4%, transparent);"></div>
-          <div class="settings-row"><label class="settings-label">Name${_hint('Optional label for this account (e.g. “Work” or “Personal”). Leave blank to use the email address.')}</label><input id="uf-email-name" class="settings-input" placeholder="(optional — leave blank to use email)"></div>
-          <div class="settings-row"><label class="settings-label">Email${_hint('Your email address. Used as the From: header on outgoing mail and as the display label when Name is blank.')}</label><input id="uf-email-from" class="settings-input" placeholder="you@example.com"></div>
-          <div class="settings-row"><label class="settings-label">Display Name${_hint('Your name as it appears in the From: field of emails you send, e.g. Jane Smith. Auto-filled from Google during OAuth.')}</label><input id="uf-display-name" class="settings-input" placeholder="Your Name"></div>
-          <div id="uf-oauth-section" style="display:none;margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:6px;background:color-mix(in srgb,var(--accent,#50fa7b) 6%,transparent)">
-            <div style="font-size:11px;font-weight:600;margin-bottom:6px">Google OAuth2 — required for Workspace / .edu accounts</div>
-            <div id="uf-oauth-status" style="font-size:11px;opacity:0.7;margin-bottom:6px">${existing && existing.oauth_provider === 'google' ? '✓ Connected via Google OAuth' : 'Not connected — click below to authorize'}</div>
-            <button type="button" id="uf-oauth-btn" class="admin-btn-add" style="font-size:11px">${existing && existing.oauth_provider === 'google' ? 'Reconnect with Google' : 'Connect with Google'}</button>
-          </div>
-          <div style="font-size:11px;font-weight:600;opacity:0.6;margin:4px 0 2px;display:flex;align-items:center;gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>IMAP (Receiving)</div>
-          <div class="settings-row"><label class="settings-label">Host${_hint('Your IMAP server, e.g. imap.gmail.com, imap.migadu.com, a LAN host, or a Tailscale IP for Dovecot.')}</label><input id="uf-imap-host" class="settings-input" placeholder="imap.example.com"></div>
-          <div class="settings-row"><label class="settings-label">Port${_hint('993 for IMAPS (most providers), 143 for plain or STARTTLS. Local servers often use a custom port like 31143.')}</label><input id="uf-imap-port" class="settings-input" type="number" placeholder="993" style="max-width:100px"></div>
-          <div class="settings-row"><label class="settings-label">Username${_hint('Yes — your full email address goes here too (e.g. you@gmail.com). Same as the Email field above for almost every provider.')}</label><input id="uf-imap-user" class="settings-input" placeholder="you@example.com"></div>
-          <div class="uf-password-section"><div class="settings-row"><label class="settings-label">Password${_hint('For Gmail, iCloud, and Yahoo: paste your App Password (NOT your normal account password). For Migadu and Fastmail, your mailbox password usually works. Outlook / Office 365 generally requires OAuth and will not work with this password form.')}</label><input id="uf-imap-pass" class="settings-input" type="password" placeholder="${placeholderPass}"></div></div>
-          <div class="settings-row"><label class="settings-label">STARTTLS${_hint('Turn ON for port 143/587 to upgrade plain to TLS. Turn OFF for port 993 (IMAPS — already encrypted) or a local server with no TLS configured.')}</label><label class="admin-switch" style="margin-left:0"><input type="checkbox" id="uf-imap-starttls" checked><span class="admin-slider"></span></label></div>
-          <div style="font-size:11px;font-weight:600;opacity:0.6;margin:8px 0 2px;display:flex;align-items:center;gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>SMTP (Sending) <span style="font-weight:normal;opacity:0.7">— optional, leave blank for read-only</span></div>
-          <div class="settings-row"><label class="settings-label">Host${_hint('Your outgoing-mail server, e.g. smtp.gmail.com. Leave blank to make this account read-only.')}</label><input id="uf-smtp-host" class="settings-input" placeholder="smtp.example.com"></div>
-          <div class="settings-row"><label class="settings-label">Port${_hint('465 for SSL/SMTPS, 587 for STARTTLS. 25 is usually blocked by ISPs.')}</label><input id="uf-smtp-port" class="settings-input" type="number" placeholder="465" style="max-width:100px"></div>
-          <div class="settings-row"><label class="settings-label">Security${_hint('SSL for port 465, STARTTLS for port 587, or None for local SMTP bridges such as Proton Mail Bridge.')}</label><select id="uf-smtp-security" class="settings-select"><option value="ssl">SSL</option><option value="starttls">STARTTLS</option><option value="none">None</option></select></div>
-          <div class="settings-row"><label class="settings-label">Same as IMAP${_hint('Use the IMAP username and password for SMTP too (right for almost every provider). Turn off to enter separate SMTP credentials.')}</label><label class="admin-switch" style="margin-left:0"><input type="checkbox" id="uf-smtp-same" checked><span class="admin-slider"></span></label></div>
-          <div class="settings-row uf-smtp-creds"><label class="settings-label">Username${_hint('Usually the same as your IMAP username (your email address).')}</label><input id="uf-smtp-user" class="settings-input"></div>
-          <div class="settings-row uf-smtp-creds"><label class="settings-label">Password${_hint('Your SMTP password — often the same as your IMAP password. Outlook / Office 365 generally requires OAuth and will not work with this password form.')}</label><input id="uf-smtp-pass" class="settings-input" type="password" placeholder="${placeholderPass}"></div>
-          <div class="settings-row" style="margin-top:4px"><label class="settings-label">Default${_hint('Use this account whenever no specific account is chosen.')}</label><label class="admin-switch" style="margin-left:0"><input type="checkbox" id="uf-email-default"><span class="admin-slider"></span></label><span style="font-size:10px;opacity:0.5;margin-left:6px">Used when nothing else is selected</span></div>
-          <div class="settings-row" style="margin-top:10px;align-items:center;justify-content:flex-end;gap:6px;">
-            <span id="uf-email-msg" style="font-size:11px;flex:1;margin-right:8px"></span>
-            <button class="admin-btn-add" id="uf-email-test" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));">
-              <span class="uf-email-test-ico" style="display:inline-flex;width:11px;height:11px;align-items:center;justify-content:center;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 4 12 14.01 9 11.01"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              </span>
-              Test
-            </button>
-            <button class="admin-btn-add" id="uf-email-save" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));font-weight:600;">
-              <span class="uf-email-save-ico" style="display:inline-flex;width:11px;height:11px;align-items:center;justify-content:center;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-              </span>
-              <span class="uf-email-save-label">${isEdit ? 'Save' : 'Create'}</span>
-            </button>
-            <button class="admin-btn-add" id="uf-email-cancel" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>`;
-
-    // Provider-specific helper notes — surfaces for providers that
-    // require an app-specific password (Gmail killed basic IMAP auth
-    // in 2022; iCloud + Yahoo follow the same model). The Generate
-    // button opens the right page in a new tab and copies the URL for
-    // mobile / cross-device flows.
-    const PROVIDER_NOTES = {
-      gmail: {
-        title: 'Gmail needs an App Password',
-        body: 'Your regular Google password won\'t work for IMAP. Generate a 16-character App Password (requires 2-Step Verification enabled) and paste it as the Password.',
-        url: 'https://myaccount.google.com/apppasswords',
-      },
-      icloud: {
-        title: 'iCloud needs an App-Specific Password',
-        body: 'Sign in to your Apple ID, go to Sign-In and Security → App-Specific Passwords, and generate one (requires 2FA on your Apple ID).',
-        url: 'https://account.apple.com/account/manage',
-      },
-      yahoo: {
-        title: 'Yahoo needs an App Password',
-        body: 'Generate an App Password from Yahoo Account Security (requires 2-Step Verification enabled) and paste it as the Password.',
-        url: 'https://login.yahoo.com/account/security/app-passwords',
-      },
-      outlook: {
-        title: 'Outlook / Office 365 needs OAuth',
-        body: 'Microsoft disables normal password login for IMAP/SMTP in most Outlook and Microsoft 365 accounts. Odysseus does not support Microsoft OAuth/Graph mail yet, so this preset is only a placeholder for future support.',
-        url: 'https://learn.microsoft.com/exchange/clients-and-mobile-in-exchange-online/disable-basic-authentication-in-exchange-online',
-        linkLabel: 'Read Microsoft note',
-      },
-    };
-    const noteEl = el('uf-email-provider-note');
-    const _copyProviderUrl = async (text) => {
-      const value = String(text || '');
-      if (!value) return false;
-      if (navigator.clipboard && window.isSecureContext) {
-        try {
-          await navigator.clipboard.writeText(value);
-          return true;
-        } catch (_) {
-          // Fall through to the textarea path below.
-        }
-      }
-      const ta = document.createElement('textarea');
-      ta.value = value;
-      ta.setAttribute('readonly', 'readonly');
-      ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;z-index:-1;';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      ta.setSelectionRange(0, value.length);
-      let ok = false;
-      try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
-      ta.remove();
-      return ok;
-    };
-    if (noteEl && !noteEl._ufProviderCopyWired) {
-      noteEl._ufProviderCopyWired = true;
-      noteEl.addEventListener('click', async (e) => {
-        const copyBtn = e.target.closest?.('.uf-prov-copy');
-        if (!copyBtn || !noteEl.contains(copyBtn)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const url = copyBtn.dataset.url || '';
-        const orig = copyBtn.innerHTML;
-        const ok = await _copyProviderUrl(url);
-        if (!ok) {
-          uiModule.showError?.('Copy failed');
-          return;
-        }
-        uiModule.showToast?.('Copied');
-        copyBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied';
-        setTimeout(() => {
-          if (copyBtn.isConnected) copyBtn.innerHTML = orig;
-        }, 1500);
-      });
-    }
-    const _renderProviderNote = (key) => {
-      const n = PROVIDER_NOTES[key];
-      if (!n) { noteEl.style.display = 'none'; noteEl.innerHTML = ''; return; }
-      noteEl.style.display = '';
-      noteEl.innerHTML = `
-        <div style="font-weight:600;margin-bottom:3px;">${esc(n.title)}</div>
-        <div style="opacity:0.8;margin-bottom:6px;">${esc(n.body)}</div>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer" class="admin-btn-sm" style="background:var(--red);border-color:var(--red);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:600;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            ${esc(n.linkLabel || 'Generate App Password')}
-          </a>
-          <button type="button" class="admin-btn-sm uf-prov-copy" data-url="${esc(n.url)}" style="opacity:0.7;display:inline-flex;align-items:center;gap:5px;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy link
-          </button>
-        </div>`;
-    };
-
-    // Show/hide the OAuth section and password fields based on provider selection.
-    function _syncOauthUI(providerKey) {
-      const p = PROVIDERS[providerKey];
-      const isOauth = !!(p && p.oauth);
-      el('uf-oauth-section').style.display = isOauth ? '' : 'none';
-      formEl.querySelectorAll('.uf-password-section').forEach(r => {
-        r.style.display = isOauth ? 'none' : '';
-      });
-    }
-
-    // Custom dropdown wire-up — the native <select> stays in the DOM as the
-    // data source and accessibility target, but the visible UI is a button +
-    // popup so each provider row can render with its SVG logo. Selecting an
-    // option updates select.value and dispatches a `change` event so the
-    // existing autofill handler below runs unchanged.
-    (() => {
-      const trigger = el('uf-email-provider-trigger');
-      const menu = el('uf-email-provider-menu');
-      const sel = el('uf-email-provider');
-      if (!trigger || !menu || !sel) return;
-      const labelEl = trigger.querySelector('.ufp-label');
-      const iconEl = trigger.querySelector('.ufp-icon');
-      const _setFromKey = (k) => {
-        const row = menu.querySelector(`.ufp-option[data-value="${k}"]`);
-        const lbl = row?.querySelector('span')?.textContent || 'Custom…';
-        if (labelEl) labelEl.textContent = lbl;
-        if (iconEl) iconEl.innerHTML = PROV_LOGO[k] || _customLogo;
-      };
-      // Menu is reused (hidden, not recreated). _closeMenu hides it and tears
-      // down its outside-click listener + Escape-stack entry; bindMenuDismiss is
-      // re-registered fresh on each open (see _openMenu).
-      let _closeMenu = () => { menu.style.display = 'none'; };
-      const _openMenu = () => {
-        menu.style.display = 'block';
-        // Drop-up when there's not enough room below the trigger.
-        const tRect = trigger.getBoundingClientRect();
-        const mRect = menu.getBoundingClientRect();
-        const below = window.innerHeight - tRect.bottom;
-        const above = tRect.top;
-        if (mRect.height > below && above > below) {
-          menu.style.top = 'auto'; menu.style.bottom = 'calc(100% + 2px)';
-        } else {
-          menu.style.top = 'calc(100% + 2px)'; menu.style.bottom = 'auto';
-        }
-        _closeMenu = bindMenuDismiss(menu, () => { menu.style.display = 'none'; }, (ev) => !menu.contains(ev.target) && ev.target !== trigger);
-      };
-      trigger.addEventListener('click', (e) => { e.stopPropagation(); menu.style.display === 'block' ? _closeMenu() : _openMenu(); });
-      menu.querySelectorAll('.ufp-option').forEach(btn => {
-        btn.addEventListener('mouseenter', () => { btn.style.background = 'color-mix(in srgb, var(--fg) 8%, transparent)'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const k = btn.dataset.value || '';
-          sel.value = k;
-          _setFromKey(k);
-          _closeMenu();
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-      });
-      _setFromKey(sel.value || '');
-    })();
-
-    // Provider preset → autofill IMAP + SMTP host/port + STARTTLS, set the
-    // helper note, and update the Email/Username placeholders to a
-    // provider-specific example so users see the right format at a glance.
-    el('uf-email-provider').addEventListener('change', (e) => {
-      const key = e.target.value;
-      _renderProviderNote(key);
-      _syncOauthUI(key);
-      const p = PROVIDERS[key];
-      if (!p) return;
-      el('uf-imap-host').value = p.imap.host;
-      el('uf-imap-port').value = p.imap.port;
-      el('uf-imap-starttls').checked = !!p.imap.starttls;
-      el('uf-smtp-host').value = p.smtp.host;
-      el('uf-smtp-port').value = p.smtp.port;
-      el('uf-smtp-security').value = p.smtp.security || ((parseInt(p.smtp.port || 465) === 587) ? 'starttls' : 'ssl');
-      if (p.emailEx) {
-        el('uf-email-from').placeholder = p.emailEx;
-        el('uf-imap-user').placeholder = p.emailEx;
-        el('uf-smtp-user').placeholder = p.emailEx;
-      }
-    });
-
-    // Init OAuth UI for accounts already connected via OAuth.
-    if (existing && existing.oauth_provider === 'google') _syncOauthUI('google_workspace');
-
-    // "Connect with Google" — save the account first, then redirect to OAuth.
-    el('uf-oauth-btn').addEventListener('click', async () => {
-      const body = _collectBody();
-      if (!body.name) body.name = body.from_address;
-      if (!body.name) { el('uf-email-msg').textContent = 'Enter a Name or Email first'; el('uf-email-msg').style.color = 'var(--red)'; return; }
-      const url = isEdit ? `/api/email/accounts/${editId}` : '/api/email/accounts';
-      const method = isEdit ? 'PUT' : 'POST';
-      const r = await fetch(url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!(d.ok || d.id)) { el('uf-email-msg').textContent = d.error || 'Save failed'; el('uf-email-msg').style.color = 'var(--red)'; return; }
-      const accId = isEdit ? editId : d.id;
-      window.location.href = `/api/email/oauth/google/authorize?account_id=${encodeURIComponent(accId)}`;
-    });
-
-    // "Same as IMAP" toggle — hide the SMTP creds rows when on.
-    const _syncSmtpSame = () => {
-      const same = el('uf-smtp-same').checked;
-      formEl.querySelectorAll('.uf-smtp-creds').forEach(r => {
-        r.style.display = same ? 'none' : '';
-      });
-    };
-    el('uf-smtp-same').addEventListener('change', _syncSmtpSame);
-    _syncSmtpSame();
-    if (existing) {
-      el('uf-email-name').value = existing.name || '';
-      el('uf-email-from').value = existing.from_address || '';
-      el('uf-display-name').value = existing.display_name || '';
-      el('uf-imap-host').value = existing.imap_host || '';
-      el('uf-imap-port').value = existing.imap_port || 993;
-      el('uf-imap-user').value = existing.imap_user || '';
-      el('uf-imap-starttls').checked = existing.imap_starttls !== false;
-      el('uf-smtp-host').value = existing.smtp_host || '';
-      el('uf-smtp-port').value = existing.smtp_port || 465;
-      el('uf-smtp-security').value = _smtpSecurity(existing);
-      el('uf-smtp-user').value = existing.smtp_user || '';
-      el('uf-email-default').checked = !!existing.is_default;
-      // If the saved SMTP user matches the IMAP user, keep the "Same as
-      // IMAP" toggle ON (and stay hidden). Otherwise turn it off so the
-      // separate SMTP credentials are visible for editing.
-      const sameCreds = !!(existing.imap_user && existing.smtp_user && existing.imap_user === existing.smtp_user);
-      el('uf-smtp-same').checked = sameCreds || !existing.smtp_user;
-      _syncSmtpSame();
-    } else {
-      el('uf-imap-port').value = 993;
-      el('uf-smtp-port').value = 465;
-      el('uf-smtp-security').value = 'ssl';
-    }
-    el('uf-email-cancel').addEventListener('click', () => { formEl.style.display = 'none'; });
-
-    // Reset the Test button to neutral when the user edits any field
-    // after a test — stale green/red would imply the new values were
-    // tested too.
-    const _resetTestBtn = () => {
-      const btn = el('uf-email-test');
-      if (!btn) return;
-      btn.style.background = '';
-      btn.style.borderColor = '';
-      btn.style.color = '';
-      btn.style.boxShadow = '';
-      btn.style.animation = '';
-      const ico = btn.querySelector('.uf-email-test-ico');
-      if (ico && btn.dataset.origIco) ico.innerHTML = btn.dataset.origIco;
-    };
-    formEl.querySelectorAll('input, select').forEach(inp => {
-      if (inp.id === 'uf-email-msg') return;
-      inp.addEventListener('input', _resetTestBtn);
-      inp.addEventListener('change', _resetTestBtn);
-    });
-
-    // Collect the current form values + apply the "Same as IMAP" mirror —
-    // shared by both Save and Test so they agree on what's being sent.
-    const _collectBody = () => {
-      const body = {
-        name: el('uf-email-name').value.trim(),
-        from_address: el('uf-email-from').value.trim(),
-        display_name: el('uf-display-name').value.trim(),
-        imap_host: el('uf-imap-host').value.trim(),
-        imap_port: parseInt(el('uf-imap-port').value) || 993,
-        imap_user: el('uf-imap-user').value.trim(),
-        imap_starttls: el('uf-imap-starttls').checked,
-        smtp_host: el('uf-smtp-host').value.trim(),
-        smtp_port: parseInt(el('uf-smtp-port').value) || 465,
-        smtp_security: el('uf-smtp-security').value,
-        smtp_user: el('uf-smtp-user').value.trim(),
-        is_default: el('uf-email-default').checked,
-      };
-      if (el('uf-imap-pass').value) body.imap_password = el('uf-imap-pass').value;
-      if (el('uf-smtp-pass').value) body.smtp_password = el('uf-smtp-pass').value;
-      if (el('uf-smtp-same').checked) {
-        body.smtp_user = body.imap_user;
-        if (body.imap_password) body.smtp_password = body.imap_password;
-      }
-      return body;
-    };
-
-    // Spinner SVG kept inline so we can swap it back to the original
-    // checkmark on completion. ~13px to match the button icon size.
-    const _spinner = '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;border:1.5px solid currentColor;border-top-color:transparent;animation:whirlpool-spin 0.7s linear infinite"></span>';
-    const _checkIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
-
-    el('uf-email-test').addEventListener('click', async () => {
-      const body = _collectBody();
-      // Edit-mode + blank password = use the saved row's stored creds
-      // via the account_id shortcut. Other overrides in the body still
-      // win (server merges).
-      if (isEdit && !body.imap_password) body.account_id = editId;
-      const msg = el('uf-email-msg');
-      const btn = el('uf-email-test');
-      const ico = btn.querySelector('.uf-email-test-ico');
-      btn.dataset.origIco = btn.dataset.origIco || ico.innerHTML;
-      btn.disabled = true;
-      // Clear any prior green/red while testing.
-      btn.style.background = '';
-      btn.style.borderColor = '';
-      btn.style.color = '';
-      btn.style.boxShadow = '';
-      btn.style.animation = '';
-      // Use the canonical whirlpool spinner so this matches Probe / Test
-      // elsewhere; fall back to the inline CSS ring if the module fails.
-      try {
-        const sp = window.spinnerModule || (await import('./spinner.js')).default;
-        const wp = sp.createWhirlpool(11);
-        wp.element.style.cssText = 'display:inline-flex;width:11px;height:11px;position:relative;top:-2px;';
-        ico.innerHTML = '';
-        ico.appendChild(wp.element);
-      } catch (_) { ico.innerHTML = _spinner; }
-      msg.textContent = '';
-      msg.style.color = '';
-      try {
-        const r = await fetch('/api/email/accounts/test', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const d = await r.json();
-        if (d.ok) {
-          // Button becomes the indicator — green checkmark with the
-          // cookbook-style halo + breathing animation. No status text;
-          // the glow is the signal.
-          btn.style.background = 'var(--green, #50fa7b)';
-          btn.style.borderColor = 'var(--green, #50fa7b)';
-          btn.style.color = '#0b0';
-          btn.style.boxShadow =
-            '0 0 0 2px color-mix(in srgb, var(--green, #50fa7b) 25%, transparent),'
-          + ' 0 0 10px 2px color-mix(in srgb, var(--green, #50fa7b) 55%, transparent)';
-          btn.style.animation = 'cookbook-srv-glow-ok 2.4s ease-in-out infinite';
-          ico.innerHTML = _checkIcon;
-        } else {
-          // Failure — red glow, original icon, error detail in status
-          // text so we can say WHICH half failed (IMAP vs SMTP).
-          btn.style.background = 'var(--red)';
-          btn.style.borderColor = 'var(--red)';
-          btn.style.color = '#fff';
-          btn.style.boxShadow =
-            '0 0 0 2px color-mix(in srgb, var(--red) 25%, transparent),'
-          + ' 0 0 10px 2px color-mix(in srgb, var(--red) 55%, transparent)';
-          ico.innerHTML = btn.dataset.origIco;
-          const imap = d.imap?.ok ? 'IMAP ok' : `IMAP: ${d.imap?.error || 'fail'}`;
-          const smtp = d.smtp ? (d.smtp.ok ? ' · SMTP ok' : ` · SMTP: ${d.smtp.error || 'fail'}`) : '';
-          msg.textContent = imap + smtp;
-          msg.style.color = 'var(--red)';
-        }
-      } catch (e) {
-        btn.style.background = 'var(--red)';
-        btn.style.borderColor = 'var(--red)';
-        btn.style.color = '#fff';
-        ico.innerHTML = btn.dataset.origIco;
-        msg.textContent = 'Test error: ' + e.message;
-        msg.style.color = 'var(--red)';
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    el('uf-email-save').addEventListener('click', async () => {
-      const body = _collectBody();
-      // Name is optional — fall back to Email so the list still has a label.
-      if (!body.name) body.name = body.from_address;
-      if (!body.name) { el('uf-email-msg').textContent = 'Need at least a Name or Email'; el('uf-email-msg').style.color = 'var(--red)'; return; }
-      const saveBtn = el('uf-email-save');
-      saveBtn.disabled = true;
-      const saveIcoEl = saveBtn.querySelector('.uf-email-save-ico');
-      const saveLblEl = saveBtn.querySelector('.uf-email-save-label');
-      const prevIco = saveIcoEl.innerHTML;
-      const prevLbl = saveLblEl.textContent;
-      saveIcoEl.innerHTML = _spinner;
-      saveLblEl.textContent = 'Saving…';
-      try {
-        const url = isEdit ? `/api/email/accounts/${editId}` : '/api/email/accounts';
-        const method = isEdit ? 'PUT' : 'POST';
-        const r = await fetch(url, {
-          method, credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const d = await r.json();
-        if (!(d.ok || d.id)) {
-          el('uf-email-msg').textContent = d.error || 'Failed';
-          el('uf-email-msg').style.color = 'var(--red)';
-          return;
-        }
-        el('uf-email-msg').textContent = 'Saved';
-        el('uf-email-msg').style.color = 'var(--green,#50fa7b)';
-        integrationNotice = 'Email account saved. For more settings, go to Settings > Email.';
-        formEl.style.display = 'none';
-        await renderList();
-        notifyIntegrationsChanged();
-      } catch (e) {
-        el('uf-email-msg').textContent = 'Error: ' + e.message;
-        el('uf-email-msg').style.color = 'var(--red)';
-      } finally {
-        saveBtn.disabled = false;
-        saveIcoEl.innerHTML = prevIco;
-        saveLblEl.textContent = prevLbl;
-      }
-    });
-  }
 
   // ── Vaultwarden form ──
   async function showVaultForm() {
@@ -5198,9 +3936,6 @@ async function initUnifiedIntegrations() {
       { key: 'todos:write', label: 'Todos write', detail: 'Create, update, delete, and toggle todo items' },
       { key: 'documents:read', label: 'Documents', detail: 'Read documents when a document API is enabled' },
       { key: 'documents:write', label: 'Documents write', detail: 'Create and update draft documents' },
-      { key: 'email:read', label: 'Email', detail: 'Read email when an email API is enabled' },
-      { key: 'email:draft', label: 'Email drafts', detail: 'Create email reply drafts without sending' },
-      { key: 'email:send', label: 'Email send', detail: 'Send email directly' },
       { key: 'calendar:read', label: 'Calendar', detail: 'Read calendar events when enabled' },
       { key: 'calendar:write', label: 'Calendar write', detail: 'Create and update calendar events' },
       { key: 'memory:read', label: 'Memory', detail: 'Read memory when enabled' },
@@ -5216,7 +3951,6 @@ async function initUnifiedIntegrations() {
     const _scopeIcons = {
       todos: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
       documents: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-      email: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2 6 12 13 22 6"/></svg>',
       calendar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
       memory: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0-2.5 2.5A2.5 2.5 0 0 0 2 9.5v3A2.5 2.5 0 0 0 4.5 15a2.5 2.5 0 0 0 2.5 2.5A2.5 2.5 0 0 0 9.5 20H10V2z"/><path d="M14.5 2a2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1 2.5 2.5A2.5 2.5 0 0 1 22 9.5v3A2.5 2.5 0 0 1 19.5 15a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 14.5 20H14V2z"/></svg>',
       cookbook: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
@@ -5633,7 +4367,6 @@ async function initUnifiedIntegrations() {
       ['codex', 'Codex Agent'],
       ['carddav', 'Contacts (CardDAV)'],
       ['contacts', 'Contacts Import'],
-      ['email', 'Email (IMAP/SMTP)'],
       ['mcp', 'MCP Tool Server'],
     ];
     const _iconFor = (k) => (INTG_TYPES[k]?.icon || '').replace(/width="14"/, 'width="16"').replace(/height="14"/, 'height="16"');
@@ -5741,40 +4474,6 @@ export function close() {
     modalEl.classList.add('hidden');
   }
 }
-
-// Handle redirect back from Google OAuth2 — open settings to integrations and show status.
-(function _handleOauthRedirect() {
-  const sp = new URLSearchParams(window.location.search);
-  if (!sp.has('email_oauth_success') && !sp.has('email_oauth_error')) return;
-  // Strip params from URL without a page reload.
-  const clean = window.location.pathname + window.location.hash;
-  window.history.replaceState(null, '', clean);
-  const success = sp.has('email_oauth_success');
-  const errMsg = sp.get('email_oauth_error') || '';
-  // Open settings → integrations after the app has initialised.
-  function _tryOpen() {
-    if (window.settingsModule && typeof window.settingsModule.open === 'function') {
-      window.settingsModule.open('integrations');
-      // Brief toast-style banner.
-      const banner = document.createElement('div');
-      banner.textContent = success
-        ? '✓ Google account connected — email is ready'
-        : `Google OAuth failed: ${errMsg || 'unknown error'}`;
-      Object.assign(banner.style, {
-        position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-        background: success ? 'var(--accent, #50fa7b)' : 'var(--red, #ff5555)',
-        color: '#000', padding: '8px 18px', borderRadius: '6px', fontSize: '12px',
-        fontWeight: '600', zIndex: '99999', pointerEvents: 'none',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-      });
-      document.body.appendChild(banner);
-      setTimeout(() => banner.remove(), 4000);
-    } else {
-      setTimeout(_tryOpen, 100);
-    }
-  }
-  _tryOpen();
-})();
 
 const settingsModule = { open, close, initIntegrations, initUnifiedIntegrations, syncAdminVisibility, refreshAiModelEndpoints };
 

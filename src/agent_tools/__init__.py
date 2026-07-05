@@ -14,7 +14,6 @@ Sub-modules:
 import logging
 from collections import namedtuple
 
-from src.tool_security import BUILTIN_EMAIL_TOOLS
 from src.tool_utils import _truncate, get_mcp_manager, set_mcp_manager
 
 logger = logging.getLogger(__name__)
@@ -88,9 +87,6 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "manage_tokens", "manage_documents", "manage_settings",
              "manage_notes", "manage_calendar",
              "resolve_contact", "manage_contact",
-             # Email tool names come from BUILTIN_EMAIL_TOOLS (unioned below)
-             # so the fence regex, dispatch, and non-admin blocklist all cover
-             # the same set.
              # Cookbook tools (LLM serving + downloads). Without these
              # entries, native function calls to e.g. list_served_models
              # are rejected as "Unknown function call" before reaching
@@ -105,9 +101,9 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              # Other tools the agent reaches for that were also missing.
              "edit_image", "trigger_research", "manage_research",
              # Generic loopback to any UI-button endpoint (cookbook,
-             # gallery, email folders, etc.) — agent uses this when
-             # there's no named tool wrapper for the action.
-             "app_api"} | BUILTIN_EMAIL_TOOLS
+             # gallery, etc.) — agent uses this when there's no named
+             # tool wrapper for the action.
+             "app_api"}
 
 ToolBlock = namedtuple("ToolBlock", ["tool_type", "content"])
 

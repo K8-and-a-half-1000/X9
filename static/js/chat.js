@@ -17,7 +17,6 @@ import presetsModule from './presets.js';
 import fileHandlerModule from './fileHandler.js';
 import searchModule from './search.js';
 import documentModule from './document.js';
-import * as emailInbox from './emailInbox.js';
 import codeRunnerModule from './codeRunner.js';
 import slashCommands, { initSlashCommands, isCommand, handleSlashCommand, handleSetupInput, handleSetupWizard, typewriterInto } from './slashCommands.js';
 import createResearchSynapse from './researchSynapse.js';
@@ -274,8 +273,6 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
   export function init(apiBase) {
     API_BASE = apiBase;
     initSlashCommands({ apiBase, isStreaming: () => isStreaming });
-    // Initialize email inbox
-    emailInbox.init(documentModule);
     // Wire the slash-command autocomplete popup on the chat composer. The
     // dispatcher already handles the typed command — this just surfaces the
     // registry as a discoverable menu when the user starts a message with /.
@@ -1015,15 +1012,9 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       }
 
       // Auto-save document editor content before sending so the AI sees latest text
-      const activeEmailComposerCtx = documentModule && typeof documentModule.getActiveEmailComposerContext === 'function'
-        ? documentModule.getActiveEmailComposerContext()
-        : null;
       let activeDocIdForSend = documentModule && typeof documentModule.getCurrentDocId === 'function'
         ? documentModule.getCurrentDocId()
         : null;
-      if (!activeDocIdForSend && activeEmailComposerCtx?.docId) {
-        activeDocIdForSend = activeEmailComposerCtx.docId;
-      }
       if (documentModule && activeDocIdForSend) {
         try { await documentModule.saveDocument(); } catch(e) { console.warn('doc auto-save failed', e); }
       }
@@ -1060,22 +1051,6 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
         try { await documentModule.saveDocument({ silent: true }); } catch (_e) { /* best-effort */ }
         fd.append('active_doc_id', activeDocIdForSend);
       }
-      // Active email context — when an email reader is open, pass its
-      // uid/folder/account so "reply", "summarize", "what does this say"
-      // resolve to the email the user is actually looking at instead of
-      // making the agent invent a new markdown draft with fake headers.
-      try {
-        const getEmailCtx = window.__odysseusGetActiveEmailContext;
-        const emCtx = typeof getEmailCtx === 'function' ? getEmailCtx() : null;
-        if (activeEmailComposerCtx && activeEmailComposerCtx.sourceUid) {
-          fd.append('active_email_uid', String(activeEmailComposerCtx.sourceUid));
-          fd.append('active_email_folder', String(activeEmailComposerCtx.sourceFolder || 'INBOX'));
-        } else if (emCtx && emCtx.uid) {
-          fd.append('active_email_uid', String(emCtx.uid));
-          fd.append('active_email_folder', String(emCtx.folder || 'INBOX'));
-          if (emCtx.account) fd.append('active_email_account', String(emCtx.account));
-        }
-      } catch (_e) { /* best-effort */ }
       // Web toggle: pre-search in Chat mode, tool permission in Agent mode
       const toggleState = Storage.loadToggleState();
       let isAgentMode = (toggleState.mode || 'chat') === 'agent';
@@ -1727,7 +1702,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                     _docFenceOpened = true;
                     const title = fenceLines[0].trim();
                     // Keep in sync with backend _KNOWN_LANGS in src/tool_implementations.py
-                    const knownLangs = ['python','py','javascript','js','typescript','ts','html','css','json','yaml','bash','sql','rust','go','java','c','cpp','markdown','text','plain','ruby','swift','kotlin','php','email','csv','xml','toml','ini'];
+                    const knownLangs = ['python','py','javascript','js','typescript','ts','html','css','json','yaml','bash','sql','rust','go','java','c','cpp','markdown','text','plain','ruby','swift','kotlin','php','csv','xml','toml','ini'];
                     const isLang = fenceLines.length >= 2 && knownLangs.includes(fenceLines[1].trim().toLowerCase());
                     const lang = isLang ? fenceLines[1].trim() : '';
                     _docFenceContentStart = fenceIdx + fenceMarker.length + title.length + 1 + (isLang ? fenceLines[1].length + 1 : 0);

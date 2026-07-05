@@ -228,13 +228,6 @@ class Document(TimestampMixin, Base):
     # Library + search. Owning the row directly is robust against that.
     owner           = Column(String, nullable=True, index=True)
     tidy_verdict    = Column(String, nullable=True)        # "keep", "junk", or None (not yet reviewed)
-    # Provenance: if this document was created by opening an email attachment,
-    # these point back to the source email so the "Sign and reply" flow can
-    # thread a response on the original conversation.
-    source_email_uid         = Column(String, nullable=True)
-    source_email_folder      = Column(String, nullable=True)
-    source_email_account_id  = Column(String, nullable=True)
-    source_email_message_id  = Column(String, nullable=True, index=True)
 
     session  = relationship("Session", backref=backref("documents", cascade="save-update, merge"))
     versions = relationship("DocumentVersion", back_populates="document",
@@ -308,53 +301,6 @@ class GalleryImage(TimestampMixin, Base):
         Index('ix_gallery_images_tags', 'tags'),
         Index('ix_gallery_images_model', 'model'),
         Index('ix_gallery_images_active', 'is_active', 'created_at'),
-    )
-
-
-class EmailAccount(TimestampMixin, Base):
-    """A configured IMAP/SMTP account. Supports multiple accounts per user —
-    exactly one row per owner has is_default=True.
-
-    Security note: imap_password / smtp_password are stored Fernet-encrypted
-    via src/secret_storage.py. The key lives at data/.app_key (mode 0o600,
-    gitignored). Anyone with read access to that file can decrypt every
-    row, so the threat model is "stolen SQLite backup" rather than
-    "process compromise". On first start any legacy plaintext rows are
-    migrated automatically (see _migrate_encrypt_email_passwords).
-    """
-    __tablename__ = "email_accounts"
-
-    id             = Column(String, primary_key=True, index=True)
-    owner          = Column(String, nullable=True, index=True)
-    name           = Column(String, nullable=False)  # Display name: "Work", "Personal", etc.
-    is_default     = Column(Boolean, default=False, nullable=False)
-    enabled        = Column(Boolean, default=True, nullable=False)
-
-    # IMAP (receiving)
-    imap_host      = Column(String, default="")
-    imap_port      = Column(Integer, default=993)
-    imap_user      = Column(String, default="")
-    imap_password  = Column(String, default="")
-    imap_starttls  = Column(Boolean, default=True)
-
-    # SMTP (sending)
-    smtp_host      = Column(String, default="")
-    smtp_port      = Column(Integer, default=465)
-    smtp_security  = Column(String, default="ssl")  # ssl | starttls | none
-    smtp_user      = Column(String, default="")
-    smtp_password  = Column(String, default="")
-
-    from_address   = Column(String, default="")
-    display_name   = Column(String, nullable=True)   # "Hriday Ranka" — used in From: header
-
-    # OAuth2 (Google / Google Workspace). Tokens stored encrypted via secret_storage.
-    oauth_provider      = Column(String, nullable=True)   # "google" or None
-    oauth_access_token  = Column(String, nullable=True)   # encrypted
-    oauth_refresh_token = Column(String, nullable=True)   # encrypted
-    oauth_token_expiry  = Column(String, nullable=True)   # unix timestamp string
-
-    __table_args__ = (
-        Index('ix_email_accounts_owner_default', 'owner', 'is_default'),
     )
 
 
@@ -1381,30 +1327,6 @@ def _migrate_add_tidy_verdict():
         logging.getLogger(__name__).warning(f"tidy_verdict migration: {e}")
 
 
-def _migrate_add_doc_source_email_cols():
-    """Add source-email provenance columns to documents (for the Sign-and-Reply flow)."""
-    cols_to_add = {
-        "source_email_uid":        "VARCHAR",
-        "source_email_folder":     "VARCHAR",
-        "source_email_account_id": "VARCHAR",
-        "source_email_message_id": "VARCHAR",
-    }
-    try:
-        with engine.connect() as conn:
-            existing = {r[1] for r in conn.execute(text("PRAGMA table_info(documents)"))}
-            for col, spec in cols_to_add.items():
-                if col not in existing:
-                    conn.execute(text(f"ALTER TABLE documents ADD COLUMN {col} {spec}"))
-                    logging.getLogger(__name__).info(f"Added {col} column to documents")
-            # Index for lookup-by-message-id (the "find existing draft" path)
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_documents_source_email_message_id "
-                "ON documents (source_email_message_id)"
-            ))
-            conn.commit()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"doc source-email migration: {e}")
-
 def _migrate_add_task_automation_columns():
     """Add automation columns to scheduled_tasks table if missing."""
     new_cols = {
@@ -1477,25 +1399,6 @@ def _migrate_add_task_automation_columns():
             logging.getLogger(__name__).info("Task automation columns migration complete")
     except Exception as e:
         logging.getLogger(__name__).warning(f"task automation migration: {e}")
-
-def _migrate_add_email_oauth_columns():
-    """Add Google OAuth and display_name columns to email_accounts if missing."""
-    try:
-        with engine.connect() as conn:
-            cols = [r[1] for r in conn.execute(text("PRAGMA table_info(email_accounts)"))]
-            for col, typedef in [
-                ("oauth_provider",      "TEXT"),
-                ("oauth_access_token",  "TEXT"),
-                ("oauth_refresh_token", "TEXT"),
-                ("oauth_token_expiry",  "TEXT"),
-                ("display_name",        "TEXT"),
-            ]:
-                if col not in cols:
-                    conn.execute(text(f"ALTER TABLE email_accounts ADD COLUMN {col} {typedef}"))
-            conn.commit()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"email oauth columns migration: {e}")
-
 
 def _migrate_add_oauth_config():
     """Add oauth_config column to mcp_servers table if missing."""
@@ -1740,74 +1643,6 @@ class Integration(TimestampMixin, Base):
 
 
 
-def _migrate_seed_email_account():
-    """If email_accounts is empty and settings.json has legacy flat imap_host/smtp_host
-    keys, create a single default account from them so nothing breaks for users who
-    upgraded. Safe to run repeatedly — it short-circuits once any row exists."""
-    try:
-        with engine.connect() as conn:
-            tables = [r[0] for r in conn.execute(text(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='email_accounts'"
-            ))]
-            if "email_accounts" not in tables:
-                return
-            existing = conn.execute(text("SELECT COUNT(*) FROM email_accounts")).scalar() or 0
-            if existing > 0:
-                return
-
-        import json as _json
-        import uuid as _uuid
-        from pathlib import Path
-        settings_file = Path(SETTINGS_FILE)
-        if not settings_file.exists():
-            return
-        try:
-            s = _json.loads(settings_file.read_text(encoding="utf-8"))
-        except Exception:
-            return
-
-        imap_host = (s.get("imap_host") or "").strip()
-        smtp_host = (s.get("smtp_host") or "").strip()
-        if not imap_host and not smtp_host:
-            return  # nothing to migrate
-
-        now = utcnow_naive()
-        with engine.begin() as conn:
-            conn.execute(text("""
-                INSERT INTO email_accounts
-                  (id, owner, name, is_default, enabled,
-                   imap_host, imap_port, imap_user, imap_password, imap_starttls,
-                   smtp_host, smtp_port, smtp_user, smtp_password,
-                   from_address, created_at, updated_at)
-                VALUES
-                  (:id, :owner, :name, :is_default, :enabled,
-                   :imap_host, :imap_port, :imap_user, :imap_password, :imap_starttls,
-                   :smtp_host, :smtp_port, :smtp_user, :smtp_password,
-                   :from_address, :created_at, :updated_at)
-            """), {
-                "id": _uuid.uuid4().hex,
-                "owner": None,
-                "name": "Default",
-                "is_default": True,
-                "enabled": True,
-                "imap_host": imap_host,
-                "imap_port": int(s.get("imap_port") or 993),
-                "imap_user": s.get("imap_user") or "",
-                "imap_password": s.get("imap_password") or "",
-                "imap_starttls": bool(s.get("imap_starttls", True)),
-                "smtp_host": smtp_host,
-                "smtp_port": int(s.get("smtp_port") or 465),
-                "smtp_user": s.get("smtp_user") or "",
-                "smtp_password": s.get("smtp_password") or "",
-                "from_address": s.get("email_from") or "",
-                "created_at": now,
-                "updated_at": now,
-            })
-            logging.getLogger(__name__).info("Seeded email_accounts 'Default' from settings.json")
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"seed email account migration: {e}")
-
-
 # WARNING: Foreign-key enforcement is enabled globally for all SQLite connections.
 # Any future migrations or schema changes that temporarily violate foreign-key
 # constraints will fail. To perform such operations, foreign_keys must be
@@ -1841,9 +1676,7 @@ def init_db():
     _migrate_backfill_document_owner_from_session()
     _migrate_assign_legacy_owner()
     _migrate_add_tidy_verdict()
-    _migrate_add_doc_source_email_cols()
     _migrate_add_oauth_config()
-    _migrate_add_email_oauth_columns()
     _migrate_add_task_automation_columns()
     _migrate_add_disabled_tools()
     _migrate_add_mcp_oauth_tokens_column()
@@ -1852,8 +1685,6 @@ def init_db():
     _migrate_drop_ping_notes_tasks()
     _migrate_add_crew_member_id()
     _migrate_add_assistant_columns()
-    _migrate_add_email_smtp_security()
-    _migrate_seed_email_account()
     _migrate_add_calendar_metadata()
     _migrate_add_calendar_is_utc()
     _migrate_add_calendar_origin()
@@ -1861,7 +1692,6 @@ def init_db():
     _migrate_add_caldav_sync_columns()
     _migrate_add_calendar_recurrence_exdates()
     _migrate_chat_messages_fts()
-    _migrate_encrypt_email_passwords()
     _migrate_encrypt_signatures()
     _migrate_encrypt_endpoint_keys()
     _migrate_backfill_task_folders()
@@ -1960,37 +1790,6 @@ def _migrate_chat_messages_fts():
             pass
 
 
-def _migrate_add_email_smtp_security():
-    """Add explicit SMTP security mode for Proton Bridge/custom local SMTP."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(email_accounts)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "smtp_security" not in columns:
-            conn.execute("ALTER TABLE email_accounts ADD COLUMN smtp_security TEXT DEFAULT 'ssl'")
-            conn.execute(
-                "UPDATE email_accounts SET smtp_security = CASE "
-                "WHEN COALESCE(smtp_port, 465) = 587 THEN 'starttls' "
-                "WHEN COALESCE(smtp_port, 465) = 465 THEN 'ssl' "
-                "ELSE 'ssl' END "
-                "WHERE smtp_security IS NULL OR smtp_security = ''"
-            )
-            conn.commit()
-            logging.getLogger(__name__).info("Migrated: added smtp_security column to email_accounts")
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"smtp_security migration skipped: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
 def _migrate_encrypt_endpoint_keys():
     """Encrypt any plaintext provider API keys in model_endpoints. Idempotent;
     raw SQL so the EncryptedText decorator isn't applied twice."""
@@ -2045,40 +1844,6 @@ def _migrate_encrypt_signatures():
                 logger.info(f"Encrypted plaintext signature(s) on {migrated} row(s)")
     except Exception as e:
         logger.warning(f"Signature encryption migration skipped: {e}")
-
-
-def _migrate_encrypt_email_passwords():
-    """Encrypt any plaintext IMAP/SMTP passwords still in the email_accounts
-    table. Idempotent — rows already prefixed with `enc:` are skipped.
-    Safe to run on every startup."""
-    try:
-        from src.secret_storage import encrypt, is_encrypted
-    except Exception as e:
-        logger.warning(f"secret_storage import failed; skipping password migration: {e}")
-        return
-    try:
-        with engine.connect() as conn:
-            rows = conn.execute(text(
-                "SELECT id, imap_password, smtp_password FROM email_accounts"
-            )).fetchall()
-            migrated = 0
-            for row in rows:
-                rid, imap_pw, smtp_pw = row
-                updates = {}
-                if imap_pw and not is_encrypted(imap_pw):
-                    updates["imap_password"] = encrypt(imap_pw)
-                if smtp_pw and not is_encrypted(smtp_pw):
-                    updates["smtp_password"] = encrypt(smtp_pw)
-                if updates:
-                    sets = ", ".join(f"{k} = :{k}" for k in updates)
-                    params = {**updates, "id": rid}
-                    conn.execute(text(f"UPDATE email_accounts SET {sets} WHERE id = :id"), params)
-                    migrated += 1
-            if migrated:
-                conn.commit()
-                logger.info(f"Encrypted plaintext passwords on {migrated} email account row(s)")
-    except Exception as e:
-        logger.warning(f"Password migration failed (will retry next start): {e}")
 
 
 def _migrate_add_calendar_is_utc():

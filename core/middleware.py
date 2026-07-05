@@ -29,13 +29,15 @@ def is_cors_preflight(method: str, headers) -> bool:
 
 
 def require_admin(request: Request):
-    """Raise 403 if the current user isn't an admin.
-    Allows access when auth is explicitly disabled, or when the request carries
-    the in-process internal-tool token used by loopback agent tools.
+    """Gate admin routes in single-user mode.
+
+    X9 has no login flow — the (single) browser user IS the admin, so browser
+    requests always pass. The only callers still rejected are scoped bearer
+    API tokens, which must stay confined to their scope-aware routes.
     """
     # In-process bypass for tool-layer loopback calls. Two paths:
     # (a) header-direct (caller set X-Odysseus-Internal-Token), or
-    # (b) the auth middleware already validated the token and stamped
+    # (b) the identity middleware already validated the token and stamped
     #     request.state.current_user = "internal-tool".
     try:
         hdr = request.headers.get(INTERNAL_TOOL_HEADER)
@@ -46,13 +48,7 @@ def require_admin(request: Request):
     except Exception:
         pass
 
-    auth_mgr = getattr(request.app.state, "auth_manager", None)
-    if os.getenv("AUTH_ENABLED", "true").lower() == "false":
-        return
-    if not auth_mgr or not auth_mgr.is_configured:
-        raise HTTPException(403, "Admin only")
-    user = getattr(request.state, "current_user", None)
-    if not user or not auth_mgr.is_admin(user):
+    if getattr(request.state, "api_token", False):
         raise HTTPException(403, "Admin only")
 
 

@@ -118,16 +118,6 @@ function initRailHoverLabels() {
   });
 }
 
-// Redirect to login on 401 from any fetch
-const _origFetch = window.fetch;
-window.fetch = async function(...args) {
-  const res = await _origFetch.apply(this, args);
-  if (res.status === 401 && !String(args[0]).includes('/api/auth/')) {
-    window.location.href = '/login';
-  }
-  return res;
-};
-
 // Search settings
 
 
@@ -1176,76 +1166,15 @@ function initializeEventListeners() {
     });
   }
 
-  // Sidebar user bar — settings, admin, profile
+  // Sidebar user bar — settings entry point
   const userBarSettings = el('user-bar-settings');
-  const userBarProfile = el('user-bar-profile');
-  const userBarAdmin = el('user-bar-admin');
 
   if (userBarSettings) {
     userBarSettings.addEventListener('click', () => settingsModule.open());
   }
-  if (userBarProfile) {
-    // Clicking the user (avatar + name) jumps straight to the Account tab
-    // instead of landing on whatever was last selected.
-    userBarProfile.addEventListener('click', () => settingsModule.open('account'));
-  }
-  if (userBarAdmin) {
-    userBarAdmin.addEventListener('click', () => adminModule.open());
-  }
 
-  // Fetch auth status — populate user bar and show admin button if admin
-  fetch(`${API_BASE}/api/auth/status`, { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(d => {
-      window._isAdmin = !!d.is_admin;
-      if (d.is_admin && userBarAdmin) userBarAdmin.style.display = '';
-      const userBarName = el('user-bar-name');
-      const userBarAvatar = el('user-bar-avatar');
-      if (userBarName && d.username) {
-        let displayName = d.username;
-        // Mask email addresses
-        if (displayName.includes('@')) {
-          const [local, domain] = displayName.split('@');
-          const ext = domain.includes('.') ? domain.slice(domain.lastIndexOf('.')) : '';
-          displayName = local.charAt(0) + '•••@••••' + ext;
-        }
-        userBarName.textContent = displayName;
-        if (userBarAvatar) userBarAvatar.textContent = d.username.charAt(0).toUpperCase();
-      }
-      // Apply per-user privilege restrictions
-      if (d.privileges) {
-        window._userPrivileges = d.privileges;
-        const p = d.privileges;
-        // Hide agent mode toggle
-        if (!p.can_use_agent) {
-          const modeToggle = document.getElementById('mode-toggle');
-          if (modeToggle) modeToggle.closest('.chat-input-toggle')?.style.setProperty('display', 'none');
-        }
-        // Hide bash toggle
-        if (!p.can_use_bash) {
-          const bashToggle = document.getElementById('bash-toggle');
-          if (bashToggle) bashToggle.closest('.chat-input-toggle')?.style.setProperty('display', 'none');
-          const bashBtn = document.getElementById('bash-toggle-btn');
-          if (bashBtn) bashBtn.style.display = 'none';
-        }
-        // Hide document button
-        if (!p.can_use_documents) {
-          const docBtn = document.getElementById('overflow-doc-btn');
-          if (docBtn) docBtn.style.display = 'none';
-          const docInd = document.getElementById('doc-indicator-btn');
-          if (docInd) docInd.style.display = 'none';
-        }
-        // Hide research toggle
-        if (!p.can_use_research) {
-          const resBtn = document.getElementById('research-toggle-btn');
-          if (resBtn) resBtn.style.display = 'none';
-          const resOverflow = document.getElementById('overflow-research-btn');
-          if (resOverflow) resOverflow.style.display = 'none';
-        }
-
-      }
-    })
-    .catch(() => {});
+  // Single-user mode: the one user is the admin; no per-user privileges.
+  window._isAdmin = true;
 
   // Session sort dropdown
   const sortBtn = el('session-sort-btn');
@@ -2508,7 +2437,6 @@ function initializeEventListeners() {
     'tool-notes':          '#tool-notes-btn',
     'tool-tasks':          '#tool-tasks-btn',
     'tool-theme':          '#tool-theme-btn',
-    'user-bar':            '#user-bar-profile',
     'sidebar-settings-btn':'#user-bar-settings',
     'chat-meta':           '.chat-meta-overlay',
     'welcome-text':        '.welcome-name, .welcome-sub, #welcome-tip',

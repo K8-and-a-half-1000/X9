@@ -1415,12 +1415,6 @@ async function _cmdToolPanel(tool, args, ctx) {
     await cookbookModule?.open?.({ tab: 'Download', usecase: rest || undefined });
     return true;
   }
-  if (target === 'email') {
-    const btn = document.getElementById('rail-email') || document.getElementById('email-section-title');
-    if (btn) btn.click();
-    else slashReply('Could not open Email.');
-    return true;
-  }
   if (target === 'settings') {
     if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open(rest || undefined);
     else document.getElementById('user-bar-settings')?.click();
@@ -3490,7 +3484,7 @@ async function _cmdTourSettings(args, ctx) {
       text: '<b>Vision</b> — powers any image-recognition feature: drop a photo in chat, ask what\'s in it, OCR, etc.',
       before: () => _clickNav('ai') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="integrations"]',
-      text: '<b>Integrations</b> — wire up email, calendar, contacts here (per-account).',
+      text: '<b>Integrations</b> — wire up calendar, contacts, and services here (per-account).',
       before: () => _clickNav('integrations') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="search"]',
       text: '<b>Search</b> — plug in your own search provider, or use the bundled <b>SearXNG</b> out of the box.',
@@ -3498,11 +3492,8 @@ async function _cmdTourSettings(args, ctx) {
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="appearance"]',
       text: '<b>Appearance</b> — too many tools you don\'t need? Adjust them here! Toggle sidebar buttons, tool icons, and section visibility.',
       before: () => _clickNav('appearance') },
-    { sel: '#settings-modal .settings-nav-item[data-settings-tab="email"]',
-      text: '<b>Email</b> — sync schedule, drafts, snooze defaults — everything email-flow related.',
-      before: () => _clickNav('email') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="reminders"]',
-      text: '<b>Reminders</b> — quiet hours and how Odysseus nudges you about calendar + urgent email.',
+      text: '<b>Reminders</b> — quiet hours and how the app nudges you about calendar events and notes.',
       before: () => _clickNav('reminders') },
   ];
 
@@ -4368,7 +4359,7 @@ async function _cmdTourTask2(args, ctx) {
       text: '<b>Add</b> creates scheduled prompts, research jobs, actions, event triggers, or webhooks.',
       before: () => document.querySelector('#tasks-modal .tasks-tab[data-tab="new"]')?.click() },
     { sel: '#task-ai-input',
-      text: 'You can just describe the task in plain chat language. Example: “weekday mornings summarize unread email”.' },
+      text: 'You can just describe the task in plain chat language. Example: “weekday mornings summarize the news”.' },
     { sel: '#tasks-modal .memory-item[data-idx="0"]',
       text: 'Or pick a template and fill out the form manually.' },
     { sel: '#task-form-save, #tasks-modal .tasks-tab[data-tab="tasks"]',
@@ -4378,7 +4369,7 @@ async function _cmdTourTask2(args, ctx) {
     // re-show it when the user moves past this step so the tour lands
     // back where it started.
     { sel: '#message',
-      text: 'You can also <b>just ask in chat</b> — say "every weekday at 9am check for urgent emails" and Odysseus will create the task for you.',
+      text: 'You can also <b>just ask in chat</b> — say "every weekday at 9am summarize the news" and the app will create the task for you.',
       before: () => document.getElementById('tasks-modal')?.classList.add('hidden'),
       after:  () => document.getElementById('tasks-modal')?.classList.remove('hidden') },
   ], 'That\'s Tasks. Have it run the background bits so you can stay in chat.');
@@ -4851,7 +4842,7 @@ async function _cmdTourLibrary(args, ctx) {
     { sel: '#doc-tab-bar',
       text: 'Multiple docs as <b>tabs</b>. Drag to reorder, click <b>+</b> for a new one, click the dots for rename / clone / export / delete.' },
     { sel: '#doc-language-select',
-      text: 'Switch the <b>document type</b> — markdown shows a preview, email shows To/Subject/Send, PDF lets you fill blanks with AI.' },
+      text: 'Switch the <b>document type</b> — markdown shows a preview, PDF lets you fill blanks with AI.' },
     { sel: '#doc-editor-textarea',
       text: 'Ask the LLM to <i>draft</i>, <i>rewrite</i>, <i>summarize</i>, <i>feedback</i> — edits stream live.' },
   ];
@@ -5987,13 +5978,6 @@ const COMMANDS = {
     help: 'Open Cookbook; use "serve" to jump to model serving',
     handler: (args, ctx) => _cmdToolPanel('cookbook', args, ctx),
     usage: '/cookbook  ·  /cookbook serve qwen'
-  },
-  email: {
-    alias: ['mail', 'inbox'],
-    category: 'Tools',
-    help: 'Open Email',
-    handler: (args, ctx) => _cmdToolPanel('email', args, ctx),
-    usage: '/email'
   },
   notes: {
     alias: [],

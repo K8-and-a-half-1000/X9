@@ -26,9 +26,6 @@ COOKBOOK_READ_SCOPES = {"cookbook:read", "cookbook:launch"}
 COOKBOOK_LAUNCH_SCOPES = {"cookbook:launch"}
 TODO_READ_SCOPES = {"todos:read", "todos:write"}
 TODO_WRITE_SCOPES = {"todos:write"}
-EMAIL_READ_SCOPES = {"email:read", "email:draft", "email:send"}
-EMAIL_DRAFT_SCOPES = {"email:draft", "email:send"}
-EMAIL_SEND_SCOPES = {"email:send"}
 MEMORY_READ_SCOPES = {"memory:read", "memory:write"}
 MEMORY_WRITE_SCOPES = {"memory:write"}
 CALENDAR_READ_SCOPES = {"calendar:read", "calendar:write"}
@@ -146,16 +143,11 @@ def _clamp_pagination(offset: Any, limit: Any, *, default_limit: int = 50, max_l
 
 
 def setup_codex_routes(
-    email_router: APIRouter | None = None,
     memory_router: APIRouter | None = None,
     calendar_router: APIRouter | None = None,
     document_router: APIRouter | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/codex", tags=["codex"])
-    email_list_endpoint = _find_endpoint(email_router, "GET", "/api/email/list")
-    email_read_endpoint = _find_endpoint(email_router, "GET", "/api/email/read/{uid}")
-    email_send_endpoint = _find_endpoint(email_router, "POST", "/api/email/send")
-    email_draft_endpoint = _find_endpoint(email_router, "POST", "/api/email/draft")
     memory_list_endpoint = _find_endpoint(memory_router, "GET", "/api/memory")
     memory_add_endpoint = _find_endpoint(memory_router, "POST", "/api/memory/add")
     calendar_list_events = _find_endpoint(calendar_router, "GET", "/api/calendar/events")
@@ -178,12 +170,6 @@ def setup_codex_routes(
                     "read": scoped(TODO_READ_SCOPES),
                     "write": scoped(TODO_WRITE_SCOPES),
                     "actions": ["list", "add", "update", "delete", "toggle_item"],
-                },
-                "email": {
-                    "read": scoped(EMAIL_READ_SCOPES),
-                    "draft": scoped(EMAIL_DRAFT_SCOPES),
-                    "send": scoped(EMAIL_SEND_SCOPES),
-                    "actions": ["list", "read", "draft_document", "draft", "send"],
                 },
                 "memory": {
                     "read": scoped(MEMORY_READ_SCOPES),
@@ -210,7 +196,6 @@ def setup_codex_routes(
                 },
             },
             "safety": {
-                "email_send_requires_confirmation": True,
                 "destructive_actions_should_confirm": True,
             },
         }
@@ -247,144 +232,6 @@ def setup_codex_routes(
         args = dict(body)
         args["action"] = action
         return await do_manage_notes(json.dumps(args), owner=owner)
-
-    @router.get("/emails")
-    async def list_emails(
-        request: Request,
-        folder: str = "INBOX",
-        limit: int = 10,
-        offset: int = 0,
-        filter: str = "all",
-        from_addr: str | None = None,
-        account_id: str | None = None,
-        has_attachments: int = 0,
-    ):
-        owner = _scope_owner(request, EMAIL_READ_SCOPES)
-        if email_list_endpoint is None:
-            raise HTTPException(503, "Email integration is not available")
-        limit = max(1, min(int(limit or 10), 50))
-        offset = max(0, int(offset or 0))
-        if account_id:
-            from routes.email_helpers import _assert_owns_account
-
-            _assert_owns_account(account_id, owner)
-        return await email_list_endpoint(
-            folder=folder,
-            limit=limit,
-            offset=offset,
-            filter=filter,
-            from_addr=from_addr,
-            account_id=account_id,
-            has_attachments=has_attachments,
-            cache_bust=None,
-            owner=owner,
-        )
-
-    @router.get("/emails/{uid}")
-    async def read_email(
-        request: Request,
-        uid: str,
-        folder: str = "INBOX",
-        account_id: str | None = None,
-        mark_seen: bool = False,
-    ):
-        owner = _scope_owner(request, EMAIL_READ_SCOPES)
-        if email_read_endpoint is None:
-            raise HTTPException(503, "Email integration is not available")
-        if account_id:
-            from routes.email_helpers import _assert_owns_account
-
-            _assert_owns_account(account_id, owner)
-        return await email_read_endpoint(
-            uid=uid,
-            folder=folder,
-            account_id=account_id,
-            mark_seen=mark_seen,
-            owner=owner,
-        )
-
-    # ── Email draft + send ────────────────────────────────────────────────
-    # Both handlers in routes/email_routes.py already accept `owner=` via
-    # FastAPI Depends, so we call them directly without patching state.
-
-    def _email_draft_document_content(body: dict[str, Any]) -> str:
-        def clean(v: Any) -> str:
-            if isinstance(v, list):
-                return ", ".join(str(x).strip() for x in v if str(x).strip())
-            return str(v or "").strip()
-
-        to = clean(body.get("to"))
-        cc = clean(body.get("cc"))
-        bcc = clean(body.get("bcc"))
-        subject = clean(body.get("subject"))
-        in_reply_to = clean(body.get("in_reply_to"))
-        references = clean(body.get("references"))
-        body_text = str(body.get("body") or body.get("body_html") or "").strip()
-        lines = [
-            f"To: {to}",
-        ]
-        if cc:
-            lines.append(f"Cc: {cc}")
-        if bcc:
-            lines.append(f"Bcc: {bcc}")
-        lines.append(f"Subject: {subject}")
-        if in_reply_to:
-            lines.append(f"In-Reply-To: {in_reply_to}")
-        if references:
-            lines.append(f"References: {references}")
-        lines.extend(["---", body_text])
-        return "\n".join(lines).rstrip() + "\n"
-
-    @router.post("/emails/draft-document")
-    async def codex_email_draft_document(request: Request, body: dict[str, Any] = Body(default_factory=dict)):
-        owner = _scope_owner(request, EMAIL_DRAFT_SCOPES)
-        docs_owner = _scope_owner_all(request, DOCS_WRITE_SCOPES)
-        if docs_owner != owner:
-            raise HTTPException(403, "API token owner mismatch")
-        if documents_create_endpoint is None:
-            raise HTTPException(503, "Documents integration is not available")
-        from routes.document_routes import DocumentCreate
-
-        subject = str(body.get("subject") or "Email draft").strip() or "Email draft"
-        title = str(body.get("title") or subject).strip() or "Email draft"
-        req = DocumentCreate(
-            session_id=body.get("session_id"),
-            title=title,
-            language="email",
-            content=_email_draft_document_content(body),
-        )
-        result = await _as_owner(request, owner, documents_create_endpoint, request, req)
-        if isinstance(result, dict):
-            result = dict(result)
-            result["draft_type"] = "document"
-            result["send_required_confirmation"] = True
-        return result
-
-    @router.post("/emails/draft")
-    async def codex_email_draft(request: Request, body: dict[str, Any] = Body(default_factory=dict)):
-        owner = _scope_owner(request, EMAIL_DRAFT_SCOPES)
-        if email_draft_endpoint is None:
-            raise HTTPException(503, "Email integration is not available")
-        from routes.email_routes import SendEmailRequest
-
-        try:
-            req = SendEmailRequest(**body)
-        except Exception as exc:
-            raise HTTPException(400, f"Invalid draft payload: {exc}")
-        return await email_draft_endpoint(req=req, owner=owner)
-
-    @router.post("/emails/send")
-    async def codex_email_send(request: Request, body: dict[str, Any] = Body(default_factory=dict)):
-        owner = _scope_owner(request, EMAIL_SEND_SCOPES)
-        if email_send_endpoint is None:
-            raise HTTPException(503, "Email integration is not available")
-        from routes.email_routes import SendEmailRequest
-
-        try:
-            req = SendEmailRequest(**body)
-        except Exception as exc:
-            raise HTTPException(400, f"Invalid send payload: {exc}")
-        return await email_send_endpoint(req=req, background_tasks=BackgroundTasks(), owner=owner)
 
     # ── Memory ────────────────────────────────────────────────────────────
 

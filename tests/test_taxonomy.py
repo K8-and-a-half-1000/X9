@@ -140,7 +140,7 @@ def test_file_under_helpers_dir_is_helpers(path):
 # --- priority contract -------------------------------------------------------
 
 def test_security_beats_services_when_both_tokens_present():
-    result = classify_test_path("test_email_owner_scope.py")
+    result = classify_test_path("test_calendar_owner_scope.py")
     assert result.area == "security"
     assert result.sub_area == "owner_scope"
 

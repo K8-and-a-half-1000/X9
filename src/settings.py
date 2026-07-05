@@ -29,14 +29,6 @@ def _invalidate_caches():
 # ── Default values ──
 
 DEFAULT_SETTINGS = {
-    # Agent email safety: when True, the MCP send_email / reply_to_email
-    # tools don't SMTP directly. They stage the composed message into the
-    # scheduled_emails table with status='agent_draft' and return a
-    # pending_id + the rendered email so the user can review and approve
-    # (or cancel) before it actually goes out. Default ON because models
-    # have been observed inventing signatures and sending to real
-    # recipients without confirmation.
-    "agent_email_confirm": True,
     "image_gen_enabled": False,
     "image_model": "",
     "image_quality": "medium",
@@ -44,8 +36,8 @@ DEFAULT_SETTINGS = {
     "vision_enabled": True,
     # Ordered fallback chain for the Vision model (image analysis, OCR, tagging).
     "vision_model_fallbacks": [],
-    # Public base URL used to build clickable deep-links in outgoing alerts
-    # (e.g., urgency alert email). Example: "https://chat.example.com"
+    # Public base URL used to build clickable deep-links in outgoing alerts.
+    # Example: "https://chat.example.com"
     "app_public_url": "",
     "tts_enabled": True,
     "tts_provider": "disabled",
@@ -137,8 +129,6 @@ DEFAULT_SETTINGS = {
     "default_endpoint_id": "",
     "default_model": "",
     # Optional prose style used only for normal document writing/editing.
-    # Email replies use email_writing_style instead because greetings,
-    # signatures, and mailbox identity rules are medium-specific.
     "document_writing_style": "",
     # Ordered fallback chain for the default chat model. Each entry is
     # {"endpoint_id": "...", "model": "..."}. If the primary model fails
@@ -166,11 +156,10 @@ DEFAULT_SETTINGS = {
     # library can grow beyond this; cleanup/retirement is an explicit review flow.
     "skill_max_injected": 3,
     # Reminders
-    "reminder_channel": "browser",   # "browser" | "email" | "ntfy" | "webhook"
+    "reminder_channel": "browser",   # "browser" | "ntfy" | "webhook"
     "reminder_llm_synthesis": False,
     "reminder_llm_persona": "",
     "reminder_ntfy_topic": "Reminders",
-    "reminder_email_to": "",
     # Generic outbound webhook channel: pick any saved Integration as the
     # target and supply a JSON payload template. Use {{title}} and {{message}}
     # as placeholders — they are JSON-escaped before substitution, so the
@@ -178,16 +167,6 @@ DEFAULT_SETTINGS = {
     # ntfy (JSON mode), or any service that accepts a POST with a JSON body.
     "reminder_webhook_integration_id": "",
     "reminder_webhook_payload_template": "",
-    # Email triage scanner rules. Running/paused state and schedule live in
-    # Tasks via the built-in `check_email_urgency` task.
-    "urgent_email_prompt": (
-        "Flag as urgent: explicit deadlines, time-sensitive requests, "
-        "work-blocking issues, messages from people I report to, or anything "
-        "where a delayed reply costs money/trust. Someone waiting outside, "
-        "at the door, locked out, or unable to get in is urgent now. "
-        "Newsletters, marketing, automated digests, and FYI-only updates are "
-        "NOT urgent."
-    ),
     # Keyboard shortcuts (action: key combination)
     "keybinds": {
         "search": "ctrl+k",

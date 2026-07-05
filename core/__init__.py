@@ -17,7 +17,7 @@ from src.llm_core import (
     normalize_model_id,
     LLMConfig,
 )
-from .auth import AuthManager
+from .auth import RESERVED_USERNAMES
 from .constants import *
 from .middleware import SecurityHeadersMiddleware
 from .exceptions import (
@@ -38,7 +38,7 @@ __all__ = [
     "normalize_model_id",
     "LLMConfig",
     # Auth
-    "AuthManager",
+    "RESERVED_USERNAMES",
     # Middleware
     "SecurityHeadersMiddleware",
     # Exceptions

@@ -573,8 +573,7 @@ async def do_ui_control(content: str, session_id: Optional[str] = None, owner: O
       switch_model <model>    — Change the model for the current session
       set_theme <preset>      — Apply a built-in theme preset (dark, light, midnight, paper, cyberpunk, retrowave, forest, ocean, ume, copper, terminal, organs, lavender, gpt, claude, cute)
       create_theme <name> <bg> <fg> <panel> <border> <accent> [key=val ...] — Create custom theme. Optional key=val: advanced color overrides AND background effects: bgPattern=<none|dots|synapse|rain|constellations|perlin-flow|petals|sparkles|embers>, bgEffectColor=#RRGGBB, bgEffectIntensity=<num>, bgEffectSize=<num>, frosted=true|false
-      open_panel <name>       — Open a panel (documents, gallery, email, sessions, notes, memories, skills, settings, cookbook)
-      open_email_reply <uid> [folder] [reply|reply-all|ai-reply] [body text] — Open a reply draft document for an email; does not send. ALWAYS append the body text when the user told you what to say (one-shot draft); only omit body when the user just asked to "open a reply" without content.
+      open_panel <name>       — Open a panel (documents, gallery, sessions, notes, memories, skills, settings, cookbook)
       get_toggles             — Return current toggle states (server-side knowledge)
     """
     lines = content.strip().split("\n")
@@ -774,7 +773,7 @@ async def do_ui_control(content: str, session_id: Optional[str] = None, owner: O
 
     elif action == "open_panel":
         # Open a top-level panel/modal: documents/library, gallery,
-        # email, sessions, notes, memories, skills, settings, cookbook.
+        # sessions, notes, memories, skills, settings, cookbook.
         panel = parts[1].lower() if len(parts) > 1 else ""
         _panel_aliases = {
             "documents": "documents",
@@ -785,10 +784,6 @@ async def do_ui_control(content: str, session_id: Optional[str] = None, owner: O
             "doclib": "documents",
             "gallery": "gallery",
             "images": "gallery",
-            "email": "email",
-            "emails": "email",
-            "inbox": "email",
-            "mail": "email",
             "sessions": "sessions",
             "chats": "sessions",
             "history": "sessions",
@@ -810,62 +805,12 @@ async def do_ui_control(content: str, session_id: Optional[str] = None, owner: O
         }
         target = _panel_aliases.get(panel)
         if not target:
-            return {"error": f"Unknown panel '{panel}'. Valid: documents, gallery, email, sessions, notes, memories, skills, settings, cookbook."}
+            return {"error": f"Unknown panel '{panel}'. Valid: documents, gallery, sessions, notes, memories, skills, settings, cookbook."}
         return {
             "ui_event": "open_panel",
             "panel": target,
             "results": f"Opening {target} panel",
         }
-
-    elif action == "open_email_reply":
-        # Two forms supported:
-        #   open_email_reply <uid> [folder] [reply|reply-all|ai-reply]
-        #   open_email_reply <uid> [folder] [reply|reply-all|ai-reply]
-        #     <body text on subsequent lines or after the mode token>
-        # The body text (if any) gets pre-filled into the reply draft so the
-        # agent can compose-and-open in one tool call instead of opening an
-        # empty draft and leaving the user to wonder what happened.
-        first_line = lines[0].strip()
-        parts = first_line.split(maxsplit=4)
-        uid = parts[1].strip() if len(parts) > 1 else ""
-        folder = parts[2].strip() if len(parts) > 2 else "INBOX"
-        mode = parts[3].strip().lower() if len(parts) > 3 else "reply"
-        # Body: everything on the first line after the mode token, plus any
-        # subsequent lines. Allows multi-line bodies.
-        inline_body = parts[4] if len(parts) > 4 else ""
-        rest_lines = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-        body = (inline_body + ("\n" + rest_lines if rest_lines else "")).strip()
-        if not uid:
-            return {"error": "open_email_reply needs: open_email_reply <uid> [folder] [reply|reply-all|ai-reply] [body text]"}
-        if mode not in ("reply", "reply-all", "ai-reply"):
-            mode = "reply"
-        # Body is REQUIRED for the agent path. Opening an empty draft is what
-        # users do by clicking the Reply button — they don't ask the agent
-        # for that. Every agent invocation of open_email_reply MUST include
-        # the body. Reject empty so the agent retries with the content the
-        # user asked for. Exception: ai-reply mode triggers the existing
-        # AI-Reply path on the frontend which generates its own body.
-        if not body and mode != "ai-reply":
-            return {
-                "error": (
-                    "open_email_reply called without body. The agent path REQUIRES a body — "
-                    "opening an empty draft is the wrong response when the user asked you to write. "
-                    "Re-call with the reply text included: "
-                    f"`open_email_reply {uid} {folder or 'INBOX'} {mode} <your reply text here>`. "
-                    "Compose the reply now based on the open email's content and the user's request, "
-                    "then call this tool again with the body. Do NOT call create_document instead."
-                ),
-            }
-        result = {
-            "ui_event": "open_email_reply",
-            "uid": uid,
-            "folder": folder or "INBOX",
-            "mode": mode,
-            "results": f"Opening reply draft for email UID {uid}" + (" with pre-filled body" if body else ""),
-        }
-        if body:
-            result["body"] = body
-        return result
 
     elif action == "get_toggles":
         return {

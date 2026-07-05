@@ -38,19 +38,19 @@ def test_models_create_mock_attributes(monkeypatch):
 
 def test_attributes_override_defaults_and_model_mocks(monkeypatch):
     session_local = object()
-    email_account = object()
+    calendar_event = object()
 
     db = make_core_db_stub(
         monkeypatch,
-        models=("EmailAccount",),
+        models=("CalendarEvent",),
         attributes={
             "SessionLocal": session_local,
-            "EmailAccount": email_account,
+            "CalendarEvent": calendar_event,
         },
     )
 
     assert db.SessionLocal is session_local
-    assert db.EmailAccount is email_account
+    assert db.CalendarEvent is calendar_event
 
 
 def test_core_module_installation_is_opt_in():

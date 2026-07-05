@@ -2,9 +2,6 @@
 
 - `src.secret_storage.encrypt/decrypt` round-trip, idempotent on already-
   encrypted input, transparent on legacy plaintext, fail-soft on bad key.
-- `routes.email_helpers._q` quotes IMAP mailbox names so a folder named
-  `"INBOX" (BODY ...` (or one containing `\\`) can't terminate the IMAP
-  command early.
 - Compose-upload tokens flow through `pathlib.Path(token).name` so a
   caller supplying `../../etc/passwd` can't escape `COMPOSE_UPLOADS_DIR`.
 
@@ -94,7 +91,7 @@ def test_secret_storage_is_encrypted(tmp_path, monkeypatch):
 def test_secret_storage_corrupt_token_returns_empty(tmp_path, monkeypatch):
     """A row encrypted under a different key (or hand-corrupted) must
     degrade to '' rather than raise — so a single bad row can't 500 the
-    whole email config lookup."""
+    whole config lookup."""
     ss = _import_secret_storage(tmp_path, monkeypatch)
     assert ss.decrypt("enc:not-a-valid-fernet-token") == ""
 
@@ -198,81 +195,6 @@ def test_integrations_plaintext_keys_migrate_on_load(tmp_path, monkeypatch):
     migrated = json.loads(migrated_text)
     assert migrated[0]["api_key"].startswith("enc:")
     assert "legacy-secret" not in migrated_text
-
-
-# ── _q IMAP mailbox quoter ─────────────────────────────────────
-
-def _import_q():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import _q  # noqa: WPS433
-    return _q
-
-
-def test_q_plain_name():
-    _q = _import_q()
-    assert _q("INBOX") == '"INBOX"'
-
-
-def test_q_name_with_spaces():
-    """`[Gmail]/Sent Mail` is the kind of folder that breaks unquoted
-    `conn.select(folder)`. The helper must always quote."""
-    _q = _import_q()
-    assert _q("[Gmail]/Sent Mail") == '"[Gmail]/Sent Mail"'
-
-
-def test_q_escapes_backslash():
-    _q = _import_q()
-    assert _q("weird\\name") == '"weird\\\\name"'
-
-
-def test_q_escapes_double_quote():
-    """A folder name like `INBOX" (BODY ...` would terminate the IMAP
-    string early without quote-escaping."""
-    _q = _import_q()
-    assert _q('INBOX" injected') == '"INBOX\\" injected"'
-
-
-def test_q_empty_input():
-    _q = _import_q()
-    assert _q("") == '""'
-    assert _q(None) == '""'
-
-
-# ── provider auth error normalization ──────────────────────────
-
-def _import_friendly_email_auth_error():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import _friendly_email_auth_error  # noqa: WPS433
-    return _friendly_email_auth_error
-
-
-def test_outlook_smtp_basic_auth_error_is_actionable():
-    normalize = _import_friendly_email_auth_error()
-    msg = normalize(
-        "SMTP",
-        "smtp.office365.com",
-        "(535, b'5.7.139 Authentication unsuccessful, basic authentication is disabled.')",
-    )
-
-    assert "Microsoft no longer accepts normal mailbox passwords" in msg
-    assert "OAuth/Graph" in msg
-    assert "535" not in msg
-
-
-def test_outlook_imap_authenticate_failed_is_actionable():
-    normalize = _import_friendly_email_auth_error()
-    msg = normalize("IMAP", "outlook.office365.com", "b'AUTHENTICATE failed.'")
-
-    assert "Microsoft no longer accepts normal mailbox passwords" in msg
-    assert "Outlook/Office 365" in msg
-
-
-def test_generic_auth_error_still_passes_through_truncated():
-    normalize = _import_friendly_email_auth_error()
-    msg = normalize("IMAP", "imap.example.com", "bad credentials " + ("x" * 300))
-
-    assert msg.startswith("bad credentials")
-    assert len(msg) == 200
 
 
 # ── compose-upload path traversal block ─────────────────────────
@@ -508,8 +430,7 @@ def test_pdf_marker_render_lookup_denies_cross_owner_without_doc_leak(tmp_path):
 def test_require_user_rejects_unauthenticated(monkeypatch):
     """The shared auth dependency must raise 401 when the middleware
     didn't attach a user AND auth is configured. Mirrors the
-    defense-in-depth check on /api/contacts/*, /api/personal/*,
-    /api/email/*."""
+    defense-in-depth check on /api/contacts/* and /api/personal/*."""
     sys.modules.pop("src.auth_helpers", None)
     from fastapi import HTTPException
 
@@ -537,30 +458,6 @@ def test_require_user_rejects_unauthenticated(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         auth_helpers.require_user(_Req())
     assert exc.value.status_code == 401
-
-
-def test_inprocess_pollers_gate(monkeypatch):
-    """The ODYSSEUS_INPROCESS_POLLERS env var must let operators kill
-    the asyncio pollers when cron / systemd is driving the one-shot
-    `odysseus-mail poll-*` CLI subcommands instead. Two pollers racing
-    on the same SQLite would mark scheduled rows as 'sent' twice."""
-    import sys as _sys
-    _sys.modules.pop("routes.email_pollers", None)
-    from routes.email_pollers import _inprocess_pollers_enabled  # noqa: WPS433
-
-    # Defaults to enabled (preserves single-process deployments).
-    monkeypatch.delenv("ODYSSEUS_INPROCESS_POLLERS", raising=False)
-    assert _inprocess_pollers_enabled() is True
-
-    # Any of the off-values disables.
-    for off in ("0", "false", "no", "off", "FALSE", "Off"):
-        monkeypatch.setenv("ODYSSEUS_INPROCESS_POLLERS", off)
-        assert _inprocess_pollers_enabled() is False, f"{off!r} should disable"
-
-    # Explicit on-values stay enabled.
-    for on in ("1", "true", "yes", "anything-truthy"):
-        monkeypatch.setenv("ODYSSEUS_INPROCESS_POLLERS", on)
-        assert _inprocess_pollers_enabled() is True, f"{on!r} should enable"
 
 
 def test_require_user_accepts_loopback_when_unconfigured(monkeypatch):
@@ -937,37 +834,7 @@ def test_web_fetch_guard_blocks_redirect_into_private(monkeypatch):
     assert "Blocked" in str(exc.value)
 
 
-# ── audit fixes (2026-06-01): email XSS, attachment traversal, authz ──
-
-def _import_attachment_extract_dir():
-    sys.modules.pop("routes.email_helpers", None)
-    from routes.email_helpers import attachment_extract_dir, ATTACHMENTS_DIR
-    return attachment_extract_dir, ATTACHMENTS_DIR
-
-
-@pytest.mark.parametrize("folder,uid", [
-    ("../../../../tmp/evil", "1"),
-    ("INBOX", "../../etc/cron.d/x"),
-    ("a/../../b", "x"),
-    ("..", ".."),
-    ("/abs/path", "2"),
-])
-def test_attachment_extract_dir_stays_contained(folder, uid):
-    """User-controlled folder/uid must never escape ATTACHMENTS_DIR — pins the
-    fix for the attachment-extraction path traversal."""
-    aed, base = _import_attachment_extract_dir()
-    target = aed(folder, uid)
-    base_r = base.resolve()
-    assert target == base_r or base_r in target.parents
-    # exactly one extra path segment, and no `..` component survived
-    rel = target.relative_to(base_r)
-    assert ".." not in rel.parts
-
-
-def test_attachment_extract_dir_normal_inputs_unchanged():
-    aed, base = _import_attachment_extract_dir()
-    assert aed("INBOX", "123") == base.resolve() / "INBOX_123"
-
+# ── audit fixes (2026-06-01): authz ──
 
 def test_diagnostics_routes_are_admin_gated():
     """db/rag stats + test endpoints must require admin (they relied only on
@@ -977,16 +844,6 @@ def test_diagnostics_routes_are_admin_gated():
     for handler in ("get_database_stats", "get_rag_stats", "test_youtube", "test_research"):
         assert f"def {handler}(request: Request" in text, handler
     assert text.count("require_admin(request)") >= 4
-
-
-def test_email_thread_rendering_sanitizes_body_html():
-    """Both threaded render paths must run server-parsed body_html through the
-    allowlist sanitizer (the flat path already did)."""
-    src = Path(__file__).resolve().parents[1] / "static" / "js" / "emailLibrary.js"
-    text = src.read_text()
-    # every `t.body_html` reference is wrapped by _sanitizeHtml(...)
-    assert text.count("t.body_html") == text.count("_sanitizeHtml(t.body_html")
-    assert "t.body_html" in text  # guard against the file being refactored away
 
 
 def test_session_html_export_escapes_name():

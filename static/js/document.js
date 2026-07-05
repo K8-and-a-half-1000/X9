@@ -29,15 +29,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
   let _animationInProgress = false;
   let _animationCancel = null;      // function to cancel current animation
   let _htmlPreviewActive = false;   // true when inline HTML preview iframe is showing
-  let _emailAccountsCache = null;
-  let _emailAccountsCacheAt = 0;
-  let _emailHeaderManualExpandUntil = 0;
-  let _emailStreamAnimFrame = null;
-  let _emailStreamRenderedBody = '';
-  let _emailStreamTargetBody = '';
-  let _emailLocalDraftDebounce = null;
-  let _emailRichbodySaveDebounce = null;
-  const _EMAIL_LOCAL_DRAFT_PREFIX = 'odysseus.email.replyDraft.v1:';
 
   // Diff mode state
   let _diffModeActive = false;
@@ -80,36 +71,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       'ini', 'toml',
     ].includes(lang) || _isRenderLang(lang);
   };
-
-  async function _getEmailAccountsCached() {
-    const now = Date.now();
-    if (_emailAccountsCache && (now - _emailAccountsCacheAt) < 30000) return _emailAccountsCache;
-    try {
-      const res = await fetch(`${API_BASE}/api/email/accounts`, { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('accounts failed');
-      const data = await res.json();
-      _emailAccountsCache = Array.isArray(data.accounts) ? data.accounts : [];
-    } catch (_) {
-      _emailAccountsCache = [];
-    }
-    _emailAccountsCacheAt = now;
-    return _emailAccountsCache;
-  }
-
-  function _accountCanSend(account) {
-    if (!account || !account.smtp_host || !account.smtp_user) return false;
-    return !!(account.has_smtp_password || account.oauth_provider);
-  }
-
-  async function _resolveComposeSendAccountId() {
-    const activeAccountId = window.__odysseusActiveEmailAccount || null;
-    if (!activeAccountId) return null;
-    const accounts = await _getEmailAccountsCached();
-    const activeAccount = accounts.find(a => String(a.id) === String(activeAccountId));
-    if (!activeAccount || _accountCanSend(activeAccount)) return activeAccountId;
-    if (uiModule) uiModule.showToast('Selected email account is receive-only; using your SMTP account.');
-    return null;
-  }
 
   // Inject tab menu styles immediately (must exist before any hover)
   {
@@ -2026,9 +1987,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
   function _syncHeaderBarVisibility() {
     const hdr = document.getElementById('doc-editor-actions');
     if (!hdr) return;
-    // Email docs hide the whole header (they use their own send footer) — never
-    // resurrect it here.
-    if (docs.get(activeDocId)?.language === 'email') { hdr.style.display = 'none'; return; }
     const vis = (id) => {
       const e = document.getElementById(id);
       if (!e || !e.parentElement) return false;
@@ -2058,22 +2016,12 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       || docs.get(activeDocId)?.content
       || '';
     const isForm = _isFormBackedDoc(live);
-    // Footer main button: for a doc opened from an email attachment, morph the
-    // Save button into "Attach" (send the filled file back to the sender via
-    // the signed-reply flow). Otherwise it forces a new saved version.
+    // Footer main button forces a new saved version.
     const _copyBtn = document.getElementById('doc-footer-copy-btn');
-    if (_copyBtn) {
-      const _ad = docs.get(activeDocId);
-      const _replyable = !!(_ad && _ad.sourceEmailUid && _ad.sourceEmailFolder);
-      if (_replyable && _copyBtn.dataset.mode !== 'reply') {
-        _copyBtn.dataset.mode = 'reply';
-        _copyBtn.title = 'Reply to the sender with this filled file attached';
-        _copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Attach';
-      } else if (!_replyable && _copyBtn.dataset.mode !== 'save') {
-        _copyBtn.dataset.mode = 'save';
-        _copyBtn.title = 'Save new version';
-        _copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save';
-      }
+    if (_copyBtn && _copyBtn.dataset.mode !== 'save') {
+      _copyBtn.dataset.mode = 'save';
+      _copyBtn.title = 'Save new version';
+      _copyBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save';
     }
     // Standalone Export PDF / PDF-toggle icon buttons are retired — for a
     // form-backed doc the language selector itself toggles between
@@ -2242,819 +2190,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     _syncHeaderBarVisibility();
   }
 
-  // ── Email document type helpers ──
-
-  function _parseEmailHeader(content) {
-    const empty = { to: '', cc: '', bcc: '', subject: '', inReplyTo: '', references: '', sourceUid: '', sourceFolder: '', forwardAttachments: false, attachments: [], body: content || '' };
-    if (!content) return empty;
-    const parts = content.split(/\n---\n/);
-    if (parts.length < 2) return empty;
-    const header = parts[0];
-    const body = parts.slice(1).join('\n---\n');
-    const fields = { to: '', cc: '', bcc: '', subject: '', inReplyTo: '', references: '', sourceUid: '', sourceFolder: '', forwardAttachments: false, attachments: [], body: body };
-    for (const line of header.split('\n')) {
-      const m = line.match(/^(To|Cc|Bcc|Subject|In-Reply-To|References|X-Source-UID|X-Source-Folder|X-Forward-Attachments|X-Attachments):\s*(.*)$/i);
-      if (m) {
-        let key = m[1].toLowerCase();
-        if (key === 'in-reply-to') key = 'inReplyTo';
-        else if (key === 'x-source-uid') key = 'sourceUid';
-        else if (key === 'x-source-folder') key = 'sourceFolder';
-        else if (key === 'x-forward-attachments') {
-          fields.forwardAttachments = /^(1|true|yes)$/i.test((m[2] || '').trim());
-          continue;
-        }
-        else if (key === 'x-attachments') {
-          fields.attachments = m[2].trim().split('|').map(a => {
-            const [index, filename, size] = a.split(':');
-            return { index: parseInt(index), filename, size: parseInt(size) };
-          });
-          continue;
-        }
-        fields[key] = m[2].trim();
-      }
-    }
-    return fields;
-  }
-
-  function _buildEmailContent(to, subject, inReplyTo, references, body, sourceUid, sourceFolder, cc, bcc) {
-    let header = `To: ${to}`;
-    if (cc) header += `\nCc: ${cc}`;
-    if (bcc) header += `\nBcc: ${bcc}`;
-    header += `\nSubject: ${subject}`;
-    if (inReplyTo) header += `\nIn-Reply-To: ${inReplyTo}`;
-    if (references) header += `\nReferences: ${references}`;
-    if (sourceUid) header += `\nX-Source-UID: ${sourceUid}`;
-    if (sourceFolder) header += `\nX-Source-Folder: ${sourceFolder}`;
-    return header + '\n---\n' + body;
-  }
-
-  function _emailLocalDraftKey(sourceUid, sourceFolder, inReplyTo) {
-    const uid = String(sourceUid || '').trim();
-    if (!uid) return '';
-    const folder = String(sourceFolder || 'INBOX').trim() || 'INBOX';
-    const msg = String(inReplyTo || '').trim();
-    return _EMAIL_LOCAL_DRAFT_PREFIX + encodeURIComponent(`${folder}|${uid}|${msg}`);
-  }
-
-  function _loadEmailLocalDraft(fields) {
-    const key = _emailLocalDraftKey(fields?.sourceUid, fields?.sourceFolder, fields?.inReplyTo);
-    if (!key) return null;
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      const draft = JSON.parse(raw);
-      if (!draft || typeof draft !== 'object') return null;
-      const updatedAt = Number(draft.updatedAt || 0);
-      if (updatedAt && Date.now() - updatedAt > 45 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(key);
-        return null;
-      }
-      return draft;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function _emailFieldsWithLocalDraft(fields) {
-    const draft = _loadEmailLocalDraft(fields);
-    if (!draft) return fields;
-    return {
-      ...fields,
-      to: draft.to ?? fields.to,
-      cc: draft.cc ?? fields.cc,
-      bcc: draft.bcc ?? fields.bcc,
-      subject: draft.subject ?? fields.subject,
-      inReplyTo: draft.inReplyTo ?? fields.inReplyTo,
-      references: draft.references ?? fields.references,
-      sourceUid: draft.sourceUid ?? fields.sourceUid,
-      sourceFolder: draft.sourceFolder ?? fields.sourceFolder,
-      body: draft.body ?? fields.body,
-    };
-  }
-
-  function _persistEmailLocalDraftNow() {
-    const doc = activeDocId && docs.get(activeDocId);
-    if (!doc || doc.language !== 'email') return;
-    const sourceUid = document.getElementById('doc-email-source-uid')?.value || '';
-    const sourceFolder = document.getElementById('doc-email-source-folder')?.value || 'INBOX';
-    const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value || '';
-    const key = _emailLocalDraftKey(sourceUid, sourceFolder, inReplyTo);
-    if (!key) return;
-    const rich = document.getElementById('doc-email-richbody');
-    const textarea = document.getElementById('doc-editor-textarea');
-    const body = (rich && rich.style.display !== 'none') ? rich.innerHTML : (textarea?.value || '');
-    const payload = {
-      to: document.getElementById('doc-email-to')?.value || '',
-      cc: document.getElementById('doc-email-cc')?.value || '',
-      bcc: document.getElementById('doc-email-bcc')?.value || '',
-      subject: document.getElementById('doc-email-subject')?.value || '',
-      inReplyTo,
-      references: document.getElementById('doc-email-references')?.value || '',
-      sourceUid,
-      sourceFolder,
-      body,
-      updatedAt: Date.now(),
-    };
-    try { localStorage.setItem(key, JSON.stringify(payload)); } catch (_) {}
-  }
-
-  function _persistEmailLocalDraftSoon() {
-    clearTimeout(_emailLocalDraftDebounce);
-    _emailLocalDraftDebounce = setTimeout(_persistEmailLocalDraftNow, 800);
-  }
-
-  function _clearEmailLocalDraft(sourceUid, sourceFolder, inReplyTo) {
-    const key = _emailLocalDraftKey(sourceUid, sourceFolder, inReplyTo);
-    if (!key) return;
-    try { localStorage.removeItem(key); } catch (_) {}
-  }
-
-  function _clearCurrentEmailLocalDraft() {
-    _clearEmailLocalDraft(
-      document.getElementById('doc-email-source-uid')?.value || '',
-      document.getElementById('doc-email-source-folder')?.value || 'INBOX',
-      document.getElementById('doc-email-in-reply-to')?.value || '',
-    );
-  }
-
-  // ── WYSIWYG email body helpers ──
-  function _emailBodyToHtml(text) {
-    const t = (text || '').trim();
-    if (!t) return '';
-    // If it already contains a formatting/structural HTML tag, it's a saved
-    // WYSIWYG body — use it verbatim. (Checking a leading '<' isn't enough: a
-    // rich body often starts with plain text, e.g. "Hi <b>there</b>".)
-    if (/<\/?(b|i|u|s|strong|em|del|strike|a|p|div|br|ul|ol|li|h[1-3]|blockquote|span|code|pre)\b[^>]*>/i.test(t)) return t;
-    // Email body: keep author-typed `:shortcode:` text literal. Issue #345
-    // (shortcode → emoji) is scoped to chat; do not rewrite colons in mail.
-    try { return markdownModule.mdToHtml(text, { shortcodes: false }); }
-    catch (_) {
-      const d = document.createElement('div'); d.textContent = text;
-      return d.innerHTML.replace(/\n/g, '<br>');
-    }
-  }
-  // Mirror the rich body's plain text into the hidden textarea so the existing
-  // send / draft / change-detection plumbing (which reads the textarea) stays
-  // valid. The rich body's HTML is read separately on send (body_html).
-  function _syncEmailRichbody(rich) {
-    const ta = document.getElementById('doc-editor-textarea');
-    if (!ta) return;
-    ta.value = rich.innerText;
-    const doc = activeDocId && docs.get(activeDocId);
-    if (doc && doc.language === 'email') {
-      const fields = _parseEmailHeader(doc.content || '');
-      doc.content = _buildEmailContent(
-        document.getElementById('doc-email-to')?.value || fields.to || '',
-        document.getElementById('doc-email-subject')?.value || fields.subject || '',
-        document.getElementById('doc-email-in-reply-to')?.value || fields.inReplyTo || '',
-        document.getElementById('doc-email-references')?.value || fields.references || '',
-        rich.innerHTML,
-        document.getElementById('doc-email-source-uid')?.value || fields.sourceUid || '',
-        document.getElementById('doc-email-source-folder')?.value || fields.sourceFolder || '',
-        document.getElementById('doc-email-cc')?.value || fields.cc || '',
-        document.getElementById('doc-email-bcc')?.value || fields.bcc || '',
-      );
-    }
-  }
-  function _scheduleEmailRichbodySave() {
-    _persistEmailLocalDraftSoon();
-    clearTimeout(_emailRichbodySaveDebounce);
-    _emailRichbodySaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 2500);
-  }
-  function _wireEmailRichbody(rich) {
-    if (rich._wired) { _syncEmailRichbody(rich); return; }
-    rich._wired = true;
-    rich.addEventListener('input', () => {
-      _syncEmailRichbody(rich);
-      _scheduleEmailRichbodySave();
-    });
-    // Highlight toolbar buttons (B / I / S, headings, lists) when the caret
-    // sits inside formatted text. queryCommandState reflects the live
-    // selection — we just translate that into .is-active classes the CSS
-    // already understands.
-    let syncActiveFrame = 0;
-    const syncActiveNow = () => {
-      syncActiveFrame = 0;
-      if (!rich.isConnected || rich.style.display === 'none') return;
-      // Only sync when focus is inside the rich body — otherwise selection
-      // outside it (e.g. clicking the toolbar itself) gives misleading state.
-      if (!rich.contains(document.activeElement) && document.activeElement !== rich) return;
-      const tb = document.getElementById('doc-md-toolbar');
-      if (!tb) return;
-      const set = (sel, on) => { const b = tb.querySelector(sel); if (b) b.classList.toggle('is-active', !!on); };
-      try {
-        set('[data-md="bold"]',   document.queryCommandState('bold'));
-        set('[data-md="italic"]', document.queryCommandState('italic'));
-        set('[data-md="strike"]', document.queryCommandState('strikeThrough'));
-      } catch (_) {}
-      // Block-level: heading / list dropdown toggles read their active state
-      // from the current block tag.
-      const cur = _currentBlockTag(rich);
-      const hBtn = tb.querySelector('[data-dd="heading"]');
-      if (hBtn) hBtn.classList.toggle('is-active', cur === 'h1' || cur === 'h2' || cur === 'h3');
-      try {
-        const inList = document.queryCommandState('insertOrderedList') || document.queryCommandState('insertUnorderedList');
-        const lBtn = tb.querySelector('[data-dd="list"]');
-        if (lBtn) lBtn.classList.toggle('is-active', !!inList);
-      } catch (_) {}
-    };
-    const syncActive = () => {
-      if (syncActiveFrame) return;
-      syncActiveFrame = requestAnimationFrame(syncActiveNow);
-    };
-    rich.addEventListener('keyup',    syncActive);
-    rich.addEventListener('mouseup',  syncActive);
-    rich.addEventListener('focus',    syncActive);
-    // selectionchange fires on the document; filter to selections inside rich.
-    document.addEventListener('selectionchange', () => {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount && rich.contains(sel.anchorNode)) syncActive();
-    });
-    rich._syncActive = syncActive;
-  }
-  function _emailRichbodyActive() {
-    const r = document.getElementById('doc-email-richbody');
-    return r && r.style.display !== 'none' ? r : null;
-  }
-
-  function _captureEmailBodyFocusState() {
-    const rich = _emailRichbodyActive();
-    const ta = document.getElementById('doc-editor-textarea');
-    const active = document.activeElement;
-    if (rich && (active === rich || rich.contains(active))) {
-      const sel = window.getSelection();
-      const range = sel && sel.rangeCount ? sel.getRangeAt(0) : null;
-      return {
-        type: 'rich',
-        range: range && rich.contains(range.commonAncestorContainer) ? range.cloneRange() : null,
-      };
-    }
-    if (ta && active === ta) {
-      return {
-        type: 'textarea',
-        start: ta.selectionStart,
-        end: ta.selectionEnd,
-      };
-    }
-    return null;
-  }
-
-  function _restoreEmailBodyFocusState(state) {
-    if (!state) return;
-    requestAnimationFrame(() => {
-      if (state.type === 'rich') {
-        const rich = _emailRichbodyActive();
-        if (!rich) return;
-        rich.focus({ preventScroll: true });
-        if (state.range) {
-          const sel = window.getSelection();
-          if (sel) {
-            sel.removeAllRanges();
-            sel.addRange(state.range);
-          }
-        }
-      } else if (state.type === 'textarea') {
-        const ta = document.getElementById('doc-editor-textarea');
-        if (!ta) return;
-        ta.focus({ preventScroll: true });
-        if (Number.isFinite(state.start) && Number.isFinite(state.end)) {
-          try { ta.setSelectionRange(state.start, state.end); } catch (_) {}
-        }
-      }
-    });
-  }
-
-  function _renderStreamingEmailBody(body, { immediate = false } = {}) {
-    const rich = document.getElementById('doc-email-richbody');
-    const textarea = document.getElementById('doc-editor-textarea');
-    if (!rich) return;
-
-    _emailStreamTargetBody = body || '';
-    if (!_emailStreamRenderedBody && textarea && textarea.value) {
-      _emailStreamRenderedBody = textarea.value;
-    }
-
-    const applyBody = (value) => {
-      if (textarea) {
-        textarea.value = value;
-        textarea.scrollTop = textarea.scrollHeight;
-      }
-      rich.innerHTML = _emailBodyToHtml(value);
-      rich.scrollTop = rich.scrollHeight;
-    };
-
-    if (immediate) {
-      if (_emailStreamAnimFrame) cancelAnimationFrame(_emailStreamAnimFrame);
-      _emailStreamAnimFrame = null;
-      _emailStreamRenderedBody = _emailStreamTargetBody;
-      applyBody(_emailStreamRenderedBody);
-      return;
-    }
-
-    if (_emailStreamTargetBody.length < _emailStreamRenderedBody.length ||
-        !_emailStreamTargetBody.startsWith(_emailStreamRenderedBody)) {
-      _emailStreamRenderedBody = '';
-    }
-
-    if (_emailStreamAnimFrame) return;
-    const tick = () => {
-      const remaining = _emailStreamTargetBody.length - _emailStreamRenderedBody.length;
-      if (remaining <= 0) {
-        _emailStreamAnimFrame = null;
-        return;
-      }
-      const step = Math.max(1, Math.min(8, Math.ceil(remaining / 18)));
-      _emailStreamRenderedBody = _emailStreamTargetBody.slice(0, _emailStreamRenderedBody.length + step);
-      applyBody(_emailStreamRenderedBody);
-      _emailStreamAnimFrame = requestAnimationFrame(tick);
-    };
-    _emailStreamAnimFrame = requestAnimationFrame(tick);
-  }
-
-  function _emailQuoteStartIndex(lines) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = String(lines[i] || '').trim();
-      if (
-        /^[-_=–—\s]{3,}(previous|original|forwarded)\s+(message|email|mail)[-_=–—\s]{3,}$/i.test(line)
-        || /^On .+ wrote:\s*$/i.test(line)
-        || /^-{2,}\s*Original Message\s*-{2,}$/i.test(line)
-      ) {
-        return i;
-      }
-      // Some pasted/converted threads lose the separator and start directly
-      // with mail headers. Treat that as quoted history only when the nearby
-      // lines look like a real header block.
-      if (/^From:\s+\S/i.test(line)) {
-        const nearby = lines.slice(i + 1, i + 8).map(l => String(l || '').trim());
-        if (nearby.some(l => /^To:\s+/i.test(l)) || nearby.some(l => /^Subject:\s+/i.test(l))) {
-          return i;
-        }
-      }
-    }
-    return -1;
-  }
-
-  function _emailQuoteStartOffset(text) {
-    const original = String(text || '');
-    if (!original) return -1;
-    const boundary = String.raw`(?:^|\n|<br\s*\/?>|<\/(?:p|div|blockquote|li|tr|h[1-6])>)`;
-    const patterns = [
-      new RegExp(`${boundary}\\s*(?:[-_=–—\\s]|&nbsp;){3,}(?:previous|original|forwarded)\\s+(?:message|email|mail)(?:[-_=–—\\s]|&nbsp;){3,}`, 'i'),
-      new RegExp(`${boundary}\\s*On\\s+.{1,700}?\\s+wrote:\\s*`, 'i'),
-      new RegExp(`${boundary}\\s*-{2,}\\s*Original Message\\s*-{2,}`, 'i'),
-    ];
-    let best = -1;
-    for (const re of patterns) {
-      const m = re.exec(original);
-      if (!m) continue;
-      let idx = m.index;
-      const prefix = m[0].match(/^(?:\n|<br\s*\/?>|<\/(?:p|div|blockquote|li|tr|h[1-6])>)/i);
-      if (prefix) idx += prefix[0].length;
-      if (best < 0 || idx < best) best = idx;
-    }
-    const fromRe = new RegExp(`${boundary}\\s*From:\\s*\\S`, 'i');
-    const fromMatch = fromRe.exec(original);
-    if (fromMatch) {
-      let idx = fromMatch.index;
-      const prefix = fromMatch[0].match(/^(?:\n|<br\s*\/?>|<\/(?:p|div|blockquote|li|tr|h[1-6])>)/i);
-      if (prefix) idx += prefix[0].length;
-      const nearby = original.slice(idx, idx + 1200);
-      if (/(?:^|\n|<br\s*\/?>|<\/(?:p|div|blockquote|li|tr|h[1-6])>)\s*(?:To|Subject):\s*/i.test(nearby)) {
-        if (best < 0 || idx < best) best = idx;
-      }
-    }
-    return best;
-  }
-
-  function _splitEmailReplyQuote(text) {
-    const original = String(text || '');
-    if (!original) return { body: '', quote: '', stripped: false };
-    const htmlQuoteOffset = _emailQuoteStartOffset(original);
-    if (htmlQuoteOffset >= 0) {
-      const body = original.slice(0, htmlQuoteOffset).trim();
-      const quote = original.slice(htmlQuoteOffset).trim();
-      return { body, quote, stripped: true };
-    }
-    const lines = original.split('\n');
-    const quoteIdx = _emailQuoteStartIndex(lines);
-    if (quoteIdx < 0) return { body: original.trim(), quote: '', stripped: false };
-    const body = lines.slice(0, quoteIdx).join('\n').trim();
-    const quote = lines.slice(quoteIdx).join('\n').trim();
-    return { body, quote, stripped: true };
-  }
-
-  function _stripEmailReplyQuoteText(text) {
-    const split = _splitEmailReplyQuote(text);
-    return { body: split.body, stripped: split.stripped };
-  }
-
-  function _emailReplyOwnText(text) {
-    return _stripEmailReplyQuoteText(text).body;
-  }
-
-  function _setEmailBodyText(textarea, value) {
-    if (!textarea) return;
-    textarea.value = value || '';
-    syncHighlighting();
-    const rich = _emailRichbodyActive();
-    if (rich) rich.innerHTML = _emailBodyToHtml(textarea.value);
-    _persistEmailLocalDraftSoon();
-  }
-
-  async function _streamEmailBodyText(textarea, value) {
-    if (!textarea) return;
-    const finalText = String(value || '');
-    const maxFrames = 90;
-    const chunk = Math.max(8, Math.ceil(finalText.length / maxFrames));
-    textarea.value = '';
-    const rich = _emailRichbodyActive();
-    if (rich) rich.innerHTML = '';
-    for (let i = 0; i < finalText.length; i += chunk) {
-      const next = finalText.slice(0, i + chunk);
-      textarea.value = next;
-      if (rich) rich.innerHTML = _emailBodyToHtml(next);
-      _persistEmailLocalDraftSoon();
-      await new Promise(resolve => requestAnimationFrame(resolve));
-    }
-    _setEmailBodyText(textarea, finalText);
-  }
-
-  function _focusEmailBodyEnd() {
-    const target = _emailRichbodyActive() || document.getElementById('doc-editor-textarea');
-    if (!target) return;
-    target.focus();
-    if (target.isContentEditable) {
-      const range = document.createRange();
-      range.selectNodeContents(target);
-      range.collapse(false);
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-    } else if (typeof target.setSelectionRange === 'function') {
-      const len = target.value.length;
-      target.setSelectionRange(len, len);
-    }
-  }
-
-  function _syncEmailHeaderSummary() {
-    const to = document.getElementById('doc-email-to')?.value?.trim() || 'No recipient';
-    const subject = document.getElementById('doc-email-subject')?.value?.trim() || 'No subject';
-    const cc = document.getElementById('doc-email-cc')?.value?.trim() || '';
-    const bcc = document.getElementById('doc-email-bcc')?.value?.trim() || '';
-    const summary = document.getElementById('doc-email-collapse-summary');
-    if (!summary) return;
-    const extras = [];
-    if (cc) extras.push('Cc');
-    if (bcc) extras.push('Bcc');
-    summary.textContent = `${to} · ${subject}${extras.length ? ` · ${extras.join('/')}` : ''}`;
-    summary.title = summary.textContent;
-  }
-
-  function _setEmailHeaderInputValue(id, value, { preserveFocused = true, preserveNonEmpty = false } = {}) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const next = value || '';
-    if (preserveFocused && document.activeElement === el) return;
-    if (preserveNonEmpty && !next && el.value) return;
-    if (el.value !== next) el.value = next;
-  }
-
-  function _setEmailHeaderCollapsed(collapsed, { manual = true } = {}) {
-    const header = document.getElementById('doc-email-header');
-    const btn = document.getElementById('doc-email-collapse-btn');
-    if (!header) return;
-    if (window.innerWidth > 768) collapsed = false;
-    header.classList.toggle('doc-email-header-collapsed', !!collapsed);
-    if (btn) {
-      btn.setAttribute('aria-expanded', String(!collapsed));
-      btn.title = collapsed ? 'Show email fields' : 'Hide email fields';
-    }
-    const doc = activeDocId && docs.get(activeDocId);
-    if (doc && manual) doc._emailHeaderCollapsed = !!collapsed;
-    if (manual && !collapsed) _emailHeaderManualExpandUntil = Date.now() + 1400;
-    _syncEmailHeaderSummary();
-  }
-
-  function _shouldAutoCollapseEmailHeader() {
-    return window.innerWidth <= 768;
-  }
-
-  function _maybeAutoCollapseEmailHeader() {
-    const doc = activeDocId && docs.get(activeDocId);
-    if (!doc || doc.language !== 'email') return;
-    if (Date.now() < _emailHeaderManualExpandUntil) return;
-    if (document.activeElement?.closest?.('#doc-email-fields')) return;
-    if (_shouldAutoCollapseEmailHeader()) _setEmailHeaderCollapsed(true, { manual: false });
-  }
-
-  function _showEmailFields(doc) {
-    const emailHeader = document.getElementById('doc-email-header');
-    const emailActions = document.getElementById('doc-email-actions');
-    // Show MD toolbar for email too (B, I, etc.)
-    const mdToolbar = document.getElementById('doc-md-toolbar');
-    if (mdToolbar) {
-      mdToolbar.style.display = '';
-      if (mdToolbar._syncOverflow) requestAnimationFrame(mdToolbar._syncOverflow);
-    }
-    // Hide toolbar items that have no clean WYSIWYG equivalent in email (Code).
-    document.querySelectorAll('.md-toolbar-email-hide').forEach(el => { el.style.display = 'none'; });
-    // Show email-only toolbar items (AI reply button).
-    document.querySelectorAll('.md-toolbar-email-only').forEach(el => { el.style.display = 'inline-flex'; });
-    if (emailHeader) emailHeader.style.display = '';
-    if (emailActions) emailActions.style.display = '';
-    // Emails have their own complete footer (Close / More / Send), so hide the
-    // generic documents action bar AND the generic bottom footer. The TYPE
-    // picker is the exception — relocate it into the email footer so the
-    // type-switching affordance is in the same footer slot across all docs.
-    const docActions = document.getElementById('doc-editor-actions');
-    if (docActions) docActions.style.display = 'none';
-    const docFooter = document.getElementById('doc-actions-footer');
-    if (docFooter) docFooter.style.display = 'none';
-    if (emailActions) {
-      const _lang = document.getElementById('doc-language-select');
-      const _sendSplit = emailActions.querySelector('.email-send-split');
-      if (_lang && _sendSplit) emailActions.insertBefore(_lang, _sendSplit);
-    }
-    // Colored system-emoji font for email compose
-    document.getElementById('doc-editor-textarea')?.classList.add('email-mode');
-    document.getElementById('doc-editor-code')?.classList.add('email-mode');
-    document.getElementById('doc-editor-highlight')?.classList.add('email-mode');
-    let fields = _parseEmailHeader(doc.content || '');
-    fields = _emailFieldsWithLocalDraft(fields);
-    const subjectInput = document.getElementById('doc-email-subject');
-    const textarea = document.getElementById('doc-editor-textarea');
-    _setEmailHeaderInputValue('doc-email-to', fields.to, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-subject', fields.subject, { preserveNonEmpty: true });
-    _setEmailHeaderCollapsed(!!(doc && doc._emailHeaderCollapsed), { manual: false });
-    if (subjectInput && !subjectInput._emailTabBodyBound) {
-      subjectInput._emailTabBodyBound = true;
-      subjectInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Tab' && !e.shiftKey) {
-          e.preventDefault();
-          _focusEmailBodyEnd();
-        }
-      });
-    }
-    _setEmailHeaderInputValue('doc-email-in-reply-to', fields.inReplyTo, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-references', fields.references, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-source-uid', fields.sourceUid || '', { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-source-folder', fields.sourceFolder || '', { preserveNonEmpty: true });
-    // Show/hide unread button only if we have a source UID (came from inbox)
-    const unreadBtn = document.getElementById('doc-email-unread-btn');
-    if (unreadBtn) unreadBtn.style.display = fields.sourceUid ? '' : 'none';
-    // Render attachment chips
-    const attDiv = document.getElementById('doc-email-attachments');
-    if (attDiv) {
-      attDiv.innerHTML = '';
-      if (fields.attachments && fields.attachments.length > 0 && fields.sourceUid) {
-        attDiv.style.display = '';
-        for (const att of fields.attachments) {
-          const isPdf = (att.filename || '').toLowerCase().endsWith('.pdf');
-          const sizeKb = att.size > 0 ? `${Math.round(att.size / 1024)} KB` : '';
-          const chipHtml = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span>${_escHtml(att.filename)}</span><span class="att-size">${sizeKb}</span>`;
-          // Helper: swap chip content for a whirlpool spinner while busy.
-          const _withSpinner = async (chip, fn) => {
-            if (chip.dataset.loading === '1') return;
-            chip.dataset.loading = '1';
-            const orig = chip.innerHTML;
-            chip.innerHTML = '';
-            const sp = spinnerModule.createWhirlpool(14);
-            sp.style.marginRight = '6px';
-            chip.appendChild(sp);
-            const lbl = document.createElement('span');
-            lbl.textContent = att.filename;
-            chip.appendChild(lbl);
-            try { await fn(); }
-            finally { chip.dataset.loading = ''; chip.innerHTML = orig; }
-          };
-          if (isPdf) {
-            // PDF: open in the in-app PDF viewer as a new doc tab
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'email-attachment-chip email-attachment-chip-pdf';
-            // Full filename on hover — chip ellipsis-truncates long names.
-            chip.title = att.filename;
-            chip.innerHTML = chipHtml;
-            chip.addEventListener('click', () => _withSpinner(chip, async () => {
-              try {
-                const folderQs = encodeURIComponent(fields.sourceFolder || 'INBOX');
-                const res = await fetch(`${API_BASE}/api/email/attachment-as-doc/${encodeURIComponent(fields.sourceUid)}/${att.index}?folder=${folderQs}`, { method: 'POST' });
-                const data = await res.json();
-                if (data.doc_id) {
-                  await loadDocument(data.doc_id);
-                } else if (uiModule) {
-                  uiModule.showError(data.error || 'Failed to open PDF');
-                  window.open(`${API_BASE}/api/email/attachment/${encodeURIComponent(fields.sourceUid)}/${att.index}?folder=${folderQs}`, '_blank');
-                }
-              } catch (e) {
-                console.error('Open PDF attachment failed:', e);
-                if (uiModule) uiModule.showError('Failed to open PDF');
-              }
-            }));
-            attDiv.appendChild(chip);
-          } else {
-            // Non-PDF: download via fetch+blob+anchor — browser-native download
-            // with target=_blank was unreliable in some browsers (the click did
-            // nothing). The blob path forces a real Save dialog every time.
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'email-attachment-chip';
-            // Full filename on hover for the chip ellipsis-truncated label.
-            chip.title = `Download ${att.filename}`;
-            chip.innerHTML = chipHtml;
-            chip.addEventListener('click', () => _withSpinner(chip, async () => {
-              try {
-                const folderQs = encodeURIComponent(fields.sourceFolder || 'INBOX');
-                const res = await fetch(`${API_BASE}/api/email/attachment/${encodeURIComponent(fields.sourceUid)}/${att.index}?folder=${folderQs}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = att.filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-              } catch (e) {
-                console.error('Download attachment failed:', e);
-                if (uiModule) uiModule.showError('Download failed: ' + e.message);
-              }
-            }));
-            attDiv.appendChild(chip);
-          }
-        }
-      } else {
-        attDiv.style.display = 'none';
-      }
-    }
-    if (textarea) {
-      textarea.value = fields.body;
-      // Store original body for change detection on close
-      if (doc) doc._originalBody = fields.body;
-      syncHighlighting();
-    }
-    // WYSIWYG: swap the source editor for the rich body and render the markdown.
-    // The textarea above stays as the plain-text mirror (kept in sync below) so
-    // send / draft / change-detection still read it.
-    const _rich = document.getElementById('doc-email-richbody');
-    const _srcWrap = document.getElementById('doc-editor-wrap');
-    if (_rich && _srcWrap) {
-      _srcWrap.style.display = 'none';
-      _rich.style.display = '';
-      if (_emailStreamAnimFrame) cancelAnimationFrame(_emailStreamAnimFrame);
-      _emailStreamAnimFrame = null;
-      _emailStreamRenderedBody = fields.body || '';
-      _emailStreamTargetBody = fields.body || '';
-      _rich.innerHTML = _emailBodyToHtml(fields.body);
-      _wireEmailRichbody(_rich);
-      setTimeout(() => {
-        try {
-          const _isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
-          if (!_isTouch) _rich.focus();
-          _rich.scrollTop = 0;
-        } catch (_) {}
-      }, 50);
-    }
-    // Render compose attachments (if any uploaded for this doc)
-    _renderComposeAttachments();
-    // Populate CC/BCC from parsed header, show rows if populated
-    const ccRow = document.getElementById('doc-email-cc-row');
-    const bccRow = document.getElementById('doc-email-bcc-row');
-    const ccToggle = document.getElementById('doc-email-show-cc');
-    _setEmailHeaderInputValue('doc-email-cc', fields.cc || '', { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-bcc', fields.bcc || '', { preserveNonEmpty: true });
-    const hasCcBcc = !!(
-      fields.cc ||
-      fields.bcc ||
-      document.getElementById('doc-email-cc')?.value ||
-      document.getElementById('doc-email-bcc')?.value
-    );
-    if (ccRow) ccRow.style.display = hasCcBcc ? '' : 'none';
-    if (bccRow) bccRow.style.display = hasCcBcc ? '' : 'none';
-    if (ccToggle) ccToggle.style.display = hasCcBcc ? 'none' : '';
-    _syncEmailHeaderSummary();
-    _stageForwardedSourceAttachments(fields).catch(err => console.error('Forward attachment staging failed:', err));
-  }
-
-  function _syncStreamingEmailFields(doc) {
-    if (!doc) return;
-    const fields = _parseEmailHeader(doc.content || '');
-    const rich = document.getElementById('doc-email-richbody');
-    const srcWrap = document.getElementById('doc-editor-wrap');
-    const textarea = document.getElementById('doc-editor-textarea');
-    if (!rich || rich.style.display === 'none') {
-      _showEmailFields(doc);
-      return;
-    }
-
-    _setEmailHeaderInputValue('doc-email-to', fields.to, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-subject', fields.subject, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-in-reply-to', fields.inReplyTo, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-references', fields.references, { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-source-uid', fields.sourceUid || '', { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-source-folder', fields.sourceFolder || '', { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-cc', fields.cc || '', { preserveNonEmpty: true });
-    _setEmailHeaderInputValue('doc-email-bcc', fields.bcc || '', { preserveNonEmpty: true });
-
-    const unreadBtn = document.getElementById('doc-email-unread-btn');
-    if (unreadBtn) unreadBtn.style.display = fields.sourceUid ? '' : 'none';
-    const ccRow = document.getElementById('doc-email-cc-row');
-    const bccRow = document.getElementById('doc-email-bcc-row');
-    const ccToggle = document.getElementById('doc-email-show-cc');
-    const hasCcBcc = !!(fields.cc || fields.bcc);
-    if (ccRow) ccRow.style.display = hasCcBcc ? '' : 'none';
-    if (bccRow) bccRow.style.display = hasCcBcc ? '' : 'none';
-    if (ccToggle) ccToggle.style.display = hasCcBcc ? 'none' : '';
-
-    if (srcWrap) srcWrap.style.display = 'none';
-    rich.style.display = '';
-    _renderStreamingEmailBody(fields.body || '');
-    if (doc._originalBody == null) doc._originalBody = fields.body || '';
-    _syncEmailHeaderSummary();
-  }
-
-  async function _uploadComposeFiles(files) {
-    const list = Array.from(files || []);
-    if (list.length === 0) return;
-    const doc = docs.get(activeDocId);
-    if (!doc) return;
-    if (doc.language !== 'email') return;
-    if (!doc._composeAtts) doc._composeAtts = [];
-
-    for (const file of list) {
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch(`${API_BASE}/api/email/compose-upload`, {
-          method: 'POST',
-          body: fd,
-        });
-        const data = await res.json();
-        if (data.success) {
-          doc._composeAtts.push({
-            token: data.token,
-            filename: data.filename,
-            size: data.size,
-          });
-        } else {
-          if (uiModule) uiModule.showError(`Failed to upload ${file.name}: ${data.error || ''}`);
-        }
-      } catch (err) {
-        if (uiModule) uiModule.showError(`Failed to upload ${file.name}`);
-      }
-    }
-    _renderComposeAttachments();
-  }
-
-  async function _stageForwardedSourceAttachments(fields) {
-    const doc = docs.get(activeDocId);
-    if (!doc || doc.language !== 'email') return;
-    if (!fields?.forwardAttachments || !fields.sourceUid || !Array.isArray(fields.attachments) || fields.attachments.length === 0) return;
-    const sourceKey = `${fields.sourceFolder || 'INBOX'}:${fields.sourceUid}:${fields.attachments.map(a => a.index).join(',')}`;
-    if (doc._forwardedAttachmentSourceKey === sourceKey) return;
-    doc._forwardedAttachmentSourceKey = sourceKey;
-    if (!doc._composeAtts) doc._composeAtts = [];
-    const existingForwarded = new Set(doc._composeAtts.filter(a => a.forwardedSourceKey === sourceKey).map(a => String(a.sourceIndex)));
-    let added = 0;
-    for (const att of fields.attachments) {
-      const sourceIndex = String(att.index);
-      if (existingForwarded.has(sourceIndex)) continue;
-      try {
-        const folderQs = encodeURIComponent(fields.sourceFolder || 'INBOX');
-        const res = await fetch(`${API_BASE}/api/email/compose-from-attachment/${encodeURIComponent(fields.sourceUid)}/${encodeURIComponent(att.index)}?folder=${folderQs}`, {
-          method: 'POST',
-          credentials: 'same-origin',
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'failed');
-        doc._composeAtts.push({
-          token: data.token,
-          filename: data.filename || att.filename,
-          size: data.size || att.size || 0,
-          forwardedSourceKey: sourceKey,
-          sourceIndex,
-        });
-        added += 1;
-      } catch (err) {
-        console.error('Failed to stage forwarded attachment:', err);
-        if (uiModule) uiModule.showError(`Forward attachment failed: ${att.filename || 'attachment'}`);
-      }
-    }
-    if (added) {
-      _renderComposeAttachments();
-      clearTimeout(_autoSaveDebounce);
-      _autoSaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 800);
-    }
-  }
-
-  async function _handleAttachUpload(e) {
-    const files = e.target.files;
-    e.target.value = ''; // reset for next upload
-    await _uploadComposeFiles(files);
-  }
-
   function _isMarkdownImageFile(file) {
     if (!file) return false;
     if ((file.type || '').toLowerCase().startsWith('image/')) return true;
@@ -3153,915 +2288,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     await _uploadMarkdownImages(files);
   }
 
-  function _renderComposeAttachments() {
-    const container = document.getElementById('doc-email-compose-atts');
-    if (!container) return;
-    const doc = docs.get(activeDocId);
-    const atts = doc?._composeAtts || [];
-    if (atts.length === 0) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      return;
-    }
-    container.style.display = '';
-    container.innerHTML = '';
-    for (const att of atts) {
-      const chip = document.createElement('span');
-      chip.className = 'email-compose-chip';
-      const sizeKb = att.size > 0 ? `${Math.round(att.size / 1024)} KB` : '';
-      chip.innerHTML = `
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-        <span class="compose-chip-name">${_escHtml(att.filename)}</span>
-        <span class="att-size">${sizeKb}</span>
-        <button class="compose-chip-remove" title="Remove">×</button>
-      `;
-      chip.querySelector('.compose-chip-remove').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        try {
-          await fetch(`${API_BASE}/api/email/compose-upload/${encodeURIComponent(att.token)}`, { method: 'DELETE' });
-        } catch (_) {}
-        const d = docs.get(activeDocId);
-        if (d) d._composeAtts = d._composeAtts.filter(a => a.token !== att.token);
-        _renderComposeAttachments();
-      });
-      container.appendChild(chip);
-    }
-  }
-
-  // Split a To/Cc/Bcc text field into recipients + the in-progress fragment
-  // the user is currently typing (after the last comma). Returns a tuple so
-  // we can show suggestions for just the fragment without disturbing the
-  // already-confirmed recipients.
-  function _splitRecipientsAndFragment(rawValue) {
-    const cut = (rawValue || '').lastIndexOf(',');
-    if (cut < 0) return { confirmed: '', fragment: (rawValue || '').trimStart() };
-    return {
-      confirmed: rawValue.slice(0, cut + 1).trimStart(),
-      fragment: rawValue.slice(cut + 1).trimStart(),
-    };
-  }
-
-  // Replace the in-progress fragment in `input` with the chosen email,
-  // append ", " so the user can type the next recipient immediately, then
-  // hide the suggestion dropdown.
-  function _commitRecipient(input, sugg, email) {
-    if (!input) return;
-    const { confirmed } = _splitRecipientsAndFragment(input.value);
-    // Preserve a single trailing space between commas for readability.
-    const head = confirmed ? confirmed.replace(/\s+$/, '') + ' ' : '';
-    input.value = head + email + ', ';
-    if (sugg) sugg.style.display = 'none';
-    input.focus();
-    // Caret to end so the next keystroke lands in the right place.
-    const end = input.value.length;
-    try { input.setSelectionRange(end, end); } catch (_) {}
-  }
-
-  // Search contacts for an autocomplete dropdown. `input` is the To/Cc/Bcc
-  // text field, `sugg` is its sibling .email-autocomplete div. Suggestions
-  // are scoped to the LAST comma-separated fragment so already-entered
-  // recipients aren't disturbed.
-  async function _searchContacts(input, sugg) {
-    if (!input || !sugg) return;
-    const { fragment } = _splitRecipientsAndFragment(input.value);
-    if (!fragment || fragment.length < 1) { sugg.style.display = 'none'; return; }
-    try {
-      const res = await fetch(`${API_BASE}/api/contacts/search?q=${encodeURIComponent(fragment)}`);
-      const data = await res.json();
-      if (!data.results || data.results.length === 0) {
-        sugg.style.display = 'none';
-        return;
-      }
-      // Already-entered emails in this field — skip in the dropdown so
-      // users don't accidentally add the same person twice.
-      const already = new Set(
-        (input.value || '').split(',').map(s => {
-          const m = s.match(/<([^>]+)>/);
-          return (m ? m[1] : s).trim().toLowerCase();
-        }).filter(Boolean)
-      );
-      sugg.innerHTML = '';
-      let count = 0;
-      for (const c of data.results) {
-        for (const em of (c.emails || [])) {
-          if (already.has(em.toLowerCase())) continue;
-          const item = document.createElement('div');
-          item.className = 'contact-suggestion';
-          item.innerHTML = `<span class="contact-name">${_escHtml(c.name)}</span><span class="contact-email">${_escHtml(em)}</span>`;
-          // mousedown fires before blur so the click doesn't get lost
-          item.addEventListener('mousedown', (e) => { e.preventDefault(); _commitRecipient(input, sugg, em); });
-          item.addEventListener('click', (e) => { e.preventDefault(); _commitRecipient(input, sugg, em); });
-          sugg.appendChild(item);
-          count += 1;
-        }
-      }
-      if (count === 0) { sugg.style.display = 'none'; return; }
-      // Auto-highlight first suggestion so Enter accepts it.
-      const first = sugg.querySelector('.contact-suggestion');
-      if (first) first.classList.add('active');
-      sugg.style.display = '';
-    } catch (e) {
-      sugg.style.display = 'none';
-    }
-  }
-
-  // Bind input/keydown/blur for a recipient field so it gets the same
-  // autocomplete-and-commit behavior. Used by To/Cc/Bcc.
-  function _wireRecipientAutocomplete(inputId, suggId) {
-    const input = document.getElementById(inputId);
-    const sugg = document.getElementById(suggId);
-    if (!input || !sugg) return;
-    let timer = null;
-    input.addEventListener('input', () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => _searchContacts(input, sugg), 150);
-    });
-    input.addEventListener('blur', () => {
-      setTimeout(() => { sugg.style.display = 'none'; }, 200);
-    });
-    input.addEventListener('keydown', (e) => {
-      const open = sugg.style.display !== 'none';
-      const items = open ? sugg.querySelectorAll('.contact-suggestion') : [];
-      const active = open ? sugg.querySelector('.contact-suggestion.active') : null;
-      let idx = active ? Array.from(items).indexOf(active) : -1;
-      if (open && e.key === 'ArrowDown') {
-        e.preventDefault();
-        idx = Math.min(items.length - 1, idx + 1);
-        items.forEach(it => it.classList.remove('active'));
-        if (items[idx]) items[idx].classList.add('active');
-      } else if (open && e.key === 'ArrowUp') {
-        e.preventDefault();
-        idx = Math.max(0, idx - 1);
-        items.forEach(it => it.classList.remove('active'));
-        if (items[idx]) items[idx].classList.add('active');
-      } else if (e.key === 'Enter') {
-        // If a suggestion is highlighted, commit it. Otherwise — if the
-        // current fragment already looks like a complete email — commit
-        // the raw text so users who type a brand-new address don't have
-        // to add the comma themselves.
-        if (active) {
-          e.preventDefault();
-          const em = active.querySelector('.contact-email')?.textContent?.trim();
-          if (em) _commitRecipient(input, sugg, em);
-        } else {
-          const { fragment } = _splitRecipientsAndFragment(input.value);
-          if (/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(fragment.trim())) {
-            e.preventDefault();
-            _commitRecipient(input, sugg, fragment.trim());
-          }
-        }
-      } else if (e.key === 'Tab' && active) {
-        e.preventDefault();
-        const em = active.querySelector('.contact-email')?.textContent?.trim();
-        if (em) _commitRecipient(input, sugg, em);
-      } else if (e.key === 'Escape') {
-        sugg.style.display = 'none';
-      } else if (e.key === ',' || (e.key === ' ' && input.value.trim().endsWith(','))) {
-        // Typing a comma directly also accepts a highlighted suggestion.
-        if (active) {
-          e.preventDefault();
-          const em = active.querySelector('.contact-email')?.textContent?.trim();
-          if (em) _commitRecipient(input, sugg, em);
-        }
-      }
-    });
-  }
-
-  function _hideEmailFields() {
-    const emailHeader = document.getElementById('doc-email-header');
-    const emailActions = document.getElementById('doc-email-actions');
-    if (emailHeader) emailHeader.style.display = 'none';
-    if (emailActions) emailActions.style.display = 'none';
-    // Restore toolbar items that were hidden for email (Code dropdown).
-    document.querySelectorAll('.md-toolbar-email-hide').forEach(el => { el.style.display = ''; });
-    // Re-hide email-only toolbar items (AI reply button).
-    document.querySelectorAll('.md-toolbar-email-only').forEach(el => { el.style.display = 'none'; });
-    // Restore the generic documents action bar + its bottom footer (Close /
-    // Copy / Export) for non-email docs.
-    const docActions = document.getElementById('doc-editor-actions');
-    if (docActions) docActions.style.display = '';
-    const docFooter = document.getElementById('doc-actions-footer');
-    if (docFooter) docFooter.style.display = '';
-    // Return the type picker to its non-email home (right before the
-    // Copy/Export split) — _showEmailFields moved it into the email footer.
-    if (docFooter) {
-      const _lang = document.getElementById('doc-language-select');
-      const _split = docFooter.querySelector('#doc-copy-export-split');
-      if (_lang && _split) docFooter.insertBefore(_lang, _split);
-    }
-    // Restore the source editor and hide the WYSIWYG email body.
-    const _rich = document.getElementById('doc-email-richbody');
-    if (_rich) _rich.style.display = 'none';
-    const _srcWrap = document.getElementById('doc-editor-wrap');
-    if (_srcWrap) _srcWrap.style.display = '';
-    // Drop the email-mode class so editors return to monospace monochrome
-    document.getElementById('doc-editor-textarea')?.classList.remove('email-mode');
-    document.getElementById('doc-editor-code')?.classList.remove('email-mode');
-    document.getElementById('doc-editor-highlight')?.classList.remove('email-mode');
-  }
-
-  const _ATTACH_RE = /\b(attach(ed|ment|ments|ing)?|enclosed|enclosing|PFA|find attached|see attached|ci-joint|en pi[eè]ce jointe|ajout[eé]|joint|jointe|anbei|im Anhang|beigef[uü]gt|添付|fichier joint)\b/i;
-
-  function _bodyMentionsAttachment(text) {
-    if (!text) return false;
-    // Only check the user's own text, not quoted replies
-    const parts = text.split(/^>|^On .* wrote:/m);
-    const own = parts[0] || '';
-    return _ATTACH_RE.test(own);
-  }
-
-  function _confirmMissingAttachment() {
-    return new Promise(resolve => {
-      const overlay = document.createElement('div');
-      overlay.className = 'modal';
-      overlay.style.display = 'flex';
-      overlay.innerHTML = `
-        <div class="modal-content" style="width:360px;max-width:90vw;">
-          <div class="modal-header"><h4>No attachments found</h4></div>
-          <div class="modal-body" style="padding:16px;font-size:13px;opacity:0.8;">
-            Your message mentions an attachment, but nothing is attached. Send anyway?
-          </div>
-          <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;">
-            <button class="memory-toolbar-btn" id="att-warn-cancel">Go back</button>
-            <button class="memory-toolbar-btn" id="att-warn-send" style="background:var(--accent-primary,var(--red));color:#fff;border-color:var(--accent-primary,var(--red));">Send anyway</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(overlay);
-      const cleanup = (val) => { overlay.remove(); resolve(val); };
-      overlay.querySelector('#att-warn-cancel').addEventListener('click', () => cleanup(false));
-      overlay.querySelector('#att-warn-send').addEventListener('click', () => cleanup(true));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(false); });
-    });
-  }
-
-  async function _sendEmail() {
-    const sendDocId = activeDocId;
-    const to = document.getElementById('doc-email-to')?.value?.trim();
-    const cc = document.getElementById('doc-email-cc')?.value?.trim() || '';
-    const bcc = document.getElementById('doc-email-bcc')?.value?.trim() || '';
-    const subject = document.getElementById('doc-email-subject')?.value?.trim();
-    const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value?.trim();
-    const references = document.getElementById('doc-email-references')?.value?.trim();
-    const sourceUid = document.getElementById('doc-email-source-uid')?.value?.trim();
-    const sourceFolder = document.getElementById('doc-email-source-folder')?.value?.trim() || 'INBOX';
-    // WYSIWYG: the rich body's HTML becomes the email's HTML part (server
-    // sanitizes it). `body` (plain text mirror) stays the text/plain fallback.
-    const _rich = _emailRichbodyActive();
-    if (_rich) _syncEmailRichbody(_rich);
-    const textarea = document.getElementById('doc-editor-textarea');
-    const body = (_rich ? (_rich.innerText || _rich.textContent || '') : (textarea?.value || '')).trim();
-    const bodyHtml = _rich ? _rich.innerHTML : null;
-    const doc = docs.get(activeDocId);
-    const attachments = (doc?._composeAtts || []).map(a => a.token);
-    if (!to || !body) {
-      if (uiModule) uiModule.showError('To and body are required');
-      return;
-    }
-    if (inReplyTo && !_emailReplyOwnText(body)) {
-      if (uiModule) uiModule.showError('Reply body is empty');
-      return;
-    }
-    // Warn if body mentions attachments but none are actually attached
-    if (attachments.length === 0 && _bodyMentionsAttachment(body)) {
-      const proceed = await _confirmMissingAttachment();
-      if (!proceed) return;
-    }
-    const btn = document.getElementById('doc-email-send-btn');
-    const _sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    let sendSpinner = null;
-    let origBtnHtml = '';
-    let detachedEmailDoc = null;
-    if (btn) {
-      btn.disabled = true;
-      origBtnHtml = btn.innerHTML;
-      sendSpinner = spinnerModule.createWhirlpool(14);
-      sendSpinner.element.style.cssText = 'display:inline-block;vertical-align:-2px;margin-right:6px;width:14px;height:14px;';
-      btn.innerHTML = '';
-      btn.appendChild(sendSpinner.element);
-      btn.appendChild(document.createTextNode('Sending'));
-    }
-    try {
-      let canceled = false;
-      if (uiModule) {
-        uiModule.showToast('Sending', {
-          duration: 3200,
-          leadingIcon: 'spinner',
-          action: 'Cancel',
-          onAction: () => { canceled = true; },
-        });
-      }
-      await _sleep(3000);
-      if (!canceled) detachedEmailDoc = _detachActiveEmailForBackground(sendDocId);
-      await _sleep(200);
-      if (canceled) {
-        _restoreDetachedEmailDoc(detachedEmailDoc);
-        detachedEmailDoc = null;
-        if (uiModule) uiModule.showToast('Send canceled');
-        return;
-      }
-
-      const activeAccountId = await _resolveComposeSendAccountId();
-      const res = await fetch(`${API_BASE}/api/email/send`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to, cc: cc || null, bcc: bcc || null, subject, body, body_html: bodyHtml,
-          in_reply_to: inReplyTo || null, references: references || null,
-          attachments: attachments.length > 0 ? attachments : null,
-          account_id: activeAccountId,
-          source_uid: sourceUid || null,
-          source_folder: sourceFolder || null,
-          wait_for_delivery: true,
-        }),
-      });
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (_) {
-        data = { success: false, error: `Send failed (${res.status})` };
-      }
-      if (!res.ok && data && !data.error) data.error = `Send failed (${res.status})`;
-      if (data.success) {
-        if (uiModule) {
-          uiModule.showToast('Message sent', {
-            duration: 7000,
-            leadingIcon: 'check',
-            action: 'View Message',
-            onAction: () => {
-              import('./emailLibrary.js').then(mod => {
-                const open = mod.openEmailLibrary || (mod.default && mod.default.openEmailLibrary);
-                if (open) open({
-                  account_id: data.account_id || activeAccountId || null,
-                  folder: data.sent_folder || 'Sent',
-                  uid: data.sent_uid || null,
-                });
-              }).catch(() => {});
-            },
-          });
-        }
-        // Auto-save recipients to the configured contacts backend (CardDAV).
-        // The compose fields accept plain emails and "Name <email>" chips.
-        const _contactPieces = [to, cc, bcc].join(',').split(/[,;]/).map(s => s.trim()).filter(Boolean);
-        const _seenContacts = new Set();
-        for (const piece of _contactPieces) {
-          const match = piece.match(/^(.*?)<([^>]+)>$/);
-          const email = (match ? match[2] : piece).trim();
-          const name = (match ? match[1] : '').replace(/^["']|["']$/g, '').trim();
-          if (!email || !/@/.test(email)) continue;
-          const key = email.toLowerCase();
-          if (_seenContacts.has(key)) continue;
-          _seenContacts.add(key);
-          fetch(`${API_BASE}/api/contacts/add`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email }),
-          }).catch(() => {});
-        }
-        // Mark the source email as answered if this was a reply
-        if (sourceUid) {
-          _clearEmailLocalDraft(sourceUid, sourceFolder, inReplyTo);
-          const markParams = new URLSearchParams({ folder: sourceFolder });
-          if (data.account_id || activeAccountId) markParams.set('account_id', data.account_id || activeAccountId);
-          fetch(`${API_BASE}/api/email/mark-answered/${encodeURIComponent(sourceUid)}?${markParams.toString()}`, { method: 'POST' }).catch(() => {});
-          // Tell the inbox to refresh so the answered state shows
-          window.dispatchEvent(new CustomEvent('email-answered', { detail: { uid: sourceUid, folder: sourceFolder, account_id: data.account_id || activeAccountId || null } }));
-        }
-        // Delete the compose document after successful send. It was usually
-        // already detached from the visible tabs so sending can finish in the
-        // background while the user continues in the next tab.
-        if (sendDocId) {
-          fetch(`${API_BASE}/api/document/${sendDocId}`, { method: 'DELETE' }).catch(() => {});
-          const wasActiveSentDoc = activeDocId === sendDocId;
-          docs.delete(sendDocId);
-          if (wasActiveSentDoc) {
-            activeDocId = null;
-            const nextId = _visibleDocIdsForCurrentSession().find(id => docs.has(id));
-            if (nextId) switchToDoc(nextId);
-            else closePanel();
-          } else {
-            renderTabs();
-          }
-          _syncDocIndicator();
-        }
-      } else {
-        _restoreDetachedEmailDoc(detachedEmailDoc);
-        detachedEmailDoc = null;
-        if (uiModule) uiModule.showError(data.error || 'Failed to send');
-      }
-    } catch (e) {
-      _restoreDetachedEmailDoc(detachedEmailDoc);
-      detachedEmailDoc = null;
-      if (uiModule) uiModule.showError(e?.message ? `Failed to send email: ${e.message}` : 'Failed to send email');
-    } finally {
-      if (sendSpinner) sendSpinner.destroy();
-      if (btn) {
-        btn.disabled = false;
-        if (origBtnHtml) btn.innerHTML = origBtnHtml;
-      }
-    }
-  }
-
-  async function _saveDraft() {
-    const to = document.getElementById('doc-email-to')?.value?.trim();
-    const cc = document.getElementById('doc-email-cc')?.value?.trim() || '';
-    const bcc = document.getElementById('doc-email-bcc')?.value?.trim() || '';
-    const subject = document.getElementById('doc-email-subject')?.value?.trim();
-    const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value?.trim();
-    const references = document.getElementById('doc-email-references')?.value?.trim();
-    const _rich = _emailRichbodyActive();
-    if (_rich) _syncEmailRichbody(_rich);
-    const textarea = document.getElementById('doc-editor-textarea');
-    const body = (_rich ? (_rich.innerText || _rich.textContent || '') : (textarea?.value || '')).trim();
-    const bodyHtml = _rich ? _rich.innerHTML : null;
-    const btn = document.getElementById('doc-email-draft-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 18000);
-    try {
-      const res = await fetch(`${API_BASE}/api/email/draft`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          to: to || '',
-          cc: cc || null,
-          bcc: bcc || null,
-          subject: subject || '',
-          body: body || '',
-          body_html: bodyHtml,
-          in_reply_to: inReplyTo || null,
-          references: references || null,
-          account_id: window.__odysseusActiveEmailAccount || null,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (uiModule) uiModule.showToast('Draft saved to mailbox');
-      } else {
-        if (uiModule) uiModule.showError(data.error || 'Failed to save draft');
-      }
-    } catch (e) {
-      const timedOut = e && e.name === 'AbortError';
-      if (uiModule) uiModule.showError(timedOut ? 'Saving draft timed out' : 'Failed to save draft');
-    } finally {
-      clearTimeout(timeout);
-      if (btn) { btn.disabled = false; btn.textContent = 'Draft'; }
-    }
-  }
-
-  function _discardEmail() {
-    if (!activeDocId) return;
-    // Just close — the Draft button handles saving explicitly
-    _closeWithoutDeleting(true);
-  }
-
-  function _visibleDocIdsForCurrentSession() {
-    const curSession = sessionModule?.getCurrentSessionId() || '';
-    const ids = [];
-    for (const [id, doc] of docs) {
-      if (doc.sessionId && curSession && doc.sessionId !== curSession) continue;
-      ids.push(id);
-    }
-    return ids;
-  }
-
-  function _detachActiveEmailForBackground(docId) {
-    if (!docId || !docs.has(docId)) return null;
-    saveCurrentToMap();
-    const doc = docs.get(docId);
-    const snapshot = { id: docId, doc: { ...doc } };
-    const wasActive = activeDocId === docId;
-    if (wasActive) saveDocument({ silent: true }).catch(() => {});
-
-    const visibleBefore = _visibleDocIdsForCurrentSession();
-    const idx = visibleBefore.indexOf(docId);
-    docs.delete(docId);
-    if (wasActive) activeDocId = null;
-
-    if (wasActive) {
-      const remaining = visibleBefore.filter(id => id !== docId && docs.has(id));
-      const nextId = remaining[idx] || remaining[idx - 1] || remaining[0] || null;
-      if (nextId) {
-        switchToDoc(nextId);
-      } else {
-        closePanel();
-      }
-    }
-    renderTabs();
-    _syncDocIndicator();
-    return snapshot;
-  }
-
-  function _restoreDetachedEmailDoc(snapshot) {
-    if (!snapshot || !snapshot.id || !snapshot.doc) return;
-    if (!docs.has(snapshot.id)) docs.set(snapshot.id, snapshot.doc);
-    _ensureDocPaneMounted();
-    switchToDoc(snapshot.id);
-    _syncDocIndicator();
-  }
-
-  function _closeWithoutDeleting(deleteDoc = false) {
-    if (!activeDocId) return;
-    if (deleteDoc) {
-      fetch(`${API_BASE}/api/document/${activeDocId}`, { method: 'DELETE' }).catch(() => {});
-    }
-    // Save the current state to the doc first so it persists in the library
-    saveCurrentToMap();
-    if (!deleteDoc) {
-      saveDocument({ silent: true }).catch(() => {});
-    }
-    docs.delete(activeDocId);
-    const remaining = Array.from(docs.keys());
-    if (remaining.length > 0) {
-      switchToDoc(remaining[0]);
-    } else {
-      closePanel();
-    }
-    renderTabs();
-  }
-
-  // Fast/Full + optional context popover for the doc-editor email Reply button.
-  // Mirrors the email reader's AI reply choice popover so the UX is identical:
-  // textarea for an optional steering note, then Fast (lightning) or Full
-  // (concentric dot) buttons; both feed into _aiReply with the chosen mode.
-  let _docAiReplyChoiceMenu = null;
-  const _AI_REPLY_CONTEXT_STORE_PREFIX = 'odysseus:email-ai-reply-context:v1:';
-  function _docAiReplyContextKey() {
-    try {
-      const sourceUid = document.getElementById('doc-email-source-uid')?.value?.trim() || '';
-      const sourceFolder = document.getElementById('doc-email-source-folder')?.value?.trim() || 'INBOX';
-      const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value?.trim() || '';
-      const to = document.getElementById('doc-email-to')?.value?.trim() || '';
-      const subject = document.getElementById('doc-email-subject')?.value?.trim() || '';
-      const stable = sourceUid
-        ? `uid:${sourceFolder}:${sourceUid}`
-        : inReplyTo
-          ? `msg:${inReplyTo}`
-          : activeDocId
-            ? `doc:${activeDocId}`
-            : `compose:${to}:${subject}`;
-      return _AI_REPLY_CONTEXT_STORE_PREFIX + stable;
-    } catch (_) {
-      return '';
-    }
-  }
-  function _loadDocAiReplyContext(key) {
-    if (!key) return '';
-    try { return localStorage.getItem(key) || ''; } catch (_) { return ''; }
-  }
-  function _saveDocAiReplyContext(key, value) {
-    if (!key) return;
-    try {
-      const text = String(value || '');
-      if (text.trim()) localStorage.setItem(key, text);
-      else localStorage.removeItem(key);
-    } catch (_) {}
-  }
-  function _clearDocAiReplyContext(key) {
-    if (!key) return;
-    try { localStorage.removeItem(key); } catch (_) {}
-  }
-  function _closeDocAiReplyChoice() {
-    if (_docAiReplyChoiceMenu) {
-      // Tear down through the menu's registered dismiss (drops its outside-click
-      // listener + Escape-stack entry) rather than orphaning them with a raw
-      // remove(); the onClose below nulls the ref.
-      try { dismissOrRemove(_docAiReplyChoiceMenu); } catch (_) {}
-      _docAiReplyChoiceMenu = null;
-    }
-  }
-  function _showDocAiReplyChoice(btn) {
-    _closeDocAiReplyChoice();
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const menu = document.createElement('div');
-    menu.className = 'doc-ai-reply-choice';
-    const menuMaxW = Math.min(240, window.innerWidth - 16);
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuMaxW - 8));
-    const estHeight = 150;
-    const spaceBelow = window.innerHeight - rect.bottom - 8;
-    const spaceAbove = rect.top - 8;
-    const top = (spaceBelow >= estHeight || spaceBelow >= spaceAbove)
-      ? Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - estHeight - 8))
-      : Math.max(8, rect.top - estHeight - 6);
-    menu.style.cssText = [
-      'position:fixed',
-      `left:${left}px`,
-      `top:${top}px`,
-      `max-width:${menuMaxW}px`,
-      'box-sizing:border-box',
-      'z-index:10060',
-      'display:flex',
-      'gap:6px',
-      'padding:6px',
-      'background:var(--bg,#111)',
-      'border:1px solid var(--border,#333)',
-      'border-radius:7px',
-      'box-shadow:0 8px 24px rgba(0,0,0,.28)',
-    ].join(';');
-    menu.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:6px;min-width:200px;">
-        <textarea data-note-input rows="2" placeholder="Add context (optional)" style="width:100%;box-sizing:border-box;resize:vertical;min-height:42px;font-family:inherit;font-size:11px;padding:5px 6px;border-radius:5px;border:1px solid var(--border,#333);background:var(--bg-elev,#1a1a1a);color:var(--fg);"></textarea>
-        <div style="display:flex;align-items:center;gap:4px;">
-          <button class="memory-toolbar-btn" data-mode="ai-reply-fast" title="Shorter, faster draft" style="display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="var(--accent, var(--red))" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            Fast
-          </button>
-          <button class="memory-toolbar-btn" data-mode="ai-reply-full" title="Fuller reply with more context" style="display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="color:var(--accent, var(--red));"><circle cx="12" cy="12" r="6"/></svg>
-            Full
-          </button>
-        </div>
-      </div>
-    `;
-    const noteInput = menu.querySelector('[data-note-input]');
-    const contextKey = _docAiReplyContextKey();
-    if (noteInput) {
-      noteInput.value = _loadDocAiReplyContext(contextKey);
-      noteInput.addEventListener('input', () => {
-        _saveDocAiReplyContext(contextKey, noteInput.value || '');
-      });
-    }
-    setTimeout(() => noteInput?.focus(), 0);
-    menu.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    document.body.appendChild(menu);
-    _docAiReplyChoiceMenu = menu;
-    // Outside-click AND Escape both route through the central esc-stack via
-    // bindMenuDismiss; onClose owns the actual teardown (node removal + state).
-    const close = bindMenuDismiss(menu, () => {
-      try { menu.remove(); } catch (_) {}
-      if (_docAiReplyChoiceMenu === menu) _docAiReplyChoiceMenu = null;
-    });
-    menu.addEventListener('click', async (ev) => {
-      const choice = ev.target.closest('[data-mode]');
-      if (!choice) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      const mode = choice.getAttribute('data-mode') || 'ai-reply-fast';
-      const noteHint = (noteInput?.value || '').trim();
-      _saveDocAiReplyContext(contextKey, noteInput?.value || '');
-      close();
-      await _aiReply({ mode, noteHint, contextKey });
-    });
-  }
-
-  async function _aiReply(opts = {}) {
-    const { mode = 'auto', noteHint = '', contextKey = '' } = (opts || {});
-    const to = document.getElementById('doc-email-to')?.value?.trim() || '';
-    const subject = document.getElementById('doc-email-subject')?.value?.trim() || '';
-    const textarea = document.getElementById('doc-editor-textarea');
-    if (!textarea) return;
-    const currentBody = textarea.value || '';
-    const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value?.trim() || '';
-    const sourceUid = document.getElementById('doc-email-source-uid')?.value?.trim() || '';
-    const sourceFolder = document.getElementById('doc-email-source-folder')?.value?.trim() || 'INBOX';
-    const cleanAiReplyText = (text) => {
-      if (!text) return '';
-      let t = String(text);
-      const open = /<<<\s*(?:REPLY|SUMMARY|OUTPUT)\s*>>+/i;
-      const close = /<<<\s*END\s*>>+/i;
-      const m = open.exec(t);
-      if (m) {
-        const rest = t.slice(m.index + m[0].length);
-        const c = close.exec(rest);
-        t = c ? rest.slice(0, c.index) : rest;
-      }
-      return t
-        .replace(/<<<\s*(?:REPLY|SUMMARY|OUTPUT)\s*>>+/gi, '')
-        .replace(/<<<\s*END\s*>>+/gi, '')
-        .trim();
-    };
-    const shouldUseFastAiReply = () => {
-      const text = `${subject}\n${currentBody}`.toLowerCase();
-      if (/\b(attach(?:ed|ment)?|pdf|document|contract|invoice|receipt|quote|estimate|proposal|question|questions|details|schedule|booking|reservation|meeting|calendar|availability|confirm|confirmation|review|sign|signature)\b/.test(text)) {
-        return false;
-      }
-      return currentBody.length < 2500;
-    };
-
-    // Use the current chat model
-    let currentModel = '';
-    let currentSessionId = '';
-    try {
-      currentModel = sessionModule?.getCurrentModel() || '';
-      currentSessionId = sessionModule?.getCurrentSessionId() || '';
-    } catch (_) {}
-
-    const btn = document.getElementById('doc-email-ai-reply-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:3px"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg>Drafting...'; }
-
-    try {
-      // Empty-compose path: if there's no original body, send a placeholder
-      // so the backend's "no body" guard doesn't fail. The user_hint carries
-      // the user's compose intent; the model uses To/Subject + that hint.
-      const bodyForApi = currentBody || (noteHint ? '(no prior email — compose a new message based on the To, Subject, and user instructions)' : currentBody);
-      const fastFlag = mode === 'ai-reply-fast' ? true
-                     : mode === 'ai-reply-full' ? false
-                     : shouldUseFastAiReply();
-      const res = await fetch(`${API_BASE}/api/email/ai-reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: to,
-          subject: subject,
-          original_body: bodyForApi,
-          model: currentModel,
-          session_id: currentSessionId,
-          message_id: inReplyTo,
-          uid: sourceUid,
-          folder: sourceFolder,
-          fast: fastFlag,
-          user_hint: noteHint || '',
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.reply) {
-        let cleanReply = cleanAiReplyText(data.reply);
-        // Strip any "On <date>, <name> wrote:" attribution + everything
-        // after it from the AI's output — the model sometimes re-quotes
-        // the original thread, and we already have the real quote in
-        // currentBody. Without this, AI's invented quote stacked on top
-        // of the real one and looked like the history had been "edited".
-        cleanReply = cleanReply.replace(/\n*On\b[\s\S]*?\bwrote:[\s\S]*$/m, '').trim();
-        // Never overwrite the existing draft (user's typed text + the
-        // quoted history below it). Always prepend the AI suggestion so
-        // the user can read it, copy parts, or delete it — but their
-        // own work and the original quote are untouched.
-        const newBody = currentBody ? cleanReply + '\n\n' + currentBody : cleanReply;
-        await _streamEmailBodyText(textarea, newBody);
-        _clearDocAiReplyContext(contextKey || _docAiReplyContextKey());
-        if (uiModule) uiModule.showToast(`AI draft inserted (${data.model_used || 'AI'})`);
-      } else {
-        const rawMsg = data.error || 'Failed to generate reply';
-        const msg = /empty response/i.test(rawMsg)
-          ? 'AI reply failed: AI returned empty response.'
-          : rawMsg;
-        if (uiModule) uiModule.showError(msg);
-      }
-    } catch (e) {
-      if (uiModule) uiModule.showError('Failed to generate AI reply');
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent, var(--red));flex-shrink:0;position:relative;top:-1px;"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg><span style="font-size:11px;margin-left:4px;">Reply</span>'; }
-    }
-  }
-
-  async function _scheduleSend(anchorEl = null) {
-    const to = document.getElementById('doc-email-to')?.value?.trim();
-    const cc = document.getElementById('doc-email-cc')?.value?.trim() || '';
-    const bcc = document.getElementById('doc-email-bcc')?.value?.trim() || '';
-    const subject = document.getElementById('doc-email-subject')?.value?.trim();
-    const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value?.trim();
-    const references = document.getElementById('doc-email-references')?.value?.trim();
-    const _rich = _emailRichbodyActive();
-    if (_rich) _syncEmailRichbody(_rich);
-    const body = (_rich
-      ? (_rich.innerText || _rich.textContent || '')
-      : (document.getElementById('doc-editor-textarea')?.value || '')
-    ).trim();
-    const doc = docs.get(activeDocId);
-    const attachments = (doc?._composeAtts || []).map(a => a.token);
-
-    if (!to || !body) {
-      if (uiModule) uiModule.showError('To and body are required');
-      return;
-    }
-    if (inReplyTo && !_emailReplyOwnText(body)) {
-      if (uiModule) uiModule.showError('Reply body is empty');
-      return;
-    }
-    if (attachments.length === 0 && _bodyMentionsAttachment(body)) {
-      const proceed = await _confirmMissingAttachment();
-      if (!proceed) return;
-    }
-
-    // Create a small modal with datetime input and quick presets
-    const overlay = document.createElement('div');
-    overlay.className = 'modal';
-    overlay.style.display = 'flex';
-    overlay.innerHTML = `
-      <div class="modal-content schedule-send-modal" style="width:400px;max-width:92vw;">
-        <div class="modal-header">
-          <h4>Schedule Send</h4>
-          <button class="close-btn" id="sched-close" title="Close"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        </div>
-        <div class="modal-body schedule-send-body">
-          <label class="schedule-send-label">Quick presets</label>
-          <div class="schedule-send-presets">
-            <button class="memory-toolbar-btn" data-preset="1h">In 1 hour</button>
-            <button class="memory-toolbar-btn" data-preset="3h">In 3 hours</button>
-            <button class="memory-toolbar-btn" data-preset="tomorrow">Tomorrow 9am</button>
-            <button class="memory-toolbar-btn" data-preset="monday">Monday 9am</button>
-          </div>
-          <label class="schedule-send-label" for="sched-datetime">Or pick a specific time</label>
-          <input type="datetime-local" id="sched-datetime" class="schedule-send-datetime" />
-        </div>
-        <div class="modal-footer schedule-send-footer">
-          <button class="memory-toolbar-btn" id="sched-cancel">Cancel</button>
-          <button class="memory-toolbar-btn schedule-send-confirm" id="sched-confirm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Schedule</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    const modalContent = overlay.querySelector('.schedule-send-modal');
-    const anchor = anchorEl || document.getElementById('doc-email-send-caret') || document.getElementById('doc-email-send-btn');
-    if (modalContent && anchor) {
-      const rect = anchor.getBoundingClientRect();
-      const gap = 8;
-      const width = Math.min(400, Math.max(280, window.innerWidth - 16));
-      modalContent.style.width = `${width}px`;
-      modalContent.style.position = 'fixed';
-      modalContent.style.margin = '0';
-      modalContent.style.transform = 'none';
-      const left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width));
-      const belowTop = rect.bottom + gap;
-      const estimatedHeight = Math.min(320, window.innerHeight - 16);
-      const top = belowTop + estimatedHeight <= window.innerHeight - 8
-        ? belowTop
-        : Math.max(8, rect.top - estimatedHeight - gap);
-      modalContent.style.left = `${left}px`;
-      modalContent.style.top = `${top}px`;
-    }
-
-    const dtInput = overlay.querySelector('#sched-datetime');
-    // Default to 1 hour from now
-    const now = new Date(Date.now() + 60 * 60 * 1000);
-    const pad = (n) => String(n).padStart(2, '0');
-    dtInput.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    const escHandler = (e) => { if (e.key === 'Escape') cleanup(); };
-    const cleanup = () => {
-      overlay.remove();
-      document.removeEventListener('keydown', escHandler);
-    };
-    overlay.querySelector('#sched-close').addEventListener('click', cleanup);
-    overlay.querySelector('#sched-cancel').addEventListener('click', cleanup);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(); });
-    document.addEventListener('keydown', escHandler);
-
-    overlay.querySelectorAll('[data-preset]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.getAttribute('data-preset');
-        const d = new Date();
-        if (preset === '1h') d.setHours(d.getHours() + 1);
-        else if (preset === '3h') d.setHours(d.getHours() + 3);
-        else if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
-        else if (preset === 'monday') {
-          const daysUntilMon = (8 - d.getDay()) % 7 || 7;
-          d.setDate(d.getDate() + daysUntilMon);
-          d.setHours(9, 0, 0, 0);
-        }
-        dtInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      });
-    });
-
-    overlay.querySelector('#sched-confirm').addEventListener('click', async () => {
-      const localDt = dtInput.value;
-      if (!localDt) { if (uiModule) uiModule.showError('Please pick a time'); return; }
-      // Convert local datetime to UTC ISO
-      const utcIso = new Date(localDt).toISOString();
-      try {
-        const activeAccountId = await _resolveComposeSendAccountId();
-        const res = await fetch(`${API_BASE}/api/email/schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to, cc: cc || null, bcc: bcc || null, subject, body,
-            in_reply_to: inReplyTo || null,
-            references: references || null,
-            attachments: attachments.length > 0 ? attachments : null,
-            send_at: utcIso,
-            account_id: activeAccountId,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          if (uiModule) uiModule.showToast(`Scheduled for ${new Date(localDt).toLocaleString()}`);
-          _clearCurrentEmailLocalDraft();
-          cleanup();
-          // Close the document
-          _closeWithoutDeleting(true);
-        } else {
-          if (uiModule) uiModule.showError(data.error || 'Failed to schedule');
-        }
-      } catch (e) {
-        if (uiModule) uiModule.showError('Failed to schedule');
-      }
-    });
-  }
-
-  async function _markUnreadAndClose() {
-    const sourceUid = document.getElementById('doc-email-source-uid')?.value || '';
-    const sourceFolder = document.getElementById('doc-email-source-folder')?.value || 'INBOX';
-    if (sourceUid) {
-      try {
-        await fetch(`${API_BASE}/api/email/mark-unread/${sourceUid}?folder=${encodeURIComponent(sourceFolder)}`, { method: 'POST' });
-      } catch (e) { console.error('Failed to mark unread:', e); }
-    }
-    _discardEmail();
-  }
 
   function switchToDoc(docId) {
     if (!docs.has(docId)) return;
@@ -4075,7 +2301,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const prevId = activeDocId;
     if (prevId && prevId !== docId && docs.has(prevId)) {
       const prev = docs.get(prevId);
-      if (prev.language !== 'email' && !(prev.content || '').trim() && !(prev.title || '').trim()) {
+      if (!(prev.content || '').trim() && !(prev.title || '').trim()) {
         fetch(`${API_BASE}/api/document/${prevId}`, { method: 'DELETE' }).catch(() => {});
         docs.delete(prevId);
         _syncDocIndicator();
@@ -4093,8 +2319,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const badge = document.getElementById('doc-version-badge');
 
     if (titleInput) titleInput.value = doc.title || '';
-    // For email docs, _showEmailFields will set textarea to body only (not raw header)
-    if (textarea && doc.language !== 'email') textarea.value = doc.content || '';
+    if (textarea) textarea.value = doc.content || '';
     if (langSelect) langSelect.value = doc.language || 'markdown';
     if (badge) { const _v = doc.version || 1; badge.textContent = `v${_v}`; badge.style.display = _v > 1 ? '' : 'none'; }
     { const _v = doc.version || 1; const _dbtn = document.getElementById('doc-diff-toggle-btn'); if (_dbtn) _dbtn.style.display = _v > 1 ? '' : 'none'; }
@@ -4176,18 +2401,8 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     // Exit HTML preview on switch
     exitHtmlPreview();
 
-    // Show/hide email fields. Markdown preview uses the same editor wrapper
-    // as email source mode, so clear it before showing the rich email body;
-    // otherwise the source wrapper can reappear over the composer.
-    const isEmail = doc.language === 'email';
-    if (isEmail) {
-      _setMarkdownPreviewActive(false, { remember: false });
-      _showEmailFields(doc);
-    } else {
-      _hideEmailFields();
-      const wantsMarkdownPreview = (doc.language || 'markdown') === 'markdown' && doc._markdownPreviewActive === true;
-      _setMarkdownPreviewActive(wantsMarkdownPreview, { remember: false });
-    }
+    const wantsMarkdownPreview = (doc.language || 'markdown') === 'markdown' && doc._markdownPreviewActive === true;
+    _setMarkdownPreviewActive(wantsMarkdownPreview, { remember: false });
 
     // Hide version panel on switch
     const vp = document.getElementById('doc-version-panel');
@@ -4303,24 +2518,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const langSelect = document.getElementById('doc-language-select');
     if (titleInput) doc.title = titleInput.value;
     if (langSelect) doc.language = langSelect.value;
-    // For email docs, reconstruct full content with header
-    if (doc.language === 'email' && textarea) {
-      const to = document.getElementById('doc-email-to')?.value || '';
-      const cc = document.getElementById('doc-email-cc')?.value || '';
-      const bcc = document.getElementById('doc-email-bcc')?.value || '';
-      const subject = document.getElementById('doc-email-subject')?.value || '';
-      const inReplyTo = document.getElementById('doc-email-in-reply-to')?.value || '';
-      const references = document.getElementById('doc-email-references')?.value || '';
-      const sourceUid = document.getElementById('doc-email-source-uid')?.value || '';
-      const sourceFolder = document.getElementById('doc-email-source-folder')?.value || '';
-      // Persist the WYSIWYG body as HTML so reopening the draft keeps its
-      // formatting (the textarea mirror is plain text). _emailBodyToHtml detects
-      // the leading '<' on reload and restores it verbatim.
-      const _rich = document.getElementById('doc-email-richbody');
-      const _emailBody = (_rich && _rich.style.display !== 'none') ? _rich.innerHTML : textarea.value;
-      doc.content = _buildEmailContent(to, subject, inReplyTo, references, _emailBody, sourceUid, sourceFolder, cc, bcc);
-      _persistEmailLocalDraftSoon();
-    } else if (textarea) {
+    if (textarea) {
       // Don't clobber a PDF/form-backed doc's source when the textarea is empty
       // (it's hidden behind the rendered PDF view, so its value isn't the source
       // of truth). Overwriting here dropped the pdf_form_source marker, so after
@@ -4371,9 +2569,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     if (!container) return;
 
     isOpen = true;
-    // Doc was opened last → it goes in front of the email windows (clears the
-    // email-front flag; the doc/email z-index alternation lives in CSS).
-    document.body.classList.remove('email-front');
     _ensureAgentMode();
     _markDocVisibleState(_lastSessionId, 'open');
 
@@ -4475,47 +2670,11 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
           <option value="ruby">ruby</option>
           <option value="php">php</option>
           <option value="csv">csv</option>
-          <option value="email">email</option>
           <option value="pdf">pdf</option>
         </select>
-        <!-- Close + Copy/Export moved to the bottom action footer (#doc-actions-footer)
-             so regular docs match the email footer layout. -->
+        <!-- Close + Copy/Export moved to the bottom action footer (#doc-actions-footer). -->
       </div>
       <div class="doc-tab-bar" id="doc-tab-bar"></div>
-      <div id="doc-email-header" class="doc-email-header" style="display:none">
-        <button type="button" id="doc-email-collapse-btn" class="doc-email-collapse-btn" title="Hide email fields" aria-expanded="true">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
-          <span id="doc-email-collapse-summary" class="doc-email-collapse-summary">No recipient · No subject</span>
-        </button>
-        <div id="doc-email-fields" class="doc-email-fields">
-          <div class="email-field" style="position:relative">
-            <span class="email-field-prefix">To</span>
-            <input type="text" id="doc-email-to" placeholder="recipient@example.com" autocomplete="off" />
-            <div id="doc-email-to-suggestions" class="email-autocomplete" style="display:none"></div>
-            <button type="button" id="doc-email-show-cc" class="email-cc-toggle" title="Show Cc/Bcc">Cc</button>
-          </div>
-          <div class="email-field" id="doc-email-cc-row" style="display:none;position:relative">
-            <span class="email-field-prefix">Cc</span>
-            <input type="text" id="doc-email-cc" placeholder="cc@example.com, example2" autocomplete="off" />
-            <div id="doc-email-cc-suggestions" class="email-autocomplete" style="display:none"></div>
-            <button type="button" class="email-cc-close" data-cc-close title="Hide Cc/Bcc" aria-label="Hide Cc/Bcc"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </div>
-          <div class="email-field" id="doc-email-bcc-row" style="display:none;position:relative">
-            <span class="email-field-prefix">Bcc</span>
-            <input type="text" id="doc-email-bcc" placeholder="bcc@example.com" autocomplete="off" />
-            <div id="doc-email-bcc-suggestions" class="email-autocomplete" style="display:none"></div>
-            <button type="button" class="email-cc-close" data-cc-close title="Hide Cc/Bcc" aria-label="Hide Cc/Bcc"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </div>
-          <div class="email-field" style="position:relative"><span class="email-field-prefix">Subject</span><input type="text" id="doc-email-subject" placeholder="" /></div>
-          <div id="doc-email-attachments" class="email-attachments" style="display:none"></div>
-          <div id="doc-email-compose-atts" class="email-compose-atts" style="display:none"></div>
-        </div>
-        <input type="hidden" id="doc-email-in-reply-to" />
-        <input type="hidden" id="doc-email-references" />
-        <input type="hidden" id="doc-email-source-uid" />
-        <input type="hidden" id="doc-email-source-folder" />
-        <input type="file" id="doc-email-file-input" multiple style="display:none" />
-      </div>
       <input type="file" id="doc-md-image-input" accept="image/*" multiple style="display:none" />
       <div class="doc-md-toolbar" id="doc-md-toolbar" style="display:none">
         <div class="md-toolbar-items" id="md-toolbar-items">
@@ -4527,7 +2686,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
             <button type="button" class="md-view-opt" data-renderview="code" title="Edit code"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
             <button type="button" class="md-view-opt" data-renderview="run" title="Run / Preview"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
           </span>
-          <button id="doc-email-ai-reply-btn" class="doc-action-icon-btn md-toolbar-email-only" type="button" title="Draft a reply with AI (Fast / Full + optional context)" style="display:none;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--accent, var(--red));flex-shrink:0;position:relative;top:-1px;"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg><span style="font-size:11px;">Reply</span></button>
           <button id="doc-fontsize-btn" class="doc-action-icon-btn" title="Font size" style="position:relative;width:28px;height:26px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg><span class="doc-fontsize-levels"><i data-sz="s">S</i><i data-sz="m">M</i><i data-sz="l">L</i></span></button>
           <button id="doc-diff-toggle-btn" class="doc-action-icon-btn" title="Compare changes" style="opacity:0.7;display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 12H2l5-5 5 5H9"/><path d="M19 12h3l-5 5-5-5h3"/></svg></button>
           <span class="md-toolbar-sep md-toolbar-edit-only"></span>
@@ -4540,7 +2698,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
           <span class="md-toolbar-sep md-toolbar-edit-only"></span>
           <button type="button" class="md-toolbar-edit-only" data-md="link" title="Link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
           <button type="button" id="md-toolbar-attach-btn" class="md-toolbar-attach-btn md-toolbar-edit-only" title="Insert image"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
-          <button type="button" class="md-dd-toggle md-toolbar-email-hide md-toolbar-edit-only" data-dd="code" title="Code">\`<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <button type="button" class="md-dd-toggle md-toolbar-edit-only" data-dd="code" title="Code">\`<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
           <span class="md-toolbar-sep md-toolbar-edit-only"></span>
           <span id="md-toolbar-emoji-slot" class="md-toolbar-edit-only"></span>
           <span class="md-toolbar-sep md-toolbar-pdf-only" style="display:none"></span>
@@ -4567,24 +2725,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         <div id="doc-line-numbers" class="doc-line-numbers">1</div>
         <pre id="doc-editor-highlight" class="doc-editor-highlight"><code id="doc-editor-code"></code></pre>
         <textarea id="doc-editor-textarea" class="doc-editor-textarea" placeholder="Document content..." spellcheck="false"></textarea>
-      </div>
-      <!-- WYSIWYG email body. In email mode this replaces the source editor:
-           B/I/S act on the live text (execCommand), and on send its HTML becomes
-           the email's HTML part. Its plain text is mirrored into the textarea so
-           the existing send/draft/change-detection paths keep working. -->
-      <div id="doc-email-richbody" class="doc-email-richbody" contenteditable="true" spellcheck="true" style="display:none" data-no-swipe-dismiss></div>
-      <div id="doc-email-actions" class="doc-email-actions" style="display:none">
-        <button id="doc-email-discard-btn" class="email-discard-btn" title="Close email" style="display:inline-flex;align-items:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Close</span></button>
-        <span style="flex:1"></span>
-        <div class="email-send-split">
-          <button id="doc-email-send-btn" class="email-send-btn email-send-main" title="Send email (Ctrl+Enter)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send</button>
-          <button id="doc-email-send-caret" class="email-send-btn email-send-caret" title="More send options" aria-haspopup="true" aria-expanded="false"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
-          <div id="doc-email-more-menu" class="email-more-menu" style="display:none">
-            <div class="dropdown-item-compact" id="doc-email-draft-btn"><span class="dropdown-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></span>Save Draft</div>
-            <div class="dropdown-item-compact" id="doc-email-schedule-btn"><span class="dropdown-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>Schedule Send...</div>
-            <div class="dropdown-item-compact" id="doc-email-unread-btn"><span class="dropdown-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></span>Mark Unread</div>
-          </div>
-        </div>
       </div>
       <div id="doc-md-preview" class="doc-md-preview" style="display:none"></div>
       <div id="doc-csv-preview" class="doc-csv-preview" style="display:none"></div>
@@ -4794,13 +2934,12 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     document.getElementById('doc-close-btn')?.addEventListener('click', () => closePanel('down'));
     document.getElementById('doc-footer-close-btn')?.addEventListener('click', () => { if (activeDocId) closeTab(activeDocId); });
     document.getElementById('doc-import-btn')?.addEventListener('click', () => openLibrary());
-    document.getElementById('doc-footer-copy-btn')?.addEventListener('click', (e) => {
-      if (e.currentTarget.dataset.mode === 'reply') { if (activeDocId) _sendSignedReply(activeDocId); }
-      else saveDocument({ silent: false, forceVersion: true });
+    document.getElementById('doc-footer-copy-btn')?.addEventListener('click', () => {
+      saveDocument({ silent: false, forceVersion: true });
     });
     document.getElementById('doc-footer-export-btn')?.addEventListener('click', (e) => showExportMenu(null, e.currentTarget.getBoundingClientRect()));
     // Mobile footer: Close the current doc + Copy its content (replaces the
-    // per-tab × on small screens, mirroring the email reader's Close footer).
+    // per-tab × on small screens).
     document.getElementById('doc-mobile-close')?.addEventListener('click', () => { if (activeDocId) closeTab(activeDocId); });
     document.getElementById('doc-mobile-copy')?.addEventListener('click', () => copyDocument());
     // Save, copy, run, export, delete, preview toggles are now in per-tab context menu
@@ -4992,50 +3131,18 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       }
       // If switching away from html, exit HTML preview
       if (!_isRenderLang(lang)) exitHtmlPreview();
-      // Show/hide email fields
-      if (lang === 'email') {
-        const doc = activeDocId && docs.get(activeDocId);
-        if (doc) _showEmailFields(doc);
-      } else {
-        _hideEmailFields();
-      }
       // Sync header action buttons for new language
       _syncHeaderActions();
     });
 
-    // Email send/draft buttons
     // Inject emoji picker button into markdown toolbar
     const emojiSlot = document.getElementById('md-toolbar-emoji-slot');
     if (emojiSlot && !emojiSlot.querySelector('.emoji-picker-btn')) {
-      // Resolve the live target on click: the WYSIWYG email contenteditable
-      // when active, otherwise the plain markdown textarea.
       emojiSlot.appendChild(emojiPicker.createEmojiButton(
-        () => _emailRichbodyActive() || document.getElementById('doc-editor-textarea')
+        () => document.getElementById('doc-editor-textarea')
       ));
     }
 
-    document.getElementById('doc-email-send-btn')?.addEventListener('click', () => {
-      // Pressing Send must never leave the "more options" menu showing.
-      const _m = document.getElementById('doc-email-more-menu');
-      if (_m) _m.style.display = 'none';
-      document.getElementById('doc-email-send-caret')?.setAttribute('aria-expanded', 'false');
-      _sendEmail();
-    });
-
-    // Ctrl+Enter / Cmd+Enter sends the email when an email doc is active
-    // Bind once at module level via a guard to avoid duplicate listeners on re-open
-    if (!window._emailCtrlEnterBound) {
-      window._emailCtrlEnterBound = true;
-      document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          const doc = activeDocId && docs.get(activeDocId);
-          if (doc && doc.language === 'email' && isOpen) {
-            e.preventDefault();
-            _sendEmail();
-          }
-        }
-      });
-    }
     // Ctrl+Alt+M (and Cmd+Opt+M on mac) flips Edit ↔ Preview on a markdown
     // doc. Bound once globally; gated on the doc panel being open and the
     // active doc being markdown so it doesn't fire while the user is typing
@@ -5054,143 +3161,10 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         }
       });
     }
-    document.getElementById('doc-email-draft-btn')?.addEventListener('click', () => {
-      document.getElementById('doc-email-more-menu').style.display = 'none';
-      _saveDraft();
-    });
-    document.getElementById('doc-email-discard-btn')?.addEventListener('click', _discardEmail);
-    document.getElementById('doc-email-unread-btn')?.addEventListener('click', () => {
-      document.getElementById('doc-email-more-menu').style.display = 'none';
-      _markUnreadAndClose();
-    });
-    document.getElementById('doc-email-schedule-btn')?.addEventListener('click', (e) => {
-      const anchor = document.getElementById('doc-email-send-caret') || e.currentTarget;
-      document.getElementById('doc-email-more-menu').style.display = 'none';
-      _scheduleSend(anchor);
-    });
-    document.getElementById('doc-email-ai-reply-btn')?.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      _showDocAiReplyChoice(ev.currentTarget);
-    });
-
-    const collapseBtn = document.getElementById('doc-email-collapse-btn');
-    if (collapseBtn && !collapseBtn._emailCollapseWired) {
-      collapseBtn._emailCollapseWired = true;
-      collapseBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const focusState = _captureEmailBodyFocusState();
-        const header = document.getElementById('doc-email-header');
-        const nextCollapsed = !header?.classList.contains('doc-email-header-collapsed');
-        _setEmailHeaderCollapsed(nextCollapsed);
-        if (!nextCollapsed) _restoreEmailBodyFocusState(focusState);
-      });
-      collapseBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    }
-    ['doc-email-to', 'doc-email-cc', 'doc-email-bcc', 'doc-email-subject'].forEach(id => {
-      document.getElementById(id)?.addEventListener('input', () => {
-        _syncEmailHeaderSummary();
-        saveCurrentToMap();
-        _persistEmailLocalDraftSoon();
-        clearTimeout(_autoSaveDebounce);
-        _autoSaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 800);
-      });
-      document.getElementById(id)?.addEventListener('focus', () => _setEmailHeaderCollapsed(false, { manual: false }));
-    });
-    document.getElementById('doc-email-richbody')?.addEventListener('focus', _maybeAutoCollapseEmailHeader);
-    if (window.visualViewport && !window._docEmailViewportCollapseBound) {
-      window._docEmailViewportCollapseBound = true;
-      window.visualViewport.addEventListener('resize', _maybeAutoCollapseEmailHeader);
-    }
-
-    // Split-button caret toggles the send-options menu (drops up).
-    document.getElementById('doc-email-send-caret')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const menu = document.getElementById('doc-email-more-menu');
-      const caret = document.getElementById('doc-email-send-caret');
-      if (!menu) return;
-      const opening = menu.style.display === 'none';
-      menu.style.display = opening ? '' : 'none';
-      if (caret) caret.setAttribute('aria-expanded', String(opening));
-    });
-    document.addEventListener('click', (e) => {
-      const menu = document.getElementById('doc-email-more-menu');
-      // Keep the menu open ONLY while interacting with the caret itself or the
-      // menu. Any other click — including the Send button (which sits in the
-      // same .email-send-split) — closes it, so the popup is tied to the arrow.
-      if (menu && !e.target.closest('#doc-email-send-caret, #doc-email-more-menu')) {
-        menu.style.display = 'none';
-        document.getElementById('doc-email-send-caret')?.setAttribute('aria-expanded', 'false');
-      }
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      const menu = document.getElementById('doc-email-more-menu');
-      if (!menu || menu.style.display === 'none') return;
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation?.();
-      menu.style.display = 'none';
-      document.getElementById('doc-email-send-caret')?.setAttribute('aria-expanded', 'false');
-    }, true);
-
-    // Attachments
-    document.getElementById('doc-email-attach-btn')?.addEventListener('click', () => {
-      document.getElementById('doc-email-file-input')?.click();
-    });
     document.getElementById('md-toolbar-attach-btn')?.addEventListener('click', () => {
-      if (_activeDocLanguage() === 'email') {
-        document.getElementById('doc-email-file-input')?.click();
-      } else {
-        document.getElementById('doc-md-image-input')?.click();
-      }
+      document.getElementById('doc-md-image-input')?.click();
     });
-    document.getElementById('doc-email-file-input')?.addEventListener('change', _handleAttachUpload);
     document.getElementById('doc-md-image-input')?.addEventListener('change', _handleMarkdownImageUpload);
-
-    // Cc/Bcc toggle
-    document.getElementById('doc-email-show-cc')?.addEventListener('click', () => {
-      _setEmailHeaderCollapsed(false, { manual: false });
-      const ccRow = document.getElementById('doc-email-cc-row');
-      const bccRow = document.getElementById('doc-email-bcc-row');
-      if (ccRow) ccRow.style.display = '';
-      if (bccRow) bccRow.style.display = '';
-      document.getElementById('doc-email-show-cc').style.display = 'none';
-      _syncEmailHeaderSummary();
-    });
-
-    // Cc/Bcc close — X buttons inside the Cc and Bcc fields hide both
-    // rows + clear their inputs + restore the Cc opener on the To row.
-    document.querySelectorAll('[data-cc-close]').forEach(closeBtn => {
-      closeBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const ccRow = document.getElementById('doc-email-cc-row');
-        const bccRow = document.getElementById('doc-email-bcc-row');
-        const ccInput = document.getElementById('doc-email-cc');
-        const bccInput = document.getElementById('doc-email-bcc');
-        if (ccRow) ccRow.style.display = 'none';
-        if (bccRow) bccRow.style.display = 'none';
-        if (ccInput) ccInput.value = '';
-        if (bccInput) bccInput.value = '';
-        const ccToggle = document.getElementById('doc-email-show-cc');
-        if (ccToggle) ccToggle.style.display = '';
-        _syncEmailHeaderSummary();
-        saveCurrentToMap();
-        clearTimeout(_autoSaveDebounce);
-        _autoSaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 800);
-      });
-    });
-
-    // Autocomplete for To / Cc / Bcc — typed fragment after the last
-    // comma triggers contact search; Enter / Tab / click on a suggestion
-    // appends "<email>, " so the user can keep typing more recipients.
-    _wireRecipientAutocomplete('doc-email-to',  'doc-email-to-suggestions');
-    _wireRecipientAutocomplete('doc-email-cc',  'doc-email-cc-suggestions');
-    _wireRecipientAutocomplete('doc-email-bcc', 'doc-email-bcc-suggestions');
 
     // Header unified action button (preview or run depending on language)
     document.getElementById('doc-header-preview-btn').addEventListener('click', () => {
@@ -5259,8 +3233,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     let _fontIdx = parseInt(localStorage.getItem('odysseus-doc-fontsize') || '0', 10);
     if (!(_fontIdx >= 0 && _fontIdx < 3)) _fontIdx = 0;
     function _applyDocFont() {
-      const richEmailBody = document.getElementById('doc-email-richbody');
-      [editorWrap, richEmailBody].filter(Boolean).forEach(el => {
+      [editorWrap].filter(Boolean).forEach(el => {
         el.classList.remove('doc-font-s', 'doc-font-m', 'doc-font-l');
         if (_fontSizes[_fontIdx] !== 's') el.classList.add('doc-font-' + _fontSizes[_fontIdx]);
       });
@@ -5390,8 +3363,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         _autoTitleDebounce = setTimeout(() => autoTitleFromContent(ta.value), 600);
         clearTimeout(_autoSaveDebounce);
         _autoSaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 2000);
-        const doc = activeDocId && docs.get(activeDocId);
-        if (doc && doc.language === 'email') _persistEmailLocalDraftSoon();
       });
       ta.addEventListener('paste', (e) => {
         if (_activeDocLanguage() !== 'markdown') return;
@@ -5546,7 +3517,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
           applyFindMarks(codeEl);
         }
         // Dedicated overlay rects on top of the textarea — bulletproof
-        // visibility across markdown / email / code modes.
+        // visibility across markdown / code modes.
         renderFindRects(_findMatches.map(s => [s, s + q.length]), _findIdx);
         if (focusTextarea) ta.focus();
       }
@@ -5570,8 +3541,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       });
 
       // Delete (or Backspace) over the doc PANEL itself (not while typing in
-      // a field) deletes the active document. Matches the email-reader Delete
-      // behavior so the keyboard shortcut is consistent across surfaces.
+      // a field) deletes the active document.
       document.addEventListener('keydown', (e) => {
         if (e.key !== 'Delete' && e.key !== 'Backspace') return;
         if (!isPanelOpen()) return;
@@ -5579,44 +3549,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
         e.preventDefault();
         deleteActiveDocument();
-      });
-
-      // Drag-and-drop file attachment for email compose docs. The whole pane
-      // is the drop target; visual highlight while a drag is hovering. Files
-      // dropped get uploaded via the same compose-upload endpoint as the
-      // file picker.
-      let _dragDepth = 0;
-      const _isEmailDrag = (e) => {
-        const doc = docs.get(activeDocId);
-        if (!doc || doc.language !== 'email') return false;
-        const dt = e.dataTransfer;
-        if (!dt) return false;
-        // Files-only — don't trigger on text drags etc.
-        return dt.types && Array.from(dt.types).includes('Files');
-      };
-      pane.addEventListener('dragenter', (e) => {
-        if (!_isEmailDrag(e)) return;
-        e.preventDefault();
-        _dragDepth++;
-        pane.classList.add('email-dragover');
-      });
-      pane.addEventListener('dragover', (e) => {
-        if (!_isEmailDrag(e)) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-      });
-      pane.addEventListener('dragleave', (e) => {
-        if (!_isEmailDrag(e)) return;
-        _dragDepth = Math.max(0, _dragDepth - 1);
-        if (_dragDepth === 0) pane.classList.remove('email-dragover');
-      });
-      pane.addEventListener('drop', async (e) => {
-        if (!_isEmailDrag(e)) return;
-        e.preventDefault();
-        _dragDepth = 0;
-        pane.classList.remove('email-dragover');
-        const files = e.dataTransfer.files;
-        if (files && files.length) await _uploadComposeFiles(files);
       });
 
       // Track selection for AI-assisted editing
@@ -5647,98 +3579,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
 
   /** Apply markdown formatting to the textarea selection */
   let _lastMdFormat = { action: null, t: 0 };
-  // Styled two-field link dialog (display text + URL). Resolves {url, text}
-  // or null on cancel. Reuses the styled-prompt CSS. Text is optional — left
-  // empty it falls back to the selected text, then the URL itself.
-  function _promptLink(defaultText = '') {
-    return new Promise(resolve => {
-      const overlay = document.createElement('div');
-      overlay.id = 'doc-link-prompt-overlay';
-      overlay.className = 'modal';
-      overlay.innerHTML =
-        '<div class="modal-content styled-confirm-box styled-prompt-box">' +
-          '<div class="modal-header"><h4>Insert link</h4></div>' +
-          '<div class="modal-body">' +
-            '<input type="text" id="doc-link-text" class="styled-prompt-input" placeholder="Link text (optional)" maxlength="500" />' +
-            '<input type="url" id="doc-link-url" class="styled-prompt-input" placeholder="https://example.com" maxlength="2048" style="margin-top:8px;" />' +
-          '</div>' +
-          '<div class="modal-footer">' +
-            '<button id="doc-link-cancel" class="confirm-btn confirm-btn-secondary">Cancel</button>' +
-            '<button id="doc-link-ok" class="confirm-btn confirm-btn-primary">Insert</button>' +
-          '</div>' +
-        '</div>';
-      document.body.appendChild(overlay);
-      const textEl = overlay.querySelector('#doc-link-text');
-      const urlEl = overlay.querySelector('#doc-link-url');
-      textEl.value = defaultText || '';
-      function done(result) {
-        overlay.remove();
-        document.removeEventListener('keydown', onKey, true);
-        resolve(result);
-      }
-      function submit() {
-        const url = (urlEl.value || '').trim();
-        if (!url) { urlEl.focus(); return; }
-        done({ url, text: (textEl.value || '').trim() });
-      }
-      function onKey(e) {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
-      }
-      overlay.querySelector('#doc-link-ok').addEventListener('click', submit);
-      overlay.querySelector('#doc-link-cancel').addEventListener('click', () => done(null));
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
-      urlEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
-      textEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); urlEl.focus(); } });
-      document.addEventListener('keydown', onKey, true);
-      // Focus the URL field when the text is prefilled; otherwise start at text.
-      requestAnimationFrame(() => { (defaultText ? urlEl : textEl).focus(); });
-    });
-  }
-
-  // Email WYSIWYG link insertion. We snapshot the Range first (the dialog steals
-  // focus and would otherwise collapse it) and insert via direct DOM ops, since
-  // execCommand is unreliable once focus has moved to the modal.
-  async function _wysiwygInsertLink(rich) {
-    const selObj = window.getSelection();
-    let savedRange = null;
-    if (selObj && selObj.rangeCount) {
-      const r = selObj.getRangeAt(0);
-      if (rich.contains(r.commonAncestorContainer)) savedRange = r.cloneRange();
-    }
-    const selText = savedRange ? savedRange.toString() : '';
-    let res;
-    try { res = await _promptLink(selText); } catch (_) { res = null; }
-    if (!res) { rich.focus(); return; }
-    let url = (res.url || '').trim();
-    if (!url) { rich.focus(); return; }
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith('//')) url = 'https://' + url;
-    const linkText = (res.text || '').trim() || selText || url;
-
-    if (!savedRange) {
-      savedRange = document.createRange();
-      savedRange.selectNodeContents(rich);
-      savedRange.collapse(false);
-    }
-    const a = document.createElement('a');
-    a.href = url;
-    if (selText && linkText === selText) {
-      // Unchanged selection — wrap it to keep any inline formatting.
-      a.appendChild(savedRange.extractContents());
-    } else {
-      savedRange.deleteContents();
-      a.textContent = linkText;
-    }
-    savedRange.insertNode(a);
-    // Place the caret right after the inserted link.
-    const after = document.createRange();
-    after.setStartAfter(a);
-    after.collapse(true);
-    rich.focus();
-    const s = window.getSelection();
-    s.removeAllRanges();
-    s.addRange(after);
-    _syncEmailRichbody(rich);
-  }
 
   function applyMdFormat(action) {
     // Guard against a duplicate/"ghost" click firing the same toggle twice in
@@ -5747,33 +3587,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const _now = Date.now();
     if (_lastMdFormat.action === action && _now - _lastMdFormat.t < 350) return;
     _lastMdFormat = { action, t: _now };
-    // Email WYSIWYG: format the live rich text via execCommand instead of
-    // inserting markdown markers into the (hidden) source textarea.
-    const _rich = _emailRichbodyActive();
-    if (_rich) {
-      _rich.focus();
-      // Link needs an async styled URL prompt — handle it separately so we can
-      // save/restore the selection (opening the modal collapses it otherwise).
-      if (action === 'link') { _wysiwygInsertLink(_rich); return; }
-      const _cmd = { bold: 'bold', italic: 'italic', strike: 'strikeThrough',
-                     ul: 'insertUnorderedList', ol: 'insertOrderedList', hr: 'insertHorizontalRule' };
-      try {
-        if (_cmd[action]) document.execCommand(_cmd[action]);
-        else if (action === 'h1' || action === 'h2' || action === 'h3') {
-          // Toggle: if the block is already this heading, revert to a normal
-          // paragraph; otherwise apply (or switch to) the heading.
-          const cur = _currentBlockTag(_rich);
-          document.execCommand('formatBlock', false, (cur === action) ? 'div' : action);
-        } else if (action === 'code') {
-          const cur = _currentBlockTag(_rich);
-          document.execCommand('formatBlock', false, (cur === 'pre') ? 'div' : 'pre');
-        }
-        // quote/check/codeblock have no clean execCommand — skipped in WYSIWYG v1.
-      } catch (_) {}
-      _syncEmailRichbody(_rich);
-      if (_rich._syncActive) _rich._syncActive();
-      return;
-    }
     const ta = document.getElementById('doc-editor-textarea');
     if (!ta) return;
     const start = ta.selectionStart;
@@ -5923,22 +3736,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
   }
 
   /** Toggle line prefix (headings, quotes, lists) */
-  // The block-level tag (h1/h2/h3/pre/p/…) containing the current selection in
-  // a contenteditable root — used to decide whether a heading toggle should
-  // apply or revert.
-  function _currentBlockTag(root) {
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return '';
-    let node = sel.getRangeAt(0).startContainer;
-    if (node.nodeType === 3) node = node.parentNode;
-    while (node && node !== root) {
-      const tag = node.tagName && node.tagName.toLowerCase();
-      if (tag && /^(h1|h2|h3|h4|h5|h6|p|div|pre|blockquote|li)$/.test(tag)) return tag;
-      node = node.parentNode;
-    }
-    return '';
-  }
-
   // Heading toggle for the markdown textarea: strips any existing leading
   // `#{1,6} `, then removes it (toggle off) if it was the same level, or applies
   // the new level otherwise.
@@ -6624,11 +4421,11 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     if (!doc || !doc.id) return;
     const sessionId = doc.session_id || _lastSessionId || null;
     addDocToTabs(doc, sessionId);
-    // Use _ensureDocPaneMounted (not `if (!isOpen) openPanel()`): when a draft
-    // is composed from the email modal, `isOpen` can be stale-true while the
-    // actual pane was torn down — a bare openPanel() early-returns and the doc
-    // mounts into a wrong/half-built pane (rendered as a narrow sidebar on
-    // mobile instead of its own full-screen window). This remounts it cleanly.
+    // Use _ensureDocPaneMounted (not `if (!isOpen) openPanel()`): `isOpen` can
+    // be stale-true while the actual pane was torn down — a bare openPanel()
+    // early-returns and the doc mounts into a wrong/half-built pane (rendered
+    // as a narrow sidebar on mobile instead of its own full-screen window).
+    // This remounts it cleanly.
     _ensureDocPaneMounted();
     // Defer to next frame so the panel DOM exists before switchToDoc populates
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -6636,41 +4433,10 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     }));
   }
 
-  export async function replaceEmailReplyBody(docId, replyText, { force = false } = {}) {
-    const doc = docs.get(docId);
-    if (!doc) return;
-    const fields = _parseEmailHeader(doc.content || '');
-    const oldSplit = _splitEmailReplyQuote(fields.body || '');
-    const quote = oldSplit.quote;
-    const ownText = _emailReplyOwnText(fields.body || '');
-    if (!force && ownText && !/^(\[AI reply draft will appear here\]|Drafting AI reply)/i.test(ownText)) {
-      if (uiModule) uiModule.showToast('AI reply ready, but draft was edited');
-      return;
-    }
-    const body = String(replyText || '').trim() + (quote ? `\n\n${quote}` : '');
-    doc.content = _buildEmailContent(
-      fields.to,
-      fields.subject,
-      fields.inReplyTo,
-      fields.references,
-      body,
-      fields.sourceUid,
-      fields.sourceFolder,
-      fields.cc,
-      fields.bcc,
-    );
-    if (activeDocId === docId) {
-      const textarea = document.getElementById('doc-editor-textarea');
-      if (textarea) await _streamEmailBodyText(textarea, body);
-    }
-    clearTimeout(_autoSaveDebounce);
-    _autoSaveDebounce = setTimeout(() => { saveDocument({ silent: true }); }, 800);
-  }
-
   // Force the panel into a genuinely-open state. `isOpen` can be true while the
-  // pane was torn down by another full-screen view (e.g. opening a doc from the
-  // email modal): in that case openPanel() early-returns and nothing mounts, so
-  // the doc silently never appears. Reset the stale flag and re-open for real.
+  // pane was torn down by another full-screen view: in that case openPanel()
+  // early-returns and nothing mounts, so the doc silently never appears. Reset
+  // the stale flag and re-open for real.
   function _ensureDocPaneMounted() {
     if (!isOpen || !document.getElementById('doc-editor-pane')) {
       isOpen = false;
@@ -6769,7 +4535,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const shouldRestoreOpen = localStorage.getItem(_docOpenKey(sessionId)) === '1';
     const shouldRestoreMinimized = localStorage.getItem(_docMinimizedKey(sessionId)) === '1';
     // Clear docs from other sessions so tabs are per-session,
-    // but keep session-less docs (e.g. email compose) — they're independent
+    // but keep session-less docs — they're independent
     for (const [id, doc] of [...docs]) {
       if (doc.sessionId && doc.sessionId !== sessionId) docs.delete(id);
     }
@@ -6849,12 +4615,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       version: doc.version_count || 1,
       sessionId: sessionId || doc.session_id,
       userSetLanguage: !!doc.language,
-      _composeAtts: existing?._composeAtts,
-      // Provenance for the "Send signed reply" flow
-      sourceEmailUid:       doc.source_email_uid || null,
-      sourceEmailFolder:    doc.source_email_folder || null,
-      sourceEmailAccountId: doc.source_email_account_id || null,
-      sourceEmailMessageId: doc.source_email_message_id || null,
     });
   }
 
@@ -6917,7 +4677,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
 
   // Find-result rectangles drawn ON TOP of the textarea — bypasses
   // the syntax-highlight overlay entirely so visibility works in
-  // markdown, email, and any other mode regardless of single-layer-
+  // markdown and any other mode regardless of single-layer-
   // rendering quirks. Same mirror-measurement approach as pinned
   // selections so wrap matches the textarea exactly.
   //
@@ -6961,7 +4721,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       const [s, e] = matches[i];
       // Line-band style: highlight the FULL visual row containing the
       // match. Cheap, always-visible, doesn't need character-precise
-      // mirror measurement that varies across email/markdown/code modes.
+      // mirror measurement that varies across markdown/code modes.
       mirror.textContent = text.substring(0, s);
       const startTop = mirror.scrollHeight - paddingTop;
       // Find the wrap-row's end by measuring with one extra char beyond
@@ -7447,7 +5207,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const lang = (document.getElementById('doc-language-select')?.value || '').toLowerCase();
     if (!lang) return false;
     // Prose / preview types that should get character-precise highlights.
-    const prose = new Set(['markdown', 'md', 'text', 'txt', 'email', 'html', 'csv']);
+    const prose = new Set(['markdown', 'md', 'text', 'txt', 'html', 'csv']);
     return !prose.has(lang);
   }
 
@@ -8679,11 +6439,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     }
     const _downloadIco = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
     items += `<div class="dropdown-item-compact doc-tab-action" data-action="download">${_di(_downloadIco)}<span>Download</span></div>`;
-    // "Send signed reply" — only if this doc was opened from an email attachment
-    if (doc.sourceEmailUid && doc.sourceEmailFolder) {
-      const _sendBackIco = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
-      items += `<div class="dropdown-item-compact doc-tab-action" data-action="signed-reply">${_di(_sendBackIco)}<span>Send signed reply</span></div>`;
-    }
     const _closeIco = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     items += `<div class="dropdown-item-compact doc-tab-action" data-action="close">${_di(_closeIco)}<span>Close</span></div>`;
     items += `<div class="dropdown-divider"></div>`;
@@ -8736,7 +6491,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
             showExportMenu(null, btn?.getBoundingClientRect());
             break;
           }
-          case 'signed-reply': _sendSignedReply(docId); break;
           case 'close': closeTab(docId); break;
           case 'delete': deleteActiveDocument(); break;
         }
@@ -8744,113 +6498,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     });
   }
 
-  /**
-   * "Send signed reply" — flatten the current PDF (form fields + signature
-   * stamps + freeform annotations), drop it into the compose-uploads dir,
-   * then either:
-   *   1. add the attachment to an existing open email draft for the same
-   *      source thread (so multiple signed docs accumulate into one reply), or
-   *   2. create a fresh email-language draft document pre-filled with To /
-   *      Subject / In-Reply-To / References and the first attachment.
-   * Switches the doc panel to that draft so the user can review + send.
-   */
-  async function _sendSignedReply(docId) {
-    const doc = docs.get(docId);
-    if (!doc || !doc.sourceEmailUid) return;
-    if (uiModule) uiModule.showToast('Preparing signed reply…');
-    let result;
-    try {
-      const res = await fetch(`${API_BASE}/api/document/${encodeURIComponent(docId)}/prepare-signed-reply`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      result = await res.json().catch(() => ({}));
-      if (!res.ok || !result.ok) {
-        const msg = (result && result.error) || `HTTP ${res.status}`;
-        if (uiModule) uiModule.showError(`Couldn't prepare signed reply: ${msg}`);
-        return;
-      }
-    } catch (e) {
-      console.error('prepare-signed-reply failed:', e);
-      if (uiModule) uiModule.showError("Couldn't prepare signed reply");
-      return;
-    }
-
-    const att = result.attachment;
-    const reply = result.reply || {};
-    const mid = reply.source_message_id || doc.sourceEmailMessageId || '';
-
-    // 1) Already have a draft tab open for this source thread? Append.
-    for (const [, d] of docs) {
-      if (d.language === 'email' && d._draftForMessageId === mid && mid) {
-        d._composeAtts = (d._composeAtts || []).concat([att]);
-        await loadDocument(d.id);
-        _renderComposeAttachments();
-        if (uiModule) uiModule.showToast(`Added "${att.filename}" to the reply draft`);
-        return;
-      }
-    }
-
-    // 2) Otherwise create a fresh email draft.
-    const headerLines = [
-      `To: ${reply.to || ''}`,
-      `Subject: ${reply.subject || ''}`,
-      reply.in_reply_to ? `In-Reply-To: ${reply.in_reply_to}` : null,
-      reply.references ? `References: ${reply.references}` : null,
-      reply.source_uid ? `X-Source-UID: ${reply.source_uid}` : null,
-      reply.source_folder ? `X-Source-Folder: ${reply.source_folder}` : null,
-    ].filter(Boolean);
-    const content = headerLines.join('\n') + '\n---\n\nHi' + (reply.to_name ? ' ' + reply.to_name.split(/\s+/)[0] : '') + ',\n\nPlease find the signed copy attached.\n\nBest,\n';
-
-    let draftId = null;
-    try {
-      // Use the source PDF's session if available; else fall back to current.
-      let sessionId = doc.sessionId
-        || _lastSessionId
-        || (sessionModule && sessionModule.getCurrentSessionId());
-      if (!sessionId) {
-        try { sessionId = await _autoCreateSession(); } catch (_) {}
-      }
-      const cRes = await fetch(`${API_BASE}/api/document`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          session_id: sessionId,
-          title: reply.subject || 'Signed reply',
-          language: 'email',
-          content,
-        }),
-      });
-      const created = await cRes.json();
-      draftId = created && (created.id || created.doc_id);
-      if (!draftId) throw new Error('No draft id returned');
-    } catch (e) {
-      console.error('Failed to create draft doc:', e);
-      if (uiModule) uiModule.showError("Couldn't create reply draft");
-      return;
-    }
-
-    // Tag the draft (in-memory only) with the thread message-id so future
-    // signed PDFs from the same email get appended to this same draft.
-    addDocToTabs({
-      id: draftId,
-      title: reply.subject || 'Signed reply',
-      language: 'email',
-      current_content: content,
-      version_count: 1,
-    }, doc.sessionId);
-    const draft = docs.get(draftId);
-    if (draft) {
-      draft._composeAtts = [att];
-      draft._draftForMessageId = mid;
-      if (reply.account_id) draft._draftAccountId = reply.account_id;
-    }
-
-    await loadDocument(draftId);
-    _renderComposeAttachments();
-    if (uiModule) uiModule.showToast(`Reply draft ready — "${att.filename}" attached`);
-  }
 
   /** Save manual edits */
   export async function saveDocument({ silent = false, forceVersion = false } = {}) {
@@ -8874,10 +6521,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         }),
       });
       if (res.status === 404) {
-        if (silent && localDoc?.language === 'email') {
-          return;
-        }
-        // Streaming/empty email drafts can leave a local tab pointing at a temp
+        // Streaming/empty drafts can leave a local tab pointing at a temp
         // or already-deleted document. Do not keep surfacing autosave errors for
         // a document the backend no longer knows about.
         if (docs.has(savingDocId)) docs.delete(savingDocId);
@@ -9339,11 +6983,7 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     } else {
       preview.style.display = 'none';
       preview.innerHTML = '';
-      const isEmailDoc = docs.get(activeDocId)?.language === 'email';
-      const richEmailBody = document.getElementById('doc-email-richbody');
-      if (!(isEmailDoc && richEmailBody && richEmailBody.style.display !== 'none')) {
-        wrap.style.display = '';
-      }
+      wrap.style.display = '';
     }
     if (remember && activeDocId && docs.has(activeDocId)) {
       docs.get(activeDocId)._markdownPreviewActive = !!active;
@@ -9771,9 +7411,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
       const langSelect = document.getElementById('doc-language-select');
       if (title && titleInput) titleInput.value = title;
       if (langSelect) langSelect.value = existing.language || 'markdown';
-      if (language === 'email') {
-        _showEmailFields(existing);
-      }
       _syncStreamDocChrome(existing);
       renderTabs();
       return;
@@ -9833,15 +7470,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     // Show streaming indicator
     const indicator = document.getElementById('doc-stream-indicator');
     if (indicator) indicator.style.display = '';
-
-    // Show email fields immediately when streaming an email doc so the user
-    // doesn't have to refresh for the editor to flip into email mode.
-    if (language === 'email') {
-      const streamDoc = docs.get(_streamDocId);
-      if (streamDoc) _showEmailFields(streamDoc);
-    } else {
-      _hideEmailFields();
-    }
 
     syncHighlighting();
     _syncStreamDocChrome(docs.get(_streamDocId));
@@ -9934,10 +7562,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     if (doc) doc.content = content;
 
     if (_streamDocId === activeDocId) {
-      if ((doc?.language || '').toLowerCase() === 'email') {
-        _syncStreamingEmailFields(doc);
-        return;
-      }
       const textarea = document.getElementById('doc-editor-textarea');
       if (textarea) {
         textarea.value = content;
@@ -9966,11 +7590,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
    *  Returns the old _streamDocId so handleDocUpdate can migrate temp→real. */
   export function streamDocFinalize() {
     const oldId = _streamDocId;
-    const finishingDoc = oldId ? docs.get(oldId) : null;
-    if (oldId === activeDocId && (finishingDoc?.language || '').toLowerCase() === 'email') {
-      const fields = _parseEmailHeader(finishingDoc.content || '');
-      _renderStreamingEmailBody(fields.body || '', { immediate: true });
-    }
     _streamDocId = null;
     // Hide streaming indicator + cursor
     const indicator = document.getElementById('doc-stream-indicator');
@@ -10086,35 +7705,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const textarea = document.getElementById('doc-editor-textarea');
     const oldContent = (docId === activeDocId && textarea) ? textarea.value : '';
     const isExistingDoc = docs.has(docId);
-    if (isExistingDoc) {
-      const existingDoc = docs.get(docId);
-      const existingLang = ((existingDoc?.language || data.language || '') + '').toLowerCase();
-      const oldFields = _parseEmailHeader(existingDoc?.content || '');
-      const newFields = _parseEmailHeader(newContent || '');
-      if (
-        existingLang === 'email'
-        && oldFields.body
-        && newFields.body
-        && (oldFields.inReplyTo || oldFields.sourceUid || newFields.inReplyTo || newFields.sourceUid)
-      ) {
-        const oldSplit = _splitEmailReplyQuote(oldFields.body);
-        if (oldSplit.quote) {
-          const newSplit = _splitEmailReplyQuote(newFields.body);
-          const nextBody = `${(newSplit.body || newFields.body || '').trim()}\n\n${oldSplit.quote}`.trim();
-          newContent = _buildEmailContent(
-            newFields.to || oldFields.to,
-            newFields.subject || oldFields.subject,
-            newFields.inReplyTo || oldFields.inReplyTo,
-            newFields.references || oldFields.references,
-            nextBody,
-            newFields.sourceUid || oldFields.sourceUid,
-            newFields.sourceFolder || oldFields.sourceFolder,
-            newFields.cc || oldFields.cc,
-            newFields.bcc || oldFields.bcc,
-          );
-        }
-      }
-    }
 
     // Add or update in docs map
     if (isExistingDoc) {
@@ -10169,11 +7759,10 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     const docLang = data.language || (docs.has(docId) && docs.get(docId).language) || '';
     if (docLang && langSelect) langSelect.value = docLang;
     if (!docLang) attemptAutoDetect();
-    const isEmailUpdate = (docLang || '').toLowerCase() === 'email';
     const markdownPreviewWasVisible = _isMarkdownPreviewVisible();
 
     // Animate content update for edits; apply directly for creates/streaming
-    const isEdit = !isEmailUpdate && isExistingDoc && oldContent && oldContent !== newContent && !streamingId;
+    const isEdit = isExistingDoc && oldContent && oldContent !== newContent && !streamingId;
     if (isEdit && textarea) {
       // Count changed lines to decide between animation and diff mode
       const oldLines = oldContent.split('\n');
@@ -10192,17 +7781,9 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
         _animateDocEdit(textarea, newContent);
       }
     } else {
-      if (isEmailUpdate) {
-        const updatedDocForEmail = docs.get(docId);
-        if (updatedDocForEmail) {
-          _setMarkdownPreviewActive(false, { remember: false });
-          _showEmailFields(updatedDocForEmail);
-        }
-      } else {
-        if (textarea) textarea.value = newContent;
-        syncHighlighting();
-        _refreshMarkdownPreviewIfVisible(docId, newContent);
-      }
+      if (textarea) textarea.value = newContent;
+      syncHighlighting();
+      _refreshMarkdownPreviewIfVisible(docId, newContent);
     }
 
     // Flash the editor wrap to indicate content was updated
@@ -10216,11 +7797,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
 
     // Auto-detect language for docs with no language set
     const updatedDoc = docs.get(docId);
-    if (isEmailUpdate && updatedDoc) {
-      updatedDoc.language = 'email';
-      if (langSelect) langSelect.value = 'email';
-      _showEmailFields(updatedDoc);
-    }
     if (updatedDoc && !updatedDoc.userSetLanguage && !updatedDoc.language) {
       setTimeout(attemptAutoDetect, 100);
     }
@@ -10555,39 +8131,6 @@ import { bindMenuDismiss, dismissOrRemove } from './escMenuStack.js';
     return activeDocId;
   }
 
-  export function getActiveEmailComposerContext() {
-    if (!activeDocId) return null;
-    const doc = docs.get(activeDocId);
-    if (!doc || doc.language !== 'email') return null;
-    const fields = _parseEmailHeader(doc.content || '');
-    return {
-      docId: activeDocId,
-      sourceUid: fields.sourceUid || '',
-      sourceFolder: fields.sourceFolder || 'INBOX',
-      inReplyTo: fields.inReplyTo || '',
-      to: fields.to || '',
-      subject: fields.subject || '',
-    };
-  }
-
-  /** Find an open email tab by source UID + folder. Returns docId or null. */
-  export function findEmailDocId(uid, folder) {
-    if (uid == null) return null;
-    const wantUid = String(uid);
-    const wantFolder = (folder || '').trim();
-    for (const [id, d] of docs) {
-      if (d.language !== 'email') continue;
-      const fields = _parseEmailHeader(d.content || '');
-      if (fields.sourceUid && String(fields.sourceUid) === wantUid &&
-          (!wantFolder || (fields.sourceFolder || '').trim() === wantFolder)) {
-        return id;
-      }
-    }
-    return null;
-  }
-
-
-
 const documentModule = {
   init,
   openPanel,
@@ -10597,7 +8140,6 @@ const documentModule = {
   newDocument,
   loadDocument,
   injectFreshDoc,
-  replaceEmailReplyBody,
   ensurePaneMounted: _ensureDocPaneMounted,
   loadSessionDocs,
   ensureDocPanel,
@@ -10612,8 +8154,6 @@ const documentModule = {
   exitDiffMode,
   isDiffModeActive,
   getCurrentDocId,
-  getActiveEmailComposerContext,
-  findEmailDocId,
   getSelectionContext,
   clearSelection,
   clearAll,

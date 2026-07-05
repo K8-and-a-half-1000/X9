@@ -13,387 +13,9 @@ let modalEl = null;
 // the endpoints list can flash a glow on that row. Cleared once the
 // animation fires.
 let _recentlyAddedEpId = null;
-let _authPolicy = { password_min_length: 8, reserved_usernames: [] };
 
 function el(id) { return document.getElementById(id); }
 function esc(s) { return uiModule.esc(s); }
-
-/* ═══════════════════════════════════════════
-   USERS TAB
-   ═══════════════════════════════════════════ */
-const PRIV_LABELS = {
-  can_use_agent: 'Agent mode',
-  can_use_browser: 'Browser automation',
-  can_use_bash: 'Shell / Python / Files',
-  can_use_documents: 'Document editor',
-  can_use_research: 'Deep research',
-  can_generate_images: 'Image generation',
-  can_manage_memory: 'Memory & skills',
-};
-
-async function loadUsers() {
-  const list = el('adm-userList');
-  try {
-    const res = await fetch('/api/auth/users', { credentials: 'same-origin' });
-    if (res.status === 401 || res.status === 403) { list.innerHTML = '<div class="admin-empty">Access denied</div>'; return; }
-    const data = await res.json();
-    if (!data.users || data.users.length === 0) { list.innerHTML = '<div class="admin-empty">No users found</div>'; return; }
-    list.innerHTML = '';
-    data.users.forEach(u => {
-      const row = document.createElement('div');
-      row.className = 'admin-user-row';
-
-      // Header: name + badges + delete
-      const header = document.createElement('div');
-      header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:4px 0;';
-      const initial = u.username.charAt(0).toUpperCase();
-      header.innerHTML = `
-        <div class="admin-user-info">
-          <div style="width:28px;height:28px;border-radius:50%;background:color-mix(in srgb, var(--accent) 20%, var(--panel));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;color:var(--accent);">${esc(initial)}</div>
-          <div>
-            <span class="admin-user-name">${esc(u.username)}</span>
-            ${u.is_admin ? '<span class="admin-badge" style="margin-left:6px;">ADMIN</span>' : '<span style="font-size:10px;opacity:0.4;display:block;">Click to manage privileges</span>'}
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button class="admin-btn-sm" data-adm-toggle-admin="${esc(u.username)}" data-make-admin="${u.is_admin ? '0' : '1'}" style="font-size:11px;">${u.is_admin ? 'Revoke admin' : 'Make admin'}</button>
-          <button class="admin-btn-sm" data-adm-rename-user="${esc(u.username)}" style="font-size:11px;">Rename</button>
-          ${u.is_admin ? '' : `<button class="admin-btn-delete" data-adm-del-user="${esc(u.username)}" style="font-size:11px;">Remove</button>`}
-          ${u.is_admin ? '' : '<svg class="admin-user-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3;transition:transform 0.2s,opacity 0.2s;"><polyline points="6 9 12 15 18 9"/></svg>'}
-        </div>
-      `;
-      row.appendChild(header);
-
-      // Privileges panel (hidden by default, not for admins)
-      if (!u.is_admin) {
-        const privPanel = document.createElement('div');
-        privPanel.className = 'admin-priv-panel hidden';
-        privPanel.style.cssText = 'padding:8px 0 4px;border-top:1px solid var(--border);margin-top:8px;';
-
-        // Boolean toggles
-        let html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.35;font-weight:600;margin-bottom:4px;">Features</div>';
-        for (const [key, label] of Object.entries(PRIV_LABELS)) {
-          const checked = u.privileges && u.privileges[key] ? 'checked' : '';
-          html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
-            <span style="font-size:12px;">${label}</span>
-            <label class="admin-switch" style="transform:scale(0.85);"><input type="checkbox" data-priv="${key}" data-user="${esc(u.username)}" ${checked}><span class="admin-slider"></span></label>
-          </div>`;
-        }
-        // Rate limit
-        html += '<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.35;font-weight:600;margin:10px 0 4px;">Limits</div>';
-        const maxMsg = (u.privileges && u.privileges.max_messages_per_day) || 0;
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
-          <div>
-            <span style="font-size:12px;">Daily message limit</span>
-            <div style="font-size:10px;opacity:0.4;">0 = no limit</div>
-          </div>
-          <input type="number" min="0" value="${maxMsg}" data-priv="max_messages_per_day" data-user="${esc(u.username)}" style="width:70px;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--fg);font-size:12px;text-align:center;">
-        </div>`;
-        // Allowed models — checkbox list
-        const allowedModels = Array.isArray(u.privileges && u.privileges.allowed_models)
-          ? u.privileges.allowed_models
-          : [];
-        const allowedSet = new Set(allowedModels);
-        const modelsRestricted = !!(u.privileges && u.privileges.allowed_models_restricted);
-        const blockAllModels = !!(u.privileges && u.privileges.block_all_models);
-        html += `<div style="padding:4px 0;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:12px;">Allowed models</span>
-            <div style="display:flex;gap:8px;">
-              <a href="#" class="priv-models-all" data-user="${esc(u.username)}" style="font-size:10px;opacity:0.5;">All</a>
-              <a href="#" class="priv-models-none" data-user="${esc(u.username)}" style="font-size:10px;opacity:0.5;">None</a>
-            </div>
-          </div>
-          <div style="font-size:10px;opacity:0.4;margin-bottom:4px;">${blockAllModels ? 'No models allowed' : (!modelsRestricted ? 'All models allowed (no restrictions)' : (allowedSet.size === 0 ? 'No models allowed' : allowedSet.size + ' model(s) allowed'))}</div>
-          <div class="priv-models-list" data-user="${esc(u.username)}">
-            <span style="opacity:0.4;font-size:11px;">Loading models...</span>
-          </div>
-        </div>`;
-        privPanel.innerHTML = html;
-        row.appendChild(privPanel);
-
-        // Toggle panel visibility + rotate chevron + load models
-        let _modelsLoaded = false;
-        header.addEventListener('click', (e) => {
-          if (e.target.closest('.admin-btn-delete, [data-adm-rename-user], [data-adm-toggle-admin]')) return;
-          privPanel.classList.toggle('hidden');
-          const chevron = header.querySelector('.admin-user-chevron');
-          if (chevron) {
-            const isOpen = !privPanel.classList.contains('hidden');
-            chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
-            chevron.style.opacity = isOpen ? '0.7' : '0.3';
-          }
-          // Load models list on first expand
-          if (!_modelsLoaded && !privPanel.classList.contains('hidden')) {
-            _modelsLoaded = true;
-            _loadModelsForUser(u.username, allowedSet, modelsRestricted, blockAllModels, privPanel);
-          }
-        });
-
-        // Wire privilege changes (boolean + number inputs, not model checkboxes)
-        privPanel.querySelectorAll('[data-priv]').forEach(input => {
-          const handler = async () => {
-            const username = input.dataset.user;
-            const key = input.dataset.priv;
-            let value;
-            if (input.type === 'checkbox') value = input.checked;
-            else if (input.type === 'number') value = parseInt(input.value) || 0;
-            else value = input.value;
-            try {
-              await fetch(`/api/auth/users/${encodeURIComponent(username)}/privileges`, {
-                method: 'PUT', credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [key]: value }),
-              });
-            } catch (e) { uiModule.showError('Failed to update privilege'); }
-          };
-          if (input.type === 'checkbox') input.addEventListener('change', handler);
-          else input.addEventListener('change', handler);
-        });
-      }
-
-      // Rename button
-      const renameBtn = row.querySelector('[data-adm-rename-user]');
-      if (renameBtn) {
-        renameBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const oldUsername = renameBtn.dataset.admRenameUser;
-          const next = await uiModule.styledPrompt(`Rename "${oldUsername}"`, {
-            defaultValue: oldUsername,
-            placeholder: 'New username',
-            confirmText: 'Rename',
-          });
-          const username = (next || '').trim();
-          if (!username || username === oldUsername) return;
-          try {
-            const res = await fetch(`/api/auth/users/${encodeURIComponent(oldUsername)}/rename`, {
-              method: 'PUT',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              uiModule.showError(data.detail || 'Failed to rename user');
-              return;
-            }
-            if (data.renamed_self) {
-              window.location.reload();
-              return;
-            }
-            loadUsers();
-          } catch (err) {
-            uiModule.showError('Failed to rename user');
-          }
-        });
-      }
-
-      // Delete button
-      const delBtn = row.querySelector('[data-adm-del-user]');
-      if (delBtn) {
-        delBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const username = delBtn.dataset.admDelUser;
-          if (!await uiModule.styledConfirm(`Remove user "${username}"?`, { confirmText: 'Remove', danger: true })) return;
-          const res = await fetch('/api/auth/users', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }) });
-          if (res.ok) loadUsers();
-          else uiModule.showError('Failed to delete user');
-        });
-      }
-
-      // Promote / demote (admin toggle) — present on every row
-      const adminToggleBtn = row.querySelector('[data-adm-toggle-admin]');
-      if (adminToggleBtn) {
-        adminToggleBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const username = adminToggleBtn.dataset.admToggleAdmin;
-          const makeAdmin = adminToggleBtn.dataset.makeAdmin === '1';
-          const confirmMsg = makeAdmin
-            ? `Grant admin rights to "${username}"? They'll get full access to all settings and users — including the power to demote or remove other admins (you included).`
-            : `Revoke admin rights from "${username}"? They'll lose access to the admin panel.`;
-          if (!await uiModule.styledConfirm(confirmMsg, { confirmText: makeAdmin ? 'Make admin' : 'Revoke admin', danger: !makeAdmin })) return;
-          adminToggleBtn.disabled = true;
-          try {
-            const res = await fetch(`/api/auth/users/${encodeURIComponent(username)}/admin`, {
-              method: 'PUT',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_admin: makeAdmin }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              uiModule.showError(data.detail || 'Failed to change admin status');
-              adminToggleBtn.disabled = false;
-              return;
-            }
-            // Demoting yourself drops your own admin access — reload into the
-            // normal-user view (mirrors the rename-self reload above).
-            if (data.self) { window.location.reload(); return; }
-            loadUsers();
-          } catch (err) {
-            uiModule.showError('Failed to change admin status');
-            adminToggleBtn.disabled = false;
-          }
-        });
-      }
-
-      list.appendChild(row);
-    });
-  } catch (e) { list.innerHTML = '<div class="admin-error">Failed to load users</div>'; }
-}
-
-async function _loadModelsForUser(username, allowedSet, modelsRestricted, blockAllModels, privPanel) {
-  const listEl = privPanel.querySelector(`.priv-models-list[data-user="${username}"]`);
-  if (!listEl) return;
-  try {
-    // Use /api/model-endpoints rather than /api/models — the latter is
-    // backed by `cached_models`, so endpoints that haven't been probed yet
-    // (e.g. a freshly-added cloud API like DeepSeek) simply don't show up
-    // until some other endpoint happens to trigger a cache refresh. The
-    // endpoints listing always reflects every configured endpoint.
-    const res = await fetch('/api/model-endpoints', { credentials: 'same-origin' });
-    const data = await res.json();
-    const allModels = [];
-    (Array.isArray(data) ? data : []).forEach(ep => {
-      if (!ep.online) return;
-      (ep.models || []).forEach(mid => {
-        allModels.push({ mid, epName: ep.name || '', display: mid.split('/').pop() });
-      });
-    });
-    if (!allModels.length) {
-      listEl.innerHTML = '<span style="opacity:0.4;font-size:11px;">No models available</span>';
-      return;
-    }
-    let restricted = modelsRestricted;
-    let blockAll = blockAllModels;
-    listEl.innerHTML = sortModelObjects(allModels).map(m => {
-      const checked = !blockAll && (!restricted || allowedSet.has(m.mid)) ? 'checked' : '';
-      return `<label>
-        <input type="checkbox" class="priv-model-cb" data-mid="${esc(m.mid)}" ${checked}>
-        <span>${esc(m.display)}</span>
-        <span style="opacity:0.3;font-size:10px;margin-left:auto;">${esc(m.epName)}</span>
-      </label>`;
-    }).join('');
-
-    // Save on change
-    function _saveModels() {
-      const checked = [];
-      listEl.querySelectorAll('.priv-model-cb').forEach(cb => {
-        if (cb.checked) checked.push(cb.dataset.mid);
-      });
-      // Three distinct states the backend must be able to tell apart:
-      //  - all checked   -> no restriction (allowed_models: [], block_all_models: false)
-      //  - none checked  -> block everything (allowed_models: [], block_all_models: true)
-      //  - some checked  -> allowlist (allowed_models: checked, block_all_models: false)
-      let value, hintText;
-      if (checked.length === allModels.length) {
-        restricted = false;
-        blockAll = false;
-        value = [];
-        hintText = 'All models allowed (no restrictions)';
-      } else if (checked.length === 0) {
-        restricted = true;
-        blockAll = true;
-        value = [];
-        hintText = 'No models allowed';
-      } else {
-        restricted = true;
-        blockAll = false;
-        value = checked;
-        hintText = value.length + ' model(s) allowed';
-      }
-      const hint = privPanel.querySelector('.priv-models-list[data-user]')?.previousElementSibling?.querySelector('div[style*="opacity"]');
-      if (hint) hint.textContent = hintText;
-      fetch(`/api/auth/users/${encodeURIComponent(username)}/privileges`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ allowed_models: value, allowed_models_restricted: restricted, block_all_models: blockAll }),
-      }).catch(() => {});
-    }
-    listEl.querySelectorAll('.priv-model-cb').forEach(cb => cb.addEventListener('change', _saveModels));
-
-    // All / None buttons
-    privPanel.querySelector(`.priv-models-all[data-user="${username}"]`)?.addEventListener('click', (e) => {
-      e.preventDefault();
-      listEl.querySelectorAll('.priv-model-cb').forEach(cb => cb.checked = true);
-      _saveModels();
-    });
-    privPanel.querySelector(`.priv-models-none[data-user="${username}"]`)?.addEventListener('click', (e) => {
-      e.preventDefault();
-      listEl.querySelectorAll('.priv-model-cb').forEach(cb => cb.checked = false);
-      _saveModels();
-    });
-  } catch (e) {
-    listEl.innerHTML = '<span style="opacity:0.4;font-size:11px;">Failed to load models</span>';
-  }
-}
-
-function initSignupToggle() {
-  const toggle = el('adm-signupToggle');
-  fetch('/api/auth/status', { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(d => { toggle.checked = !!d.signup_enabled; })
-    .catch(e => console.warn('Auth status fetch failed:', e));
-  toggle.addEventListener('change', async () => {
-    try {
-      const res = await fetch('/api/auth/signup-toggle', { method: 'POST', credentials: 'same-origin' });
-      const data = await res.json();
-      toggle.checked = data.signup_enabled;
-    } catch (e) { toggle.checked = !toggle.checked; }
-  });
-}
-
-function initShareDefaultsToggle() {
-  const toggle = el('adm-shareDefaultsToggle');
-  fetch('/api/auth/settings', { credentials: 'same-origin' })
-    .then(r => r.json())
-    .then(d => { toggle.checked = !!d.share_defaults_with_users; })
-    .catch(e => console.warn('Settings fetch failed:', e));
-  toggle.addEventListener('change', async () => {
-    try {
-      const res = await fetch('/api/auth/settings', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ share_defaults_with_users: toggle.checked }),
-      });
-      const data = await res.json();
-      toggle.checked = !!data.share_defaults_with_users;
-    } catch (e) {
-      toggle.checked = !toggle.checked;
-    }
-  });
-}
-
-function initAddUser() {
-  fetch('/api/auth/policy', { credentials: 'same-origin' })
-    .then(r => r.ok ? r.json() : null)
-    .then(policy => {
-      if (!policy) return;
-      _authPolicy = policy;
-      const admPw = el('adm-newPassword');
-      if (admPw) admPw.placeholder = `Password (min ${policy.password_min_length})`;
-    })
-    .catch(() => {});
-  el('adm-addBtn').addEventListener('click', async () => {
-    const msg = el('adm-addMsg');
-    msg.textContent = ''; msg.className = '';
-    const username = el('adm-newUsername').value.trim();
-    const password = el('adm-newPassword').value;
-    const is_admin = el('adm-newIsAdmin').checked;
-    if (!username) { msg.textContent = 'Username required'; msg.className = 'admin-error'; return; }
-    if (password.length < _authPolicy.password_min_length) { msg.textContent = `Password must be at least ${_authPolicy.password_min_length} characters`; msg.className = 'admin-error'; return; }
-    if (_authPolicy.reserved_usernames.includes(username.toLowerCase())) { msg.textContent = 'This username is reserved'; msg.className = 'admin-error'; return; }
-    el('adm-addBtn').disabled = true;
-    try {
-      const res = await fetch('/api/auth/users', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, is_admin }) });
-      const data = await res.json();
-      if (res.ok) { msg.textContent = 'User created'; msg.className = 'admin-success'; el('adm-newUsername').value = ''; el('adm-newPassword').value = ''; el('adm-newIsAdmin').checked = false; loadUsers(); }
-      else { msg.textContent = data.detail || 'Failed'; msg.className = 'admin-error'; }
-    } catch (e) { msg.textContent = 'Request failed'; msg.className = 'admin-error'; }
-    el('adm-addBtn').disabled = false;
-  });
-}
 
 /* ═══════════════════════════════════════════
    SERVICES TAB — Endpoints
@@ -1759,40 +1381,6 @@ const _GOOGLE_OAUTH_HELP = `To get Google OAuth credentials:
 9. If accessing remotely: sign in, then copy the URL from the error page and paste it back`;
 
 const MCP_PRESETS = [
-  { name: "Gmail",           command: "npx", args: ["-y", "@gongrzhe/server-gmail-autoauth-mcp"],      env: { GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "" },
-    oauthFile: { dir: "gmail", filename: "gcp-oauth.keys.json" },
-    oauth: {
-      provider: "google",
-      keys_file: "gmail/gcp-oauth.keys.json",
-      token_file: "gmail/credentials.json",
-      scopes: ["https://www.googleapis.com/auth/gmail.modify", "https://www.googleapis.com/auth/gmail.settings.basic"],
-    },
-    help: `Setup:
-1. Go to console.cloud.google.com > create or select a project
-2. APIs & Services > Library > search "Gmail API" > Enable
-3. APIs & Services > OAuth consent screen > set up (External is fine)
-4. Under Audience, add your Gmail address as a test user
-5. APIs & Services > Credentials > + Create Credentials > OAuth Client ID
-6. Application type: Desktop App > Create
-7. Copy the Client ID and Client Secret into the fields above
-8. Click Add Server, then click the Authorize button
-9. Sign in with Google, copy the URL from the error page, paste it back` },
-  { name: "Email (IMAP/SMTP)", command: "npx", args: ["-y", "@codefuturist/email-mcp", "stdio"],        env: { MCP_EMAIL_ADDRESS: "", MCP_EMAIL_PASSWORD: "", MCP_EMAIL_IMAP_HOST: "", MCP_EMAIL_SMTP_HOST: "" },
-    providerDropdown: {
-      label: "Provider",
-      targets: { MCP_EMAIL_IMAP_HOST: "imap", MCP_EMAIL_SMTP_HOST: "smtp" },
-      options: [
-        { name: "Migadu",        imap: "imap.migadu.com",     smtp: "smtp.migadu.com" },
-        { name: "Fastmail",      imap: "imap.fastmail.com",   smtp: "smtp.fastmail.com" },
-        { name: "Proton Bridge", imap: "127.0.0.1",           smtp: "127.0.0.1" },
-        { name: "Outlook/Hotmail", imap: "outlook.office365.com", smtp: "smtp.office365.com" },
-        { name: "Yahoo",         imap: "imap.mail.yahoo.com", smtp: "smtp.mail.yahoo.com" },
-        { name: "iCloud",        imap: "imap.mail.me.com",    smtp: "smtp.mail.me.com" },
-        { name: "Zoho",          imap: "imap.zoho.com",       smtp: "smtp.zoho.com" },
-        { name: "Custom",        imap: "",                    smtp: "" },
-      ],
-    },
-    help: "Works with any IMAP/SMTP email provider.\n1. Pick your provider from the dropdown (or choose Custom)\n2. Enter your email address and password (or app password)\n3. Click Add Server" },
   { name: "CalDAV (Radicale/Nextcloud)", command: "npx", args: ["-y", "caldav-mcp"],                     env: { CALDAV_BASE_URL: "http://localhost:5232", CALDAV_USERNAME: "", CALDAV_PASSWORD: "" },
     help: "Works with any CalDAV server (Radicale, Nextcloud, etc.).\n1. Enter your CalDAV server URL (e.g. http://localhost:5232)\n2. Enter your username and password\n3. Click Add Server" },
   { name: "Google Calendar", command: "npx", args: ["-y", "@cocal/google-calendar-mcp"],                 env: { GOOGLE_OAUTH_CREDENTIALS: "" },
@@ -2154,7 +1742,7 @@ function initMcpForm() {
     if (!keys.length) return;
     _envKeys = keys;
 
-    // Provider dropdown (e.g. for Email IMAP/SMTP)
+    // Provider dropdown (for presets that offer one)
     if (preset?.providerDropdown) {
       const pd = preset.providerDropdown;
       const row = document.createElement('div');
@@ -2441,9 +2029,6 @@ const _TOKEN_SCOPES = [
   { key: 'todos:write',       label: 'Todos write',       detail: 'Create, update, delete, and toggle todo items' },
   { key: 'documents:read',    label: 'Documents read',    detail: 'Read documents when a document API is enabled' },
   { key: 'documents:write',   label: 'Documents write',   detail: 'Create and update draft documents' },
-  { key: 'email:read',        label: 'Email read',        detail: 'Read email when an email API is enabled' },
-  { key: 'email:draft',       label: 'Email draft',       detail: 'Create email reply drafts without sending' },
-  { key: 'email:send',        label: 'Email send',        detail: 'Send email directly' },
   { key: 'calendar:read',     label: 'Calendar read',     detail: 'Read calendar events when enabled' },
   { key: 'calendar:write',    label: 'Calendar write',    detail: 'Create and update calendar events' },
   { key: 'memory:read',       label: 'Memory read',       detail: 'Read memory when enabled' },
@@ -3073,7 +2658,7 @@ function initLogsView() {
 function initAll() {
   modalEl = el('settings-modal');
   const inits = [
-    initSignupToggle, initShareDefaultsToggle, initAddUser, initEndpointForm, initMcpForm,
+    initEndpointForm, initMcpForm,
     initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
     () => settingsModule.initIntegrations()
   ];
@@ -3085,7 +2670,6 @@ function initAll() {
 }
 
 function refreshAll() {
-  loadUsers();
   loadEndpoints();
   loadBuiltinTools();
   loadMcpServers();

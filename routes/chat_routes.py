@@ -530,66 +530,6 @@ def setup_chat_routes(
         active_doc_id = form_data.get("active_doc_id", "").strip()
         logger.info(f"[doc-inject] chat_mode={chat_mode}, active_doc_id={active_doc_id!r}")
 
-        # Active email reader — when the user has an email open in the UI, the
-        # frontend passes its uid/folder/account so "reply", "summarize this",
-        # etc. resolve to the real email instead of the agent inventing a
-        # fake markdown draft.
-        active_email_uid = form_data.get("active_email_uid", "").strip()
-        active_email_folder = form_data.get("active_email_folder", "INBOX").strip() or "INBOX"
-        active_email_account = form_data.get("active_email_account", "").strip()
-        active_email_ctx: Optional[Dict[str, str]] = None
-        # Always reset between requests so a stale active-email pointer from
-        # a previous turn (different reader closed, different account, etc.)
-        # can't leak in when the user has no email open this turn.
-        try:
-            from src.tool_implementations import clear_active_email
-            clear_active_email()
-        except Exception:
-            pass
-        if active_email_uid:
-            active_email_ctx = {
-                "uid": active_email_uid,
-                "folder": active_email_folder,
-                "account": active_email_account,
-            }
-            # Try to enrich with subject + from so the agent's system prompt
-            # block can quote them. Best-effort: a stale cache is fine, a
-            # missing email just means we pass uid/folder/account only.
-            try:
-                from routes.email_routes import _read_cache_get, _read_cache_key
-                _ck = _read_cache_key(active_email_account or None, active_email_folder, active_email_uid, owner=get_current_user(request))
-                _cached_email = _read_cache_get(_ck)
-                if _cached_email and isinstance(_cached_email, dict):
-                    active_email_ctx["subject"] = str(_cached_email.get("subject") or "")
-                    active_email_ctx["from"] = str(
-                        _cached_email.get("from_address")
-                        or _cached_email.get("from")
-                        or _cached_email.get("from_name")
-                        or ""
-                    )
-                    _body_preview = (_cached_email.get("body") or "")[:2000]
-                    if _body_preview:
-                        active_email_ctx["body_preview"] = _body_preview
-            except Exception as _e:
-                logger.debug(f"[email-inject] cache enrich skipped: {_e}")
-            # Stash so email tools can resolve "this email" without UID guessing.
-            try:
-                from src.tool_implementations import set_active_email
-                set_active_email(
-                    uid=active_email_uid,
-                    folder=active_email_folder,
-                    account=active_email_account or None,
-                    subject=active_email_ctx.get("subject"),
-                    sender=active_email_ctx.get("from"),
-                )
-            except Exception as _e:
-                logger.debug(f"[email-inject] set_active_email failed: {_e}")
-            logger.info(
-                "[email-inject] active_email uid=%s folder=%s account=%s subject=%r",
-                active_email_uid, active_email_folder, active_email_account or "(default)",
-                active_email_ctx.get("subject", ""),
-            )
-
         try:
             # Attachment-only sends: skip the message-required check when the
             # user has attached one or more files (the attachment IS the action).
@@ -730,15 +670,6 @@ def setup_chat_routes(
                 else:
                     logger.warning(f"[doc-inject] NOT FOUND by ID {active_doc_id}")
             if not active_doc:
-                _email_doc_q = _doc_db.query(DBDocument).filter(
-                    DBDocument.session_id == session,
-                    DBDocument.is_active == True,
-                    DBDocument.language == "email",
-                )
-                active_doc = _owner_session_filter(_email_doc_q, ctx.user).order_by(DBDocument.updated_at.desc()).first()
-                if active_doc:
-                    logger.info(f"[doc-inject] found email draft by session fallback: title={active_doc.title!r}")
-            if not active_doc:
                 _session_doc_q = _doc_db.query(DBDocument).filter(
                     DBDocument.session_id == session,
                     DBDocument.is_active == True
@@ -797,21 +728,6 @@ def setup_chat_routes(
                 "manage_memory",      # persistent memory store
                 "search_chats",       # past chat history
                 "manage_skills",      # skill presets tied to user
-            })
-
-        # Active email reader open → strip the tools that let the agent drift
-        # away from the visible email or skip review. The only allowed compose
-        # path is ui_control open_email_reply, which opens the same draft editor
-        # as the Reply button with the generated body pre-filled. This prevents
-        # the model from falling back to direct SMTP when it botches a draft
-        # call, and prevents fake email-shaped documents.
-        if active_email_ctx and active_email_ctx.get("uid"):
-            disabled_tools.update({
-                "create_document",
-                "send_email",
-                "reply_to_email",
-                "mcp__email__send_email",
-                "mcp__email__reply_to_email",
             })
 
         # Enforce per-user privileges
@@ -1296,7 +1212,6 @@ def setup_chat_routes(
                         max_rounds=_max_rounds,
                         context_length=ctx.context_length,
                         active_document=active_doc,
-                        active_email=active_email_ctx,
                         session_id=session,
                         disabled_tools=disabled_tools if disabled_tools else None,
                         tool_policy=tool_policy,

@@ -616,16 +616,7 @@ async def test_public_agent_policy_blocks_sensitive_tools(monkeypatch):
 
     monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAuth())
 
-    # Every bare email tool name is spelled out (not imported from
-    # BUILTIN_EMAIL_TOOLS) so accidentally dropping one from that set fails
-    # here instead of silently shrinking the blocklist.
-    bare_email_tools = (
-        "list_email_accounts", "list_emails", "read_email", "search_emails",
-        "send_email", "reply_to_email", "draft_email", "draft_email_reply",
-        "ai_draft_email_reply", "archive_email", "delete_email",
-        "mark_email_read", "bulk_email", "download_attachment",
-    )
-    for tool_name in bare_email_tools + ("read_file", "mcp__email__send_email"):
+    for tool_name in ("read_file",):
         desc, result = await execute_tool_block(
             SimpleNamespace(tool_type=tool_name, content="{}"),
             owner="regular-user",
@@ -633,183 +624,6 @@ async def test_public_agent_policy_blocks_sensitive_tools(monkeypatch):
         assert desc == f"{tool_name}: BLOCKED"
         assert result["exit_code"] == 1
         assert "restricted to admin users" in result["error"]
-
-
-@pytest.mark.asyncio
-async def test_disabled_qualified_email_tool_blocks_bare_alias(monkeypatch):
-    """A bare email fence is an alias for its mcp__email__ form. Plan mode and
-    the MCP settings toggle write the QUALIFIED name into disabled_tools, so
-    the gate must block the bare spelling too — and never reach the MCP
-    manager (PR #3681 review follow-up)."""
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    def fail_get_mcp_manager():
-        raise AssertionError("blocked email tool must not reach the MCP manager")
-
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", fail_get_mcp_manager)
-
-    for bare, disabled in (
-        # qualified denylist entry blocks the bare alias…
-        ("list_emails", {"mcp__email__list_emails"}),
-        ("download_attachment", {"mcp__email__download_attachment"}),
-        # …and a bare denylist entry blocks the qualified spelling.
-        ("mcp__email__delete_email", {"delete_email"}),
-    ):
-        desc, result = await execute_tool_block(
-            SimpleNamespace(tool_type=bare, content="{}"),
-            owner="admin-user",
-            disabled_tools=disabled,
-        )
-        assert desc == f"{bare}: BLOCKED"
-        assert result["exit_code"] == 1
-        assert "disabled by user" in result["error"]
-
-
-@pytest.mark.asyncio
-async def test_tool_policy_qualified_email_block_covers_bare_alias(monkeypatch):
-    """Same aliasing rule for the turn ToolPolicy denylist."""
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-    from src.tool_policy import ToolPolicy
-
-    def fail_get_mcp_manager():
-        raise AssertionError("blocked email tool must not reach the MCP manager")
-
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", fail_get_mcp_manager)
-
-    policy = ToolPolicy(disabled_tools=frozenset({"mcp__email__send_email"}))
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="send_email", content="{}"),
-        owner="admin-user",
-        tool_policy=policy,
-    )
-    assert desc == "send_email: BLOCKED"
-    assert result["exit_code"] == 1
-
-
-@pytest.mark.asyncio
-async def test_disable_tool_email_covers_full_builtin_set(monkeypatch):
-    """The friendly `disable_tool email` toggle must cover every built-in
-    email tool, in BOTH spellings — bare names (function-schema hiding,
-    bare-fence dispatch) and mcp__email__* (MCP schema hiding, runtime
-    qualified blocks). Hand-picking a subset left tools like delete_email
-    and download_attachment enabled (PR #3681 review follow-up)."""
-    # Import first so the module loads against the real core package; only
-    # the call-time SessionLocal import below sees the stub.
-    from src.tool_implementations import do_manage_settings
-    import src.settings as settings_mod
-
-    db_mod = types.ModuleType("core.database")
-
-    class _Db:
-        def close(self):
-            pass
-
-    db_mod.SessionLocal = lambda: _Db()
-    monkeypatch.setitem(sys.modules, "core.database", db_mod)
-
-    store = {}
-
-    def fake_load_settings():
-        return dict(store)
-
-    def fake_save_settings(s):
-        store.clear()
-        store.update(s)
-
-    monkeypatch.setattr(settings_mod, "load_settings", fake_load_settings)
-    monkeypatch.setattr(settings_mod, "save_settings", fake_save_settings)
-
-    result = await do_manage_settings(
-        '{"action": "disable_tool", "tool": "email"}', owner="admin"
-    )
-
-    assert result["exit_code"] == 0
-    disabled = set(store["disabled_tools"])
-    # Spelled out (not imported from BUILTIN_EMAIL_TOOLS) so dropping a name
-    # from the constant fails here instead of silently shrinking the toggle.
-    bare_email_tools = (
-        "list_email_accounts", "list_emails", "read_email", "search_emails",
-        "send_email", "reply_to_email", "draft_email", "draft_email_reply",
-        "ai_draft_email_reply", "archive_email", "delete_email",
-        "mark_email_read", "bulk_email", "download_attachment",
-    )
-    for tool_name in bare_email_tools:
-        assert tool_name in disabled, tool_name
-        assert f"mcp__email__{tool_name}" in disabled, tool_name
-
-    # enable_tool email must remove the full set again.
-    result = await do_manage_settings(
-        '{"action": "enable_tool", "tool": "email"}', owner="admin"
-    )
-    assert result["exit_code"] == 0
-    assert store["disabled_tools"] == []
-
-
-def _install_admin_auth_stub(monkeypatch):
-    auth_mod = _install_core_auth_stub(monkeypatch)
-
-    class FakeAdminAuth:
-        is_configured = True
-
-        def is_admin(self, username):
-            return True
-
-    monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAdminAuth())
-
-
-class _FakeMcpManager:
-    def __init__(self):
-        self.calls = []
-
-    async def call_tool(self, name, args):
-        self.calls.append((name, args))
-        return {"output": "ok", "exit_code": 0}
-
-
-@pytest.mark.asyncio
-async def test_bare_email_dispatch_rejects_non_object_json_args(monkeypatch):
-    """The fence parser accepts JSON arrays as inline args, but email tools
-    take objects — a correctable error must come back instead of a silent
-    empty-args call (same class as #3966)."""
-    _install_admin_auth_stub(monkeypatch)
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    mcp = _FakeMcpManager()
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: mcp)
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="bulk_email", content='["10", "11"]'),
-        owner="admin-user",
-    )
-    assert result["exit_code"] == 1
-    assert "JSON object" in result["error"]
-    assert mcp.calls == [], "non-object args must never reach the MCP server"
-
-
-@pytest.mark.asyncio
-async def test_bare_email_dispatch_rejects_invalid_json_body(monkeypatch):
-    """The classic tag/body form reaches execution unvalidated (only INLINE
-    args are JSON-checked by the parser). A non-JSON-object body must return a
-    correctable parse error — silently becoming {} args would read the DEFAULT
-    mailbox instead of the one the model meant. Covers both the brace-looking
-    `{account: "work"}` and the bare `account: work` shapes."""
-    _install_admin_auth_stub(monkeypatch)
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    for bad_body in ('{account: "work"}', "account: work"):
-        mcp = _FakeMcpManager()
-        monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: mcp)
-        desc, result = await execute_tool_block(
-            SimpleNamespace(tool_type="list_emails", content=bad_body),
-            owner="admin-user",
-        )
-        assert result["exit_code"] == 1, bad_body
-        assert "not valid JSON" in result["error"], bad_body
-        assert mcp.calls == [], f"malformed args must never reach MCP: {bad_body!r}"
 
 
 @pytest.mark.asyncio
@@ -887,141 +701,6 @@ async def test_write_file_inline_json_args(monkeypatch):
     )
 
 
-@pytest.mark.asyncio
-async def test_plan_mode_blocks_mutating_email_aliases_without_mcp_inventory(monkeypatch):
-    """Plan-mode safety for bare email aliases must hold from the STATIC
-    partition alone — no MCP read-only inventory involved: mutators (the
-    draft/download tools included) are blocked before dispatch, while the
-    explicitly read-only search_emails goes through."""
-    _install_admin_auth_stub(monkeypatch)
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-    from src.tool_security import plan_mode_disabled_tools
-
-    mcp = _FakeMcpManager()
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: mcp)
-    denied = plan_mode_disabled_tools()
-
-    for tool_name in ("draft_email", "draft_email_reply", "ai_draft_email_reply",
-                      "download_attachment", "send_email", "delete_email"):
-        desc, result = await execute_tool_block(
-            SimpleNamespace(tool_type=tool_name, content="{}"),
-            owner="admin-user",
-            disabled_tools=denied,
-        )
-        assert result["exit_code"] == 1, tool_name
-        assert mcp.calls == [], f"{tool_name} reached the MCP server in plan mode"
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="search_emails", content='{"query": "x"}'),
-        owner="admin-user",
-        disabled_tools=denied,
-    )
-    assert result["exit_code"] == 0
-    assert mcp.calls == [
-        ("mcp__email__search_emails", {"query": "x", "_odysseus_owner": "admin-user"}),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_bare_email_dispatch_empty_content_calls_with_empty_args(monkeypatch):
-    """An empty fence (```list_email_accounts``` with no body) dispatches with
-    {} args — the no-arg call shape local models really emit."""
-    _install_admin_auth_stub(monkeypatch)
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    mcp = _FakeMcpManager()
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: mcp)
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="list_email_accounts", content=""),
-        owner="admin-user",
-    )
-    assert result["exit_code"] == 0
-    assert mcp.calls == [
-        ("mcp__email__list_email_accounts", {"_odysseus_owner": "admin-user"}),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_email_mcp_non_object_args_fail_before_dispatch(monkeypatch):
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    class FakeMcp:
-        def __init__(self):
-            self.calls = []
-
-        async def call_tool(self, name, args):
-            self.calls.append((name, args))
-            return {"output": "called", "exit_code": 0}
-
-    fake = FakeMcp()
-    monkeypatch.setattr(tool_execution, "_owner_is_admin", lambda owner: True)
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: fake)
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="mcp__email__list_emails", content='["INBOX"]'),
-        owner="alice",
-    )
-
-    assert desc == "mcp: mcp__email__list_emails"
-    assert result["exit_code"] == 1
-    assert "JSON object" in result["error"]
-    assert fake.calls == []
-
-
-@pytest.mark.asyncio
-async def test_email_mcp_dispatch_includes_hidden_owner(monkeypatch):
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    class FakeMcp:
-        def __init__(self):
-            self.calls = []
-
-        async def call_tool(self, name, args):
-            self.calls.append((name, args))
-            return {"output": "called", "exit_code": 0}
-
-    fake = FakeMcp()
-    monkeypatch.setattr(tool_execution, "_owner_is_admin", lambda owner: True)
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: fake)
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="mcp__email__list_emails", content='{"folder":"INBOX"}'),
-        owner="alice",
-    )
-
-    assert desc == "mcp: mcp__email__list_emails"
-    assert result["exit_code"] == 0
-    assert fake.calls == [
-        ("mcp__email__list_emails", {"folder": "INBOX", "_odysseus_owner": "alice"}),
-    ]
-
-
-@pytest.mark.asyncio
-async def test_bare_email_mcp_dispatch_includes_hidden_owner(monkeypatch):
-    import src.tool_execution as tool_execution
-    from src.tool_execution import execute_tool_block
-
-    fake = _FakeMcpManager()
-    monkeypatch.setattr(tool_execution, "_owner_is_admin", lambda owner: True)
-    monkeypatch.setattr(tool_execution, "get_mcp_manager", lambda: fake)
-
-    desc, result = await execute_tool_block(
-        SimpleNamespace(tool_type="list_emails", content='{"folder":"INBOX"}'),
-        owner="alice",
-    )
-
-    assert desc == "email: list_emails"
-    assert result["exit_code"] == 0
-    assert fake.calls == [
-        ("mcp__email__list_emails", {"folder": "INBOX", "_odysseus_owner": "alice"}),
-    ]
-
-
 def test_public_agent_policy_hides_sensitive_tools(monkeypatch):
     auth_mod = _install_core_auth_stub(monkeypatch)
     from src.tool_security import blocked_tools_for_owner
@@ -1036,7 +715,6 @@ def test_public_agent_policy_hides_sensitive_tools(monkeypatch):
 
     blocked = blocked_tools_for_owner("regular-user")
 
-    assert "send_email" in blocked
     assert "read_file" in blocked
     assert "app_api" in blocked
     assert "serve_preset" in blocked
@@ -1102,7 +780,7 @@ def test_auth_disabled_configured_mode_keeps_full_tool_access(monkeypatch):
 
     Once an admin account exists, AuthManager.is_configured becomes true. The
     tool gate must still honor explicit auth-disabled mode before requiring an
-    owner/admin match, otherwise agent mode hides email/MCP/local tools from the
+    owner/admin match, otherwise agent mode hides MCP/local tools from the
     operator.
     """
     monkeypatch.setenv("AUTH_ENABLED", "false")

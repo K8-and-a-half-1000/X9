@@ -63,11 +63,10 @@ from starlette.middleware.gzip import GZipMiddleware
 # Core imports
 from core.constants import (
     BASE_DIR, STATIC_DIR, SESSIONS_FILE,
-    REQUEST_TIMEOUT, OPENAI_API_KEY, AUTH_FILE,
+    REQUEST_TIMEOUT, OPENAI_API_KEY,
 )
 from core.database import SessionLocal, ApiToken
 from core.middleware import SecurityHeadersMiddleware, is_cors_preflight
-from core.auth import AuthManager, normalize_known_username
 from core.exceptions import (
     SessionNotFoundError, InvalidFileUploadError,
     LLMServiceError, WebSearchError,
@@ -211,235 +210,147 @@ class _InteractiveActivityMiddleware(_BaseHTTPMiddleware):
 app.add_middleware(_RequestTimeoutMiddleware)
 app.add_middleware(_InteractiveActivityMiddleware)
 
-# ========= AUTH =========
-from routes.auth_routes import setup_auth_routes, SESSION_COOKIE
+# ========= IDENTITY =========
+# X9 is a single-user app served behind a Zero-Trust gateway: the login flow
+# (passwords, session cookies, 2FA, user management) was removed. The
+# middleware below never gates browser requests — it only STAMPS identity for
+# the two non-browser caller types that still exist:
+#   (a) in-process agent tool loopback calls (internal-tool token header), and
+#   (b) external integrations using scoped `Bearer ody_` API tokens.
+from routes.auth_routes import setup_auth_routes
 
-auth_manager = AuthManager()
-app.state.auth_manager = auth_manager
-AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() != "false"
-LOCALHOST_BYPASS = os.getenv("LOCALHOST_BYPASS", "false").lower() == "true"
-if LOCALHOST_BYPASS:
-    logger.warning("LOCALHOST_BYPASS is enabled, loopback requests bypass authentication. Do not expose this instance to a network.")
+# In-memory token cache: prefix → list[(token_id, token_hash, owner, scopes)].
+# Rebuilt only when flagged dirty (token created/revoked) — see
+# _token_cache_invalidate in app.state, called by routes/api_token_routes.
+_token_cache: dict = {}
+_token_cache_lock = _asyncio.Lock()
 
-if AUTH_ENABLED:
-    AUTH_EXEMPT_EXACT = {
-        "/api/auth/setup",
-        "/api/auth/signup",
-        "/api/auth/login",
-        "/api/auth/logout",
-        "/api/auth/status",
-        "/api/auth/features",
-        "/api/auth/settings",
-        "/api/auth/integrations/presets",
-        "/api/health",
-        "/api/version",
-        "/login",
-    }
-    AUTH_EXEMPT_PREFIXES = ["/static"]
-    # Dynamic paths whose own handler proves identity via a path-embedded
-    # secret instead of the session/bearer auth. The route handler at
-    # routes/task_routes.py validates the per-task `webhook_token` itself
-    # and returns 404 on mismatch, so the path is the credential — the
-    # UI labels these URLs "no auth needed" precisely because external
-    # callers (Zapier, n8n, curl) can't supply a session cookie. Without
-    # this exemption AuthMiddleware rejects every POST with 401 before
-    # the token is ever checked.
-    import re as _re
-    AUTH_EXEMPT_PATTERNS = [
-        _re.compile(r"^/api/tasks/[^/]+/webhook/[^/]+/?$"),
-    ]
 
-    def _is_auth_exempt(path: str) -> bool:
-        if path in AUTH_EXEMPT_EXACT:
-            return True
-        if any(path.startswith(p) for p in AUTH_EXEMPT_PREFIXES):
-            return True
-        return any(p.match(path) for p in AUTH_EXEMPT_PATTERNS)
+def _token_cache_invalidate():
+    app.state.__dict__["_token_cache_dirty"] = True
 
-    # In-memory token cache: prefix → list[(token_id, token_hash, owner, scopes)]. The DB
-    # query was running on every API-bearer request and scanning bcrypt
-    # checks linearly. With this cache, we hit the DB only when the cache
-    # version bumps (token created/revoked) — see _token_cache_invalidate
-    # in app.state, called by routes/api_token_routes.
-    _token_cache: dict = {}
-    _token_cache_lock = _asyncio.Lock()
-    _token_cache_dirty = True
 
-    def _token_cache_invalidate():
-        nonlocal_dict = app.state.__dict__
-        nonlocal_dict["_token_cache_dirty"] = True
-    app.state.invalidate_token_cache = _token_cache_invalidate
-    app.state._token_cache = _token_cache
-    app.state._token_cache_dirty = True
+app.state.invalidate_token_cache = _token_cache_invalidate
+app.state._token_cache = _token_cache
+app.state._token_cache_dirty = True
 
-    def _refresh_token_cache():
-        """Rebuild the prefix→[(id,hash)] map from the DB."""
-        from collections import defaultdict
-        new_map = defaultdict(list)
-        db = SessionLocal()
-        try:
-            rows = db.query(ApiToken).filter(ApiToken.is_active == True).all()
-            for r in rows:
-                owner_key = normalize_known_username(auth_manager.users, getattr(r, "owner", None))
-                if not owner_key:
-                    logger.warning(
-                        "Ignoring active API token '%s' for unknown auth user '%s'",
-                        getattr(r, "id", ""),
-                        getattr(r, "owner", None),
-                    )
-                    continue
-                scopes = [s.strip() for s in (getattr(r, "scopes", "") or "chat").split(",") if s.strip()]
-                new_map[r.token_prefix].append((r.id, r.token_hash, owner_key, scopes))
-        finally:
-            db.close()
-        _token_cache.clear()
-        _token_cache.update(new_map)
-        app.state._token_cache_dirty = False
 
-    # Headers that prove a request was forwarded by a proxy/tunnel (cloudflared,
-    # nginx, Caddy, Tailscale Funnel, …). cloudflared connects to the app FROM
-    # 127.0.0.1, so without this check every tunneled request would look like
-    # loopback and could bypass auth.
-    _PROXY_FWD_HEADERS = (
-        "cf-connecting-ip", "cf-ray", "cf-visitor",
-        "x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded",
-    )
+def _refresh_token_cache():
+    """Rebuild the prefix→[(id,hash,owner,scopes)] map from the DB."""
+    from collections import defaultdict
+    new_map = defaultdict(list)
+    db = SessionLocal()
+    try:
+        rows = db.query(ApiToken).filter(ApiToken.is_active == True).all()
+        for r in rows:
+            scopes = [s.strip() for s in (getattr(r, "scopes", "") or "chat").split(",") if s.strip()]
+            new_map[r.token_prefix].append((r.id, r.token_hash, getattr(r, "owner", None) or "", scopes))
+    finally:
+        db.close()
+    _token_cache.clear()
+    _token_cache.update(new_map)
+    app.state._token_cache_dirty = False
 
-    def _is_trusted_loopback(request: Request) -> bool:
-        """True ONLY for a DIRECT loopback connection with no proxy/tunnel
-        forwarding headers. A bare ``client.host in ('127.0.0.1','::1')`` check is
-        unsafe behind a Cloudflare tunnel / reverse proxy: those connect from
-        loopback, so a remote visitor would otherwise inherit local trust and
-        slip past LOCALHOST_BYPASS or spoof the internal-tool path. Odysseus's own
-        in-process agent loopback calls carry none of these headers, so they still
-        qualify."""
-        host = request.client.host if request.client else None
-        if host not in ("127.0.0.1", "::1"):
+
+# Headers that prove a request was forwarded by a proxy/tunnel (cloudflared,
+# nginx, Caddy, Tailscale Funnel, …). cloudflared connects to the app FROM
+# 127.0.0.1, so without this check every tunneled request would look like
+# loopback and could spoof the internal-tool path.
+_PROXY_FWD_HEADERS = (
+    "cf-connecting-ip", "cf-ray", "cf-visitor",
+    "x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded",
+)
+
+
+def _is_trusted_loopback(request: Request) -> bool:
+    """True ONLY for a DIRECT loopback connection with no proxy/tunnel
+    forwarding headers. Odysseus's own in-process agent loopback calls carry
+    none of these headers, so they qualify; gateway-forwarded requests don't."""
+    host = request.client.host if request.client else None
+    if host not in ("127.0.0.1", "::1"):
+        return False
+    for _h in _PROXY_FWD_HEADERS:
+        if request.headers.get(_h):
             return False
-        for _h in _PROXY_FWD_HEADERS:
-            if request.headers.get(_h):
-                return False
-        return True
+    return True
 
-    class AuthMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request: Request, call_next):
-            path = request.url.path
-            # A genuine CORS preflight (OPTIONS + Access-Control-Request-Method)
-            # carries no credentials by design and must reach CORSMiddleware to be
-            # answered. AuthMiddleware is the outermost middleware, so gating the
-            # preflight on auth 401s it before CORS can respond -- which blocks
-            # every cross-origin browser/WebView client before the real request
-            # is sent. Let real preflights through (only OPTIONS w/ the ACRM
-            # header; never a credentialed request).
-            if is_cors_preflight(request.method, request.headers):
-                return await call_next(request)
-            if _is_auth_exempt(path):
-                return await call_next(request)
-            # In-process internal-tool token bypass. Used by the agent
-            # tool layer when it HTTP-loopbacks to admin-gated routes
-            # (no admin cookie available in that context). Restricted to
-            # loopback clients + matching token to keep it locked down.
-            try:
-                from core.middleware import INTERNAL_TOOL_HEADER, INTERNAL_TOOL_TOKEN as _ITT, INTERNAL_TOOL_USER
-                _hdr = request.headers.get(INTERNAL_TOOL_HEADER)
-                if _hdr and secrets.compare_digest(_hdr, _ITT) and _is_trusted_loopback(request):
-                    # Impersonation: when the agent's loopback call sets
-                    # X-Odysseus-Owner, attribute the request to that user only
-                    # if they exist. Authorization checks remain separate; this
-                    # is just owner attribution for notes/calendar/etc.
-                    _impersonate = (request.headers.get("X-Odysseus-Owner") or "").strip()
-                    _auth_mgr = getattr(request.app.state, "auth_manager", None) or auth_manager
-                    if _impersonate and _impersonate in getattr(_auth_mgr, "users", {}):
-                        request.state.current_user = _impersonate
-                    else:
-                        request.state.current_user = INTERNAL_TOOL_USER
-                    request.state.api_token = False
-                    return await call_next(request)
-            except Exception as _e:
-                logger.warning("Internal tool auth header check failed", exc_info=_e)
-            # Allow DIRECT localhost requests (internal service calls from
-            # heartbeats etc.). Tunnel/proxy-forwarded requests are excluded by
-            # _is_trusted_loopback so LOCALHOST_BYPASS can't be abused over a
-            # Cloudflare tunnel / reverse proxy. Keep LOCALHOST_BYPASS=false for
-            # network-exposed deployments regardless.
-            if LOCALHOST_BYPASS and _is_trusted_loopback(request):
-                return await call_next(request)
-            if not auth_manager.is_configured:
-                # No users yet — redirect to login for first-time setup
-                if not path.startswith("/api/"):
-                    return RedirectResponse(url="/login", status_code=302)
-                return JSONResponse(status_code=401, content={"error": "Setup required"})
 
-            # --- Bearer token auth (API tokens for external integrations) ---
-            auth_header = request.headers.get("authorization", "")
-            if auth_header.startswith("Bearer ody_"):
-                raw_token = auth_header[7:]
-                # Sanity check: tokens are "ody_" + 43 chars of base64
-                if len(raw_token) < 12 or len(raw_token) > 100:
-                    return JSONResponse(status_code=401, content={"error": "Invalid API token"})
-                prefix = raw_token[:8]
-                try:
-                    if app.state._token_cache_dirty:
-                        async with _token_cache_lock:
-                            if app.state._token_cache_dirty:
-                                await _asyncio.to_thread(_refresh_token_cache)
-                    candidates = list(_token_cache.get(prefix, ()))
-                    matched_id = None
-                    matched_owner = None
-                    matched_scopes = []
-                    for tid, thash, owner, scopes in candidates:
-                        if _bcrypt.checkpw(raw_token.encode(), thash.encode()):
-                            matched_id = tid
-                            matched_owner = owner
-                            matched_scopes = scopes or []
-                            break
-                    if matched_id:
-                        # Update last_used_at off the hot path. Doing it
-                        # inline used to keep the request open across an
-                        # extra commit; do it fire-and-forget instead.
-                        async def _touch_last_used(tid: str):
-                            def _do():
-                                _db = SessionLocal()
-                                try:
-                                    _db.query(ApiToken).filter(ApiToken.id == tid).update(
-                                        {"last_used_at": datetime.utcnow()}
-                                    )
-                                    _db.commit()
-                                finally:
-                                    _db.close()
-                            try:
-                                await _asyncio.to_thread(_do)
-                            except Exception as _e:
-                                logger.debug("Failed to update token last_used_at", exc_info=_e)
-                        _asyncio.create_task(_touch_last_used(matched_id))
-                        # Keep bearer-token callers out of normal cookie/user
-                        request.state.current_user = "api"
-                        request.state.api_token = True
-                        request.state.api_token_id = matched_id
-                        request.state.api_token_owner = matched_owner
-                        request.state.api_token_scopes = matched_scopes
-                        return await call_next(request)
-                except Exception:
-                    logger.warning("API token auth error", exc_info=False)
-                # Invalid bearer token — reject immediately
+class IdentityMiddleware(BaseHTTPMiddleware):
+    """Stamp caller identity; never gate browser requests."""
+
+    async def dispatch(self, request: Request, call_next):
+        # In-process internal-tool token. Used by the agent tool layer when it
+        # HTTP-loopbacks to admin-gated routes. Restricted to direct loopback
+        # clients + matching token.
+        try:
+            from core.middleware import INTERNAL_TOOL_HEADER, INTERNAL_TOOL_TOKEN as _ITT, INTERNAL_TOOL_USER
+            _hdr = request.headers.get(INTERNAL_TOOL_HEADER)
+            if _hdr and secrets.compare_digest(_hdr, _ITT) and _is_trusted_loopback(request):
+                request.state.current_user = INTERNAL_TOOL_USER
+                request.state.api_token = False
+                return await call_next(request)
+        except Exception as _e:
+            logger.warning("Internal tool header check failed", exc_info=_e)
+
+        # Bearer token auth (scoped API tokens for external integrations).
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer ody_"):
+            raw_token = auth_header[7:]
+            # Sanity check: tokens are "ody_" + 43 chars of base64
+            if len(raw_token) < 12 or len(raw_token) > 100:
                 return JSONResponse(status_code=401, content={"error": "Invalid API token"})
+            prefix = raw_token[:8]
+            try:
+                if app.state._token_cache_dirty:
+                    async with _token_cache_lock:
+                        if app.state._token_cache_dirty:
+                            await _asyncio.to_thread(_refresh_token_cache)
+                candidates = list(_token_cache.get(prefix, ()))
+                matched_id = None
+                matched_owner = None
+                matched_scopes = []
+                for tid, thash, owner, scopes in candidates:
+                    if _bcrypt.checkpw(raw_token.encode(), thash.encode()):
+                        matched_id = tid
+                        matched_owner = owner
+                        matched_scopes = scopes or []
+                        break
+                if matched_id:
+                    # Update last_used_at off the hot path, fire-and-forget.
+                    async def _touch_last_used(tid: str):
+                        def _do():
+                            _db = SessionLocal()
+                            try:
+                                _db.query(ApiToken).filter(ApiToken.id == tid).update(
+                                    {"last_used_at": datetime.utcnow()}
+                                )
+                                _db.commit()
+                            finally:
+                                _db.close()
+                        try:
+                            await _asyncio.to_thread(_do)
+                        except Exception as _e:
+                            logger.debug("Failed to update token last_used_at", exc_info=_e)
+                    _asyncio.create_task(_touch_last_used(matched_id))
+                    # Keep bearer-token callers out of normal user routes
+                    request.state.current_user = "api"
+                    request.state.api_token = True
+                    request.state.api_token_id = matched_id
+                    request.state.api_token_owner = matched_owner
+                    request.state.api_token_scopes = matched_scopes
+                    return await call_next(request)
+            except Exception:
+                logger.warning("API token auth error", exc_info=False)
+            # Invalid bearer token — reject immediately
+            return JSONResponse(status_code=401, content={"error": "Invalid API token"})
 
-            # --- Cookie-based session auth ---
-            token = request.cookies.get(SESSION_COOKIE)
-            if not auth_manager.validate_token(token):
-                if path.startswith("/api/"):
-                    return JSONResponse(status_code=401, content={"error": "Not authenticated"})
-                return RedirectResponse(url="/login", status_code=302)
+        # Anonymous browser request — the single user. No stamping needed:
+        # get_current_user() returns None and require_user() resolves to "".
+        return await call_next(request)
 
-            # Attach current username to request state for downstream routes
-            request.state.current_user = auth_manager.get_username_for_token(token)
-            request.state.api_token = False
-            return await call_next(request)
 
-    app.add_middleware(AuthMiddleware)
-    logger.info("Auth middleware enabled (AUTH_ENABLED=true)")
-else:
-    logger.info("Auth middleware disabled (set AUTH_ENABLED=true to enable)")
+app.add_middleware(IdentityMiddleware)
+logger.info("Single-user mode: login flow removed; identity middleware stamps tool/API-token callers only")
 
 # ========= STATIC FILES =========
 os.makedirs(STATIC_DIR, exist_ok=True)
@@ -591,8 +502,8 @@ webhook_manager = WebhookManager(api_key_manager=api_key_manager)
 
 # ========= INCLUDE ROUTERS =========
 
-# Auth
-auth_router = setup_auth_routes(auth_manager)
+# App config routes (kept under /api/auth for frontend compatibility)
+auth_router = setup_auth_routes()
 app.include_router(auth_router)
 
 
@@ -778,7 +689,7 @@ logger.info("AI interaction tools initialized (session, memory, RAG, UI control)
 
 # Webhooks
 from routes.webhook_routes import setup_webhook_routes
-app.include_router(setup_webhook_routes(webhook_manager, auth_manager, session_manager, api_key_manager))
+app.include_router(setup_webhook_routes(webhook_manager, session_manager, api_key_manager))
 
 # API Tokens
 from routes.api_token_routes import setup_api_token_routes
@@ -790,19 +701,11 @@ logger.info("Webhook & API token routes initialized")
 from routes.note_routes import setup_note_routes
 app.include_router(setup_note_routes(task_scheduler))
 
-# Email
-from routes.email_routes import setup_email_routes
-email_router = setup_email_routes()
-app.include_router(email_router)
-
 # Codex integration — HTTP surface for the Codex plugin/MCP bridge. Reuses
-# api_token scopes (todos:read|write, email:read|draft|send) so external
-# Codex sessions can only touch the data the user explicitly allowed. Mounted
-# AFTER email so the codex_routes can borrow the email router for shared
-# search/threading helpers.
+# api_token scopes (todos:read|write) so external Codex sessions can only
+# touch the data the user explicitly allowed.
 from routes.codex_routes import setup_codex_routes, setup_claude_routes
 app.include_router(setup_codex_routes(
-    email_router=email_router,
     memory_router=memory_router,
     calendar_router=calendar_router,
     document_router=document_router,
@@ -849,10 +752,6 @@ async def serve_calendar(request: Request):
 async def serve_cookbook(request: Request):
     return await serve_index(request)
 
-@app.get("/email")
-async def serve_email(request: Request):
-    return await serve_index(request)
-
 @app.get("/memory")
 async def serve_memory(request: Request):
     return await serve_index(request)
@@ -876,9 +775,8 @@ async def serve_backgrounds(request: Request):
 
 @app.get("/login")
 async def serve_login(request: Request):
-    if not AUTH_ENABLED:
-        return RedirectResponse(url="/", status_code=302)
-    return serve_html_with_nonce(request, abs_join(BASE_DIR, "static/login.html"))
+    # Login flow removed — anything still pointing at /login lands on the app.
+    return RedirectResponse(url="/", status_code=302)
 
 @app.get("/api/version")
 async def get_version():
@@ -1042,20 +940,9 @@ async def _startup_event():
         _startup_tasks.append(asyncio.create_task(_keepalive_loop()))
 
     async def _ensure_default_tasks():
-        # Create/reconcile default automation tasks + personal assistant for every user.
+        # Reconcile default automation tasks for owners already present in
+        # scheduled_tasks (single-user: typically one owner or none).
         owners = set()
-        try:
-            import json as _json
-            auth_path = AUTH_FILE
-            with open(auth_path, encoding="utf-8") as f:
-                users = _json.load(f).get("users", {})
-            owners.update(users.keys())
-        except Exception as e:
-            logger.debug(f"Default task auth-owner scan: {e}")
-
-        # Also reconcile owners already present in scheduled_tasks. This cleans
-        # up stale/demo/deleted-user built-ins that are no longer in auth.json;
-        # otherwise their old scheduled rows can keep firing forever.
         try:
             from core.database import SessionLocal, ScheduledTask
             from src.task_scheduler import HOUSEKEEPING_DEFAULTS
@@ -1088,31 +975,8 @@ async def _startup_event():
     # scheduled built-ins can fire once before being converted to event tasks.
     await _ensure_default_tasks()
 
-    # Disk-backed skills are not covered by the DB legacy-owner sweep. Repair
-    # ownerless or deleted/test-owner SKILL.md files so strict owner filtering
-    # does not make an existing library look empty after auth/account changes.
-    try:
-        import json as _json
-        auth_path = AUTH_FILE
-        with open(auth_path, encoding="utf-8") as f:
-            users = _json.load(f).get("users", {})
-        primary_owner = None
-        for uname, udata in users.items():
-            if udata.get("is_admin") is True:
-                primary_owner = uname
-                break
-        if not primary_owner and users:
-            primary_owner = next(iter(users))
-        if primary_owner:
-            changed = skills_manager.backfill_owner(primary_owner, set(users.keys()))
-            if changed:
-                logger.info("Assigned %s legacy skill file(s) to %s", changed, primary_owner)
-    except Exception as e:
-        logger.debug(f"Skill owner backfill skipped: {e}")
-
     # Start scheduled task runner — skip when running under a cron-driven
-    # deployment where an external worker drives task firing. Mirrors
-    # `ODYSSEUS_INPROCESS_POLLERS` from the email pollers.
+    # deployment where an external worker drives task firing.
     _tasks_inprocess = os.environ.get("ODYSSEUS_INPROCESS_TASKS", "1").strip().lower()
     if _tasks_inprocess not in ("0", "false", "no", "off", ""):
         await task_scheduler.start()

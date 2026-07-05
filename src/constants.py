@@ -36,8 +36,6 @@ VAULT_FILE = os.path.join(DATA_DIR, "vault.json")
 TIDY_CALENDAR_STATE_FILE = os.path.join(DATA_DIR, "tidy_calendar_state.json")
 SKILLS_FILE = os.path.join(DATA_DIR, "skills.json")
 APP_DB = os.path.join(DATA_DIR, "app.db")
-SCHEDULED_EMAILS_DB = os.path.join(DATA_DIR, "scheduled_emails.db")
-EMAIL_CACHE_DB = os.path.join(DATA_DIR, "email_cache.db")
 
 # Data subdirectories
 PERSONAL_UPLOADS_DIR = os.path.join(DATA_DIR, "personal_uploads")
@@ -49,14 +47,12 @@ DEEP_RESEARCH_DIR = os.path.join(DATA_DIR, "deep_research")
 MCP_OAUTH_DIR = os.path.join(DATA_DIR, "mcp_oauth")
 GENERATED_IMAGES_DIR = os.path.join(DATA_DIR, "generated_images")
 TTS_CACHE_DIR = os.path.join(DATA_DIR, "tts_cache")
-EMAIL_URGENCY_CACHE_DIR = os.path.join(DATA_DIR, "email_urgency_cache")
 SKILLS_DIR = os.path.join(DATA_DIR, "skills")
 GALLERY_DIR = os.path.join(DATA_DIR, "gallery")
 GALLERY_UPLOADS_DIR = os.path.join(DATA_DIR, "gallery_uploads")
 MEMORY_VECTORS_DIR = os.path.join(DATA_DIR, "memory_vectors")
 
 # Paths with an intentional dedicated env override, defaulting under DATA_DIR.
-MAIL_ATTACHMENTS_DIR = os.getenv("ODYSSEUS_MAIL_ATTACHMENTS_DIR", os.path.join(DATA_DIR, "mail-attachments"))
 # `or` (not os.getenv's default arg) so a PRESENT-but-EMPTY value falls back to
 # the default. docker-compose.yml injects `FASTEMBED_CACHE_PATH=${FASTEMBED_CACHE_PATH:-}`,
 # which sets the var to "" when the host hasn't defined it. os.getenv(name, default)

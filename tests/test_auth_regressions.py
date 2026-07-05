@@ -351,7 +351,7 @@ def test_task_create_notification_default_allows_action_specific_defaults():
     default noisy/quiet built-ins differently."""
     from routes.task_routes import TaskCreate
 
-    req = TaskCreate(task_type="action", action="check_email_urgency", schedule="cron", cron_expression="*/15 * * * *")
+    req = TaskCreate(task_type="action", action="classify_events", schedule="cron", cron_expression="*/15 * * * *")
     assert req.notifications_enabled is None
 
 

@@ -35,12 +35,8 @@ class AssistantSettingsUpdate(BaseModel):
     model: Optional[str] = None
     endpoint_url: Optional[str] = None
     enabled_tools: Optional[list[str]] = None
-    allow_autonomous_email: Optional[bool] = None  # convenience toggle
     timezone: Optional[str] = None
     check_ins: Optional[list[CheckInUpdate]] = None
-
-
-_EMAIL_TOOLS = {"send_email", "reply_to_email"}
 
 
 def _crew_to_dict(c: CrewMember) -> dict:
@@ -60,7 +56,6 @@ def _crew_to_dict(c: CrewMember) -> dict:
         "session_id": c.session_id,
         "is_default_assistant": bool(c.is_default_assistant),
         "timezone": c.timezone,
-        "allow_autonomous_email": any(t in _EMAIL_TOOLS for t in tools),
     }
 
 
@@ -181,21 +176,8 @@ def setup_assistant_routes(task_scheduler) -> APIRouter:
             if payload.timezone is not None:
                 crew_db.timezone = payload.timezone or None
 
-            # Tool list: either explicit list, or implicit toggle.
             if payload.enabled_tools is not None:
                 crew_db.enabled_tools = json.dumps(payload.enabled_tools)
-            if payload.allow_autonomous_email is not None:
-                try:
-                    existing = json.loads(crew_db.enabled_tools) if crew_db.enabled_tools else []
-                except Exception:
-                    existing = []
-                if payload.allow_autonomous_email:
-                    for t in ("send_email", "reply_to_email"):
-                        if t not in existing:
-                            existing.append(t)
-                else:
-                    existing = [t for t in existing if t not in _EMAIL_TOOLS]
-                crew_db.enabled_tools = json.dumps(existing)
 
             crew_db.updated_at = datetime.utcnow()
 

@@ -63,7 +63,6 @@ def _caller_owns_session(sess_owner, caller) -> bool:
 
 def setup_webhook_routes(
     webhook_manager: WebhookManager,
-    auth_manager,
     session_manager=None,
     api_key_manager=None,
 ) -> APIRouter:

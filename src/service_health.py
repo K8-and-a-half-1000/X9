@@ -298,49 +298,6 @@ def ntfy_health(integrations: List[Dict[str, Any]], settings: Dict[str, Any],
                     base=safe_base, reminder_channel=channel, error=category)
 
 
-# ── Email (IMAP) ──
-
-def email_health(accounts: List[Dict[str, Any]],
-                 *, connect: Optional[Callable] = None) -> Dict[str, Any]:
-    """Try a short IMAP connect+logout per configured account, concurrently.
-
-    All connect → ok. Some fail → degraded. All fail → down. No account
-    configured → disabled. Bounded by `_FANOUT_BUDGET` regardless of count.
-    `meta` carries only the account label and a controlled error category —
-    never credentials or raw exception text.
-    """
-    if not accounts:
-        return _svc("email", DISABLED, "No email accounts configured.")
-    if connect is None:
-        from routes.email_helpers import _imap_connect
-        # Impose the service-health budget on the IMAP connect itself.
-        connect = lambda aid: _imap_connect(aid, timeout=_PROBE_TIMEOUT)  # noqa: E731
-
-    def _label(acc: Dict[str, Any]) -> str:
-        return acc.get("account_name") or acc.get("account_id") or "account"
-
-    def _check(_i: int, acc: Dict[str, Any]) -> Dict[str, Any]:
-        name = _label(acc)
-        if not (acc.get("imap_host") or ""):
-            return {"name": name, "ok": False, "error": "no_host"}
-        try:
-            conn = connect(acc.get("account_id"))
-            try:
-                conn.logout()
-            except Exception:
-                pass
-            return {"name": name, "ok": True, "error": None}
-        except Exception as e:
-            return {"name": name, "ok": False, "error": _classify_error(e)}
-
-    raw = _bounded_map(accounts, _check, budget=_FANOUT_BUDGET,
-                       concurrency=_PROBE_CONCURRENCY)
-    per_account = [r if r is not None
-                   else {"name": _label(accounts[i]), "ok": False, "error": "timeout"}
-                   for i, r in enumerate(raw)]
-    return _rollup_items("email", "mailbox(es)", per_account)
-
-
 # ── Provider endpoints ──
 
 def providers_health(endpoints: List[Dict[str, Any]],
@@ -415,7 +372,6 @@ def _gather_inputs() -> Dict[str, Any]:
     """
     settings: Dict[str, Any] = {}
     integrations: List[Dict[str, Any]] = []
-    accounts: List[Dict[str, Any]] = []
     endpoints: List[Dict[str, Any]] = []
     try:
         from src.settings import load_settings
@@ -427,11 +383,6 @@ def _gather_inputs() -> Dict[str, Any]:
         integrations = load_integrations() or []
     except Exception as e:
         logger.debug(f"service_health: integrations load failed: {e}")
-    try:
-        from routes.email_helpers import _list_email_accounts
-        accounts = _list_email_accounts() or []
-    except Exception as e:
-        logger.debug(f"service_health: email accounts load failed: {e}")
     try:
         from core.database import SessionLocal, ModelEndpoint
         db = SessionLocal()
@@ -445,7 +396,7 @@ def _gather_inputs() -> Dict[str, Any]:
     except Exception as e:
         logger.debug(f"service_health: endpoint load failed: {e}")
     return {"settings": settings, "integrations": integrations,
-            "accounts": accounts, "endpoints": endpoints}
+            "endpoints": endpoints}
 
 
 async def _run_subsystem(name: str, fn: Callable, *args: Any) -> Dict[str, Any]:
@@ -481,11 +432,10 @@ async def collect_service_health(rag_manager: Any = None,
     # ChromaDB is in-process and synchronous (just reads flags).
     chroma = chromadb_health(rag_manager, memory_vector)
 
-    names = ["searxng", "ntfy", "email", "providers"]
+    names = ["searxng", "ntfy", "providers"]
     coros = [
         _run_subsystem("searxng", searxng_health, settings),
         _run_subsystem("ntfy", ntfy_health, inputs["integrations"], settings),
-        _run_subsystem("email", email_health, inputs["accounts"]),
         _run_subsystem("providers", providers_health, inputs["endpoints"]),
     ]
     try:

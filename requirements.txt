@@ -37,9 +37,10 @@ python-dateutil
 # the protocol without it.
 caldav
 cryptography
+# bcrypt hashes API tokens (app.py bearer-token validation).
 bcrypt
 mcp
-pyotp
+# QR rendering for companion device pairing (companion/pairing.py).
 qrcode[pil]
 croniter
 pytest

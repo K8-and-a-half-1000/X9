@@ -13,7 +13,6 @@ import re
 from typing import List, Optional, Tuple
 
 from src.agent_tools import ToolBlock, TOOL_TAGS
-from src.tool_security import BUILTIN_EMAIL_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -1032,15 +1031,7 @@ def parse_tool_blocks(text: str, skip_fenced: bool = False) -> List[ToolBlock]:
                 continue
             tag, content = call
             if not content:
-                # An empty fence is still an unambiguous call for the email
-                # tools — ```list_email_accounts``` with no body is a shape
-                # local models really emit for no-arg tools. Dispatch with
-                # empty args and let the tool's own validation answer;
-                # silently dropping the call left models concluding email was
-                # broken. Other tags (bash, python, ...) keep skipping: empty
-                # content is nothing to run.
-                if tag in BUILTIN_EMAIL_TOOLS:
-                    blocks.append(ToolBlock(tag, ""))
+                # Empty fences have nothing to run (bash, python, ...).
                 continue
             # If a code block's content is an <invoke> XML call (some models wrap
             # tool calls in ```python or ```xml fences), parse the invoke instead.
