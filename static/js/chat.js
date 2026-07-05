@@ -1214,9 +1214,20 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       if (!res.ok) {
         clearResponseTimeout();
         if (res.status === 404) {
-          // Session was deleted (e.g. by AI) — reload and go to welcome
+          // The session this message targeted no longer exists server-side
+          // (deleted by the AI, wiped data dir, or a stale id restored from
+          // localStorage after a restart). Clear the dead id so we don't
+          // re-pin it and 404 every subsequent send — a "one-sided
+          // conversation" that never recovers. Clearing lets the next send
+          // auto-create a fresh session.
           holder.remove();
+          if (sessionModule && sessionModule.setCurrentSessionId) {
+            sessionModule.setCurrentSessionId(null);
+          }
           if (sessionModule) await sessionModule.loadSessions();
+          if (uiModule && uiModule.showToast) {
+            uiModule.showToast('That chat no longer exists — started a fresh one. Resend your message.');
+          }
           return;
         }
         let errText = `Error ${res.status}`;
