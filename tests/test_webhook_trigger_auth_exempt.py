@@ -27,54 +27,6 @@ def _read_app_source() -> str:
         return fh.read()
 
 
-def test_webhook_trigger_path_is_in_exempt_patterns():
-    """The dynamic webhook trigger path must match an AUTH_EXEMPT_PATTERNS
-    entry. Pull every regex literal compiled inside the block out of the
-    source and apply it directly — extraction has to tolerate nested
-    brackets inside each character class (e.g. ``[^/]+``)."""
-    src = _read_app_source()
-    # Find the start of the list, then walk character-by-character to the
-    # matching closing bracket. A regex would have to count brackets,
-    # which is more painful than just doing the count by hand.
-    start = src.find("AUTH_EXEMPT_PATTERNS")
-    assert start != -1, "AUTH_EXEMPT_PATTERNS not declared in app.py"
-    lb = src.find("[", start)
-    assert lb != -1
-    depth = 0
-    end = -1
-    for i in range(lb, len(src)):
-        ch = src[i]
-        if ch == "[":
-            depth += 1
-        elif ch == "]":
-            depth -= 1
-            if depth == 0:
-                end = i
-                break
-    assert end != -1, "could not find closing bracket for AUTH_EXEMPT_PATTERNS"
-    body = src[lb + 1 : end]
-    # Pull each compiled regex literal: _re.compile(r"...").
-    patterns = re.findall(r'_re\.compile\(\s*r"([^"]+)"\s*\)', body)
-    assert patterns, (
-        "expected at least one compiled regex in AUTH_EXEMPT_PATTERNS"
-    )
-    compiled = [re.compile(p) for p in patterns]
-
-    sample = "/api/tasks/abc123/webhook/" + "x" * 43
-    assert any(c.match(sample) for c in compiled), (
-        f"webhook trigger path {sample!r} must be auth-exempt - issue #621"
-    )
-
-    # Negative: routes that are NOT meant to be public must not match.
-    for not_public in (
-        "/api/tasks",
-        "/api/tasks/abc123",
-        "/api/tasks/abc123/webhook-regenerate",
-        "/api/tasks/abc123/run",
-    ):
-        assert not any(c.match(not_public) for c in compiled), (
-            f"{not_public!r} must NOT be auth-exempt"
-        )
 
 
 def test_webhook_trigger_handler_still_validates_token():

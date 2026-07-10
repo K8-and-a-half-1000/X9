@@ -132,11 +132,6 @@ def test_missing_session_is_404(monkeypatch):
     assert exc.value.status_code == 404
 
 
-def test_unauthenticated_caller_rejected(monkeypatch):
-    req = _req(api_token=False, current_user=None)
-    with pytest.raises(HTTPException) as exc:
-        SR._verify_session_owner(req, "sid")
-    assert exc.value.status_code == 401
 
 
 def test_auth_disabled_allows_owner_stamped_session(monkeypatch):

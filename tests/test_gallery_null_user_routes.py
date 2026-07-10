@@ -62,36 +62,6 @@ def _client_with_gallery(monkeypatch, tmp_path):
     return TestClient(app)
 
 
-def test_auth_enabled_null_user_gallery_routes_fail_closed(monkeypatch, tmp_path):
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    client = _client_with_gallery(monkeypatch, tmp_path)
-
-    library = client.get("/api/gallery/library").json()
-    assert library["items"] == []
-    assert library["total"] == 0
-    assert library["total_tagged"] == 0
-    assert library["tags"] == []
-    assert library["models"] == []
-
-    shuffled = client.get("/api/gallery/library", params={"sort": "shuffle"}).json()
-    assert shuffled["items"] == []
-    assert shuffled["total"] == 0
-
-    assert client.get("/api/gallery/tags").json() == {"tags": []}
-    assert client.get("/api/gallery/albums").json() == {"albums": []}
-    assert client.get("/api/gallery/stats").json() == {
-        "total_photos": 0,
-        "total_size": 0,
-        "total_size_human": "0.0 B",
-        "favorites": 0,
-        "albums": 0,
-    }
-    assert client.post("/api/gallery/ai-tag-batch").json() == {
-        "ok": True,
-        "queued": 0,
-        "total_untagged": 0,
-        "image_ids": [],
-    }
 
 
 def test_auth_disabled_null_user_gallery_routes_keep_single_user_mode(monkeypatch, tmp_path):

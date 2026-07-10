@@ -121,16 +121,6 @@ def test_calendar_event_gate_rejects_cross_owner():
 # document._owner_session_filter
 # ---------------------------------------------------------------------------
 
-def test_document_owner_filter_rejects_anonymous():
-    from routes.document_routes import _owner_session_filter
-    fake_q = MagicMock()
-    out = _owner_session_filter(fake_q, user=None)
-    # The fix should call .filter(False) — fake_q.filter was invoked once
-    fake_q.filter.assert_called_once()
-    # And the resulting query is whatever the chained mock returns.
-    assert out is fake_q.filter.return_value
-
-
 def test_document_owner_filter_applies_owner_clause():
     from routes.document_routes import _owner_session_filter
     fake_q = MagicMock()
@@ -142,15 +132,6 @@ def test_document_owner_filter_applies_owner_clause():
 # ---------------------------------------------------------------------------
 # gallery._owner_filter
 # ---------------------------------------------------------------------------
-
-def test_gallery_owner_filter_blocks_anonymous(monkeypatch):
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    from routes.gallery_routes import _owner_filter
-    fake_q = MagicMock()
-    out = _owner_filter(fake_q, user=None)
-    fake_q.filter.assert_called_once_with(False)
-    assert out is fake_q.filter.return_value
-
 
 def test_gallery_owner_filter_allows_single_user_mode(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "false")

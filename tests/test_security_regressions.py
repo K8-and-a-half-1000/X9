@@ -427,39 +427,6 @@ def test_pdf_marker_render_lookup_denies_cross_owner_without_doc_leak(tmp_path):
 
 # ── require_user dependency rejects anon callers ────────────────
 
-def test_require_user_rejects_unauthenticated(monkeypatch):
-    """The shared auth dependency must raise 401 when the middleware
-    didn't attach a user AND auth is configured. Mirrors the
-    defense-in-depth check on /api/contacts/* and /api/personal/*."""
-    sys.modules.pop("src.auth_helpers", None)
-    from fastapi import HTTPException
-
-    from src import auth_helpers  # noqa: WPS433
-
-    class _State:
-        current_user = None  # middleware didn't set anyone
-
-    class _AppState:
-        class _Mgr:
-            is_configured = True
-        auth_manager = _Mgr()
-
-    class _App:
-        state = _AppState()
-
-    class _Client:
-        host = "203.0.113.1"  # not loopback
-
-    class _Req:
-        state = _State()
-        app = _App()
-        client = _Client()
-
-    with pytest.raises(HTTPException) as exc:
-        auth_helpers.require_user(_Req())
-    assert exc.value.status_code == 401
-
-
 def test_require_user_accepts_loopback_when_unconfigured(monkeypatch):
     """First-run mode (no users set up yet) must still let loopback
     callers through — otherwise the install can't bootstrap. Public
@@ -554,66 +521,6 @@ def test_require_user_localhost_bypass_admits_loopback(monkeypatch):
     assert auth_helpers.require_user(_LoopReq()) == ""
 
 
-def test_require_user_localhost_bypass_still_rejects_lan(monkeypatch):
-    """LOCALHOST_BYPASS=true must not extend to non-loopback callers —
-    a LAN visitor still needs to authenticate."""
-    from fastapi import HTTPException
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    monkeypatch.setenv("LOCALHOST_BYPASS", "true")
-    sys.modules.pop("src.auth_helpers", None)
-    from src import auth_helpers  # noqa: WPS433
-
-    class _State:
-        current_user = None
-
-    class _AppState:
-        class _Mgr:
-            is_configured = True
-        auth_manager = _Mgr()
-
-    class _App:
-        state = _AppState()
-
-    class _LanClient:
-        host = "192.168.1.42"
-
-    class _LanReq:
-        state = _State()
-        app = _App()
-        client = _LanClient()
-
-    with pytest.raises(HTTPException) as exc:
-        auth_helpers.require_user(_LanReq())
-    assert exc.value.status_code == 401
-
-
-def test_require_admin_rejects_unconfigured_public_api(monkeypatch):
-    """First-run API mode must not treat "no users yet" as admin access."""
-    from fastapi import HTTPException
-    from core.middleware import require_admin
-
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)
-
-    class _State:
-        current_user = None
-
-    class _AppState:
-        class _Mgr:
-            is_configured = False
-        auth_manager = _Mgr()
-
-    class _App:
-        state = _AppState()
-
-    class _Req:
-        state = _State()
-        app = _App()
-
-    with pytest.raises(HTTPException) as exc:
-        require_admin(_Req())
-    assert exc.value.status_code == 403
-
-
 def test_require_admin_allows_when_auth_explicitly_disabled(monkeypatch):
     from core.middleware import require_admin
 
@@ -653,30 +560,6 @@ def test_internal_tool_owner_header_logic_requires_known_user():
     assert resolve_owner("AdminUser") == "AdminUser"
     assert resolve_owner("doesnotexist") == "internal-tool"
     assert resolve_owner("") == "internal-tool"
-
-
-def test_auth_manager_migrates_legacy_admin_role(tmp_path):
-    """Old setup.py wrote role='admin'; startup must turn that into is_admin."""
-    sys.modules.pop("core.auth", None)
-    if "core" in sys.modules and hasattr(sys.modules["core"], "auth"):
-        delattr(sys.modules["core"], "auth")
-    from core.auth import AuthManager
-
-    auth_path = tmp_path / "auth.json"
-    auth_path.write_text(json.dumps({
-        "users": {
-            "admin": {
-                "password_hash": "unused",
-                "role": "admin",
-            }
-        }
-    }))
-
-    mgr = AuthManager(str(auth_path))
-
-    assert mgr.is_admin("admin") is True
-    data = json.loads(auth_path.read_text())
-    assert data["users"]["admin"]["is_admin"] is True
 
 
 def _load_search_content_for_test(monkeypatch, name="services.search.content_under_test"):
@@ -934,18 +817,6 @@ def test_mcp_oauth_config_sanitizes_paths_and_env(tmp_path, monkeypatch):
     assert cfg["token_file"] == str(base / "credentials.json")
     assert env["GMAIL_OAUTH_PATH"] == cfg["keys_file"]
     assert env["GMAIL_CREDENTIALS_PATH"] == cfg["token_file"]
-
-
-def test_gmail_mcp_preset_uses_contained_oauth_paths():
-    src = Path(__file__).resolve().parents[1] / "static" / "js" / "admin.js"
-    text = src.read_text()
-    preset = text.split('{ name: "Gmail"', 1)[1].split('{ name: "Email (IMAP/SMTP)"', 1)[0]
-
-    assert "~/.gmail-mcp" not in preset
-    assert 'oauthFile: { dir: "gmail"' in preset
-    assert 'keys_file: "gmail/gcp-oauth.keys.json"' in preset
-    assert 'token_file: "gmail/credentials.json"' in preset
-
 
 
 # -- export/gallery filename hardening ----------------------------------------

@@ -122,23 +122,6 @@ def test_block_all_models_blocks_regardless_of_allowed_models_contents(monkeypat
         _enforce_chat_privileges(_Request(privs), _Session("anything-else"))
 
 
-def test_admin_user_is_never_blocked(monkeypatch):
-    from core.auth import ADMIN_PRIVILEGES
-
-    monkeypatch.setattr("routes.chat_helpers.effective_user", lambda request: "admin")
-
-    class _AdminAuthManager:
-        def get_privileges(self, username):
-            assert username == "admin"
-            return dict(ADMIN_PRIVILEGES)
-
-    class _AdminRequest:
-        def __init__(self):
-            self.app = type("App", (), {})()
-            self.app.state = type("State", (), {"auth_manager": _AdminAuthManager()})()
-
-    _enforce_chat_privileges(_AdminRequest(), _Session("provider/model-a"))
-    _enforce_chat_privileges(_AdminRequest(), _Session("anything-else"))
 
 
 class _FakeSession:

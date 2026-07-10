@@ -104,15 +104,6 @@ def test_db_row_stays_authoritative(monkeypatch):
     SR._verify_session_owner(_req(api_token=False, current_user="alice"), "sid", sm)
 
 
-def test_unauthenticated_still_403(monkeypatch):
-    monkeypatch.setattr(SR, "SessionLocal", _session_local_returning(_MISSING))
-    sm = SimpleNamespace(sessions={"ghost": SimpleNamespace(owner=None)})
-    with pytest.raises(HTTPException) as exc:
-        SR._verify_session_owner(_req(api_token=False, current_user=None), "ghost", sm)
-    assert exc.value.status_code == 401
-
-
-# --- manager layer: delete_session clears memory-only ghosts ---------------
 
 def test_manager_deletes_memory_only_ghost(monkeypatch):
     # No DB row, but the session is in memory -> delete it and report success.

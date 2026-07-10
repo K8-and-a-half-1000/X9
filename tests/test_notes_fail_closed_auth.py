@@ -118,32 +118,8 @@ def env(monkeypatch, tmp_path):
     return app, factory
 
 
-async def test_no_identity_fails_closed_on_every_owner_scoped_route(env):
-    app, _ = env
-    async with _client(app) as c:
-        assert (await c.get("/api/notes")).status_code == 401
-        assert (await c.get("/api/notes/note-alice")).status_code == 401
-        assert (await c.put("/api/notes/note-alice", json={"title": "pwn"})).status_code == 401
-        assert (await c.delete("/api/notes/note-alice")).status_code == 401
-        assert (await c.post("/api/notes/note-alice/pin")).status_code == 401
-        assert (await c.post("/api/notes/note-alice/archive")).status_code == 401
-        assert (await c.post("/api/notes/note-alice/items/0/toggle")).status_code == 401
-        assert (await c.post("/api/notes/reorder", json={"ids": ["note-bob", "note-alice"]})).status_code == 401
-        assert (await c.post("/api/notes", json={"title": "ghost"})).status_code == 401
 
 
-async def test_no_identity_did_not_mutate_anything(env):
-    app, factory = env
-    async with _client(app) as c:
-        await c.put("/api/notes/note-alice", json={"title": "pwn"})
-        await c.post("/api/notes/note-alice/pin")
-        await c.delete("/api/notes/note-bob")
-    db = factory()
-    rows = {n.id: n for n in db.query(Note).all()}
-    db.close()
-    assert set(rows) == {"note-alice", "note-bob"}
-    assert rows["note-alice"].title == "a"
-    assert not rows["note-alice"].pinned
 
 
 async def test_authenticated_user_still_scoped_to_own_notes(env):

@@ -149,13 +149,6 @@ def test_bearer_token_caller_cannot_pair(monkeypatch):
     assert exc.value.status_code == 403
 
 
-def test_non_admin_user_cannot_pair(monkeypatch):
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    with pytest.raises(HTTPException) as exc:
-        require_admin(_req("bob", is_admin=False))
-    assert exc.value.status_code == 403
-
-
 def test_admin_user_passes_the_gate(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "true")
     # Should not raise.

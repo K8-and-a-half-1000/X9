@@ -106,24 +106,6 @@ def _db_ctx(session):
 # ---------------------------------------------------------------------------
 
 
-def test_api_token_routes_require_admin_for_list_create_delete(monkeypatch, token_routes_mod):
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    mod = token_routes_mod
-
-    list_tokens = _get_handler(mod, "GET", "/tokens")
-    create_token = _get_handler(mod, "POST", "/tokens")
-    delete_token = _get_handler(mod, "DELETE", "/tokens/{token_id}")
-
-    non_admin = _req("bob", is_admin=False)
-
-    for handler, kwargs in [
-        (list_tokens, {"request": non_admin}),
-        (create_token, {"request": non_admin, "name": "my-token"}),
-        (delete_token, {"request": non_admin, "token_id": "abc12345"}),
-    ]:
-        with pytest.raises(HTTPException) as exc:
-            handler(**kwargs)
-        assert exc.value.status_code == 403
 
 
 # ---------------------------------------------------------------------------

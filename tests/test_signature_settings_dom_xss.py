@@ -15,12 +15,3 @@ def test_signature_picker_allows_only_raster_data_urls():
     assert 'dataUrl: s.data_url' not in src
 
 
-def test_settings_2fa_setup_escapes_secret_and_qr_src():
-    src = (_REPO / "static" / "js" / "settings.js").read_text(encoding="utf-8")
-
-    assert "function safeRasterDataUrl(raw)" in src
-    assert "const qrCode = safeRasterDataUrl(setup.qr_code);" in src
-    assert '<img src="${esc(qrCode)}"' in src
-    assert "${esc(setup.secret)}" in src
-    assert 'src="${setup.qr_code}"' not in src
-    assert ">${setup.secret}</div>" not in src

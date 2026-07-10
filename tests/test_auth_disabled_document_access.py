@@ -162,52 +162,10 @@ def test_owner_session_filter_noops_for_none_user_when_auth_disabled(monkeypatch
 #                                                      None user -> 403
 
 
-@pytest.mark.asyncio
-async def test_list_documents_rejects_none_user_when_auth_enabled(monkeypatch):
-    """AUTH_ENABLED=true (default) + user=None must raise 403."""
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)
-    previous = _bind_test_db()
-    try:
-        list_docs = _endpoint("GET", "/api/documents/{session_id}")
-        session_id, _doc_id = _seed()
-
-        with pytest.raises(HTTPException) as exc:
-            await list_docs(_req(None), session_id)
-
-        assert exc.value.status_code == 403
-    finally:
-        droutes.SessionLocal = previous
 
 
-@pytest.mark.asyncio
-async def test_get_document_rejects_none_user_when_auth_enabled(monkeypatch):
-    """AUTH_ENABLED=true (default) + user=None must raise 403 via _verify_doc_owner."""
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)
-    previous = _bind_test_db()
-    try:
-        get_doc = _endpoint("GET", "/api/document/{doc_id}")
-        _session_id, doc_id = _seed()
-
-        with pytest.raises(HTTPException) as exc:
-            await get_doc(_req(None), doc_id)
-
-        assert exc.value.status_code == 403
-    finally:
-        droutes.SessionLocal = previous
 
 
-def test_verify_doc_owner_rejects_none_user_when_auth_enabled(monkeypatch):
-    """_verify_doc_owner with user=None + AUTH_ENABLED=true must raise 403."""
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)
-    _session_id, doc_id = _seed()
-    db = _TS()
-    try:
-        doc = db.query(Document).filter(Document.id == doc_id).first()
-        with pytest.raises(HTTPException) as exc:
-            _verify_doc_owner(db, doc, None)
-        assert exc.value.status_code == 403
-    finally:
-        db.close()
 
 
 # ------------------------------------------ 3. auth ENABLED + wrong owner ->

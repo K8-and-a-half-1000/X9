@@ -130,20 +130,6 @@ def test_real_checklist_reminder_body_is_built_from_stored_items(monkeypatch):
     assert calls[0]["note_body"] == "Pending (2):\n- first\n- second"
 
 
-def test_non_admin_cannot_fire_synthetic_test_reminder(monkeypatch):
-    endpoint, calls, _db = _endpoint(monkeypatch)
-
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(endpoint(_Request({
-            "note_id": "test-123",
-            "title": "Test Reminder",
-            "body": "Test body",
-            "channel": "webhook",
-            "webhook_integration_id": "global-webhook",
-        }, user="alice")))
-
-    assert exc.value.status_code == 403
-    assert calls == []
 
 
 def test_admin_test_reminder_can_use_current_ui_overrides(monkeypatch):

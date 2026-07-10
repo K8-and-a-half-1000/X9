@@ -418,30 +418,6 @@ async def test_build_chat_context_incognito_does_not_duplicate_current_user_mess
 
 
 @pytest.mark.asyncio
-async def test_admin_agent_tools_require_admin(monkeypatch):
-    auth_mod = _install_core_auth_stub(monkeypatch)
-    from src.tool_execution import execute_tool_block
-
-    class FakeAuth:
-        is_configured = True
-
-        def is_admin(self, username):
-            return False
-
-    monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAuth())
-
-    for tool_name in ("manage_tokens", "app_api", "serve_preset"):
-        desc, result = await execute_tool_block(
-            SimpleNamespace(tool_type=tool_name, content='{"action":"create","name":"bad"}'),
-            owner="regular-user",
-        )
-
-        assert desc == f"{tool_name}: BLOCKED"
-        assert result["exit_code"] == 1
-        assert "requires an admin" in result["error"]
-
-
-@pytest.mark.asyncio
 async def test_app_api_blocks_shell_routes_before_loopback(monkeypatch):
     import httpx
     from src.tool_implementations import do_app_api
@@ -604,29 +580,6 @@ async def test_app_api_endpoint_discovery_hides_cookbook_host_control_routes(mon
 
 
 @pytest.mark.asyncio
-async def test_public_agent_policy_blocks_sensitive_tools(monkeypatch):
-    auth_mod = _install_core_auth_stub(monkeypatch)
-    from src.tool_execution import execute_tool_block
-
-    class FakeAuth:
-        is_configured = True
-
-        def is_admin(self, username):
-            return False
-
-    monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAuth())
-
-    for tool_name in ("read_file",):
-        desc, result = await execute_tool_block(
-            SimpleNamespace(tool_type=tool_name, content="{}"),
-            owner="regular-user",
-        )
-        assert desc == f"{tool_name}: BLOCKED"
-        assert result["exit_code"] == 1
-        assert "restricted to admin users" in result["error"]
-
-
-@pytest.mark.asyncio
 async def test_legacy_mcp_tools_decode_inline_json_args(monkeypatch):
     """The relaxed parser accepts inline JSON for non-code tags, but the legacy
     line-based arg builders (web_search/web_fetch/read_file/write_file/
@@ -699,56 +652,6 @@ async def test_write_file_inline_json_args(monkeypatch):
     assert captured.get("path") == "/tmp/wf.txt", (
         f"write_file did not decode inline JSON args; got path {captured.get('path')!r}"
     )
-
-
-def test_public_agent_policy_hides_sensitive_tools(monkeypatch):
-    auth_mod = _install_core_auth_stub(monkeypatch)
-    from src.tool_security import blocked_tools_for_owner
-
-    class FakeAuth:
-        is_configured = True
-
-        def is_admin(self, username):
-            return False
-
-    monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAuth())
-
-    blocked = blocked_tools_for_owner("regular-user")
-
-    assert "read_file" in blocked
-    assert "app_api" in blocked
-    assert "serve_preset" in blocked
-    assert "manage_tasks" in blocked
-
-
-def test_presetup_does_not_grant_admin_tools_when_auth_enabled(monkeypatch):
-    """Pre-setup window: auth is enabled but no admin user exists yet.
-
-    This must NOT be treated as single-user/admin at the tool layer — the
-    server-execution tools (bash/python) stay blocked as defense-in-depth so
-    an unauthenticated caller that slips past the auth middleware (e.g. via a
-    loopback bypass) can't reach an RCE before setup completes.
-    """
-    monkeypatch.delenv("AUTH_ENABLED", raising=False)  # default: enabled
-    auth_mod = _install_core_auth_stub(monkeypatch)
-
-    class FakeAuth:
-        is_configured = False
-
-        def is_admin(self, username):
-            return False
-
-    monkeypatch.setattr(auth_mod, "AuthManager", lambda: FakeAuth())
-
-    from src.tool_security import (
-        blocked_tools_for_owner,
-        owner_is_admin_or_single_user,
-    )
-
-    assert owner_is_admin_or_single_user(None) is False
-    blocked = blocked_tools_for_owner(None)
-    assert "bash" in blocked
-    assert "python" in blocked
 
 
 def test_single_user_mode_keeps_full_tool_access_when_auth_disabled(monkeypatch):

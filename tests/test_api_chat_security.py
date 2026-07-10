@@ -257,7 +257,6 @@ def _install_sync_chat_stubs(monkeypatch):
 def _sync_chat_endpoint(webhook_routes, session_manager):
     router = webhook_routes.setup_webhook_routes(
         _WebhookManager(),
-        auth_manager=None,
         session_manager=session_manager,
     )
     for route in router.routes:

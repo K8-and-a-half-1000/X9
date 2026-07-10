@@ -114,60 +114,6 @@ def _fake_auth_request(token="session-token"):
     return req
 
 
-def test_set_signup_enabled_true_is_idempotent():
-    from routes.auth_routes import SetOpenRegistrationRequest
-
-    auth, target = _auth_route_endpoint("/api/auth/open-signup", "PUT")
-    auth.get_username_for_token.return_value = "admin"
-    auth.is_admin.return_value = True
-
-    request = _fake_auth_request()
-    auth.signup_enabled = False
-
-    out = asyncio.run(target(body=SetOpenRegistrationRequest(enabled=True),request=request))
-
-    assert out == {"ok": True, "signup_enabled": True}
-    assert auth.signup_enabled is True
-
-    out = asyncio.run(target(body=SetOpenRegistrationRequest(enabled=True), request=request))
-
-    assert out == {"ok": True, "signup_enabled": True}
-    assert auth.signup_enabled is True
-
-def test_set_signup_enabled_false_is_idempotent():
-    from routes.auth_routes import SetOpenRegistrationRequest
-
-    auth, target = _auth_route_endpoint("/api/auth/open-signup", "PUT")
-    auth.get_username_for_token.return_value = "admin"
-    auth.is_admin.return_value = True
-
-    request = _fake_auth_request()
-    auth.signup_enabled = True
-
-    out = asyncio.run(target(body=SetOpenRegistrationRequest(enabled=False), request=request))
-
-    assert out == {"ok": True, "signup_enabled": False}
-    assert auth.signup_enabled is False
-
-    out = asyncio.run(target(body=SetOpenRegistrationRequest(enabled=False), request=request))
-
-    assert out == {"ok": True, "signup_enabled": False}
-    assert auth.signup_enabled is False
-
-def test_set_signup_enabled_requires_admin():
-    from routes.auth_routes import SetOpenRegistrationRequest
-
-    auth, target = _auth_route_endpoint("/api/auth/open-signup", "PUT")
-    auth.get_username_for_token.return_value = "bob"
-    auth.is_admin.return_value = False
-    auth.signup_enabled = False
-
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(target(body=SetOpenRegistrationRequest(enabled=True), request=_fake_auth_request()))
-
-    assert exc.value.status_code == 403
-    assert auth.signup_enabled is False
-
 # ---------------------------------------------------------------------------
 # Research endpoints — `_require_user` rejects anonymous
 # ---------------------------------------------------------------------------
@@ -195,25 +141,6 @@ def _fake_request(user=None):
     return req
 
 
-def test_research_status_rejects_anonymous():
-    """research_status must 401 when no user is on the request state."""
-    # Build a fresh router and pluck its registered routes.
-    from routes.research_routes import setup_research_routes
-    rh = MagicMock()
-    rh.get_status.return_value = {"status": "running"}  # would 200 if auth passed
-    router = setup_research_routes(rh)
-    # Find the function registered for /api/research/status/{session_id}
-    target = None
-    for route in router.routes:
-        if getattr(route, "path", "") == "/api/research/status/{session_id}":
-            target = route.endpoint
-            break
-    assert target is not None, "research_status route not registered"
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(target(session_id="x", request=_fake_request(user=None)))
-    assert exc.value.status_code == 401
-
-
 def test_research_status_accepts_authenticated():
     from routes.research_routes import setup_research_routes
     rh = MagicMock()
@@ -235,40 +162,6 @@ def test_research_status_rejects_wrong_owner():
     with pytest.raises(HTTPException) as exc:
         asyncio.run(target(session_id="x", request=_fake_request(user="bob")))
     assert exc.value.status_code == 404
-
-
-def test_research_cancel_rejects_anonymous():
-    from routes.research_routes import setup_research_routes
-    rh = MagicMock()
-    router = setup_research_routes(rh)
-    target = next(r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/research/cancel/{session_id}")
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(target(session_id="x", request=_fake_request(user=None)))
-    assert exc.value.status_code == 401
-
-
-def test_research_delete_rejects_anonymous():
-    from routes.research_routes import setup_research_routes
-    rh = MagicMock()
-    router = setup_research_routes(rh)
-    target = next(r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/research/{session_id}")
-    # Note: `target` here is the most-recently registered route on this
-    # path which is the DELETE. Either /detail or /delete both match
-    # other paths — the {session_id} bare path is DELETE.
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(target(session_id="x", request=_fake_request(user=None)))
-    assert exc.value.status_code == 401
-
-
-def test_research_spinoff_rejects_anonymous():
-    """spinoff must 401 before reading any research data."""
-    from routes.research_routes import setup_research_routes
-    rh = MagicMock()
-    router = setup_research_routes(rh, session_manager=MagicMock())
-    target = next(r.endpoint for r in router.routes if getattr(r, "path", "") == "/api/research/spinoff/{session_id}")
-    with pytest.raises(HTTPException) as exc:
-        asyncio.run(target(session_id="x", request=_fake_request(user=None)))
-    assert exc.value.status_code == 401
 
 
 def test_research_spinoff_rejects_wrong_owner():

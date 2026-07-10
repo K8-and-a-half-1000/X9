@@ -23,14 +23,8 @@ def integrations_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(integrations, "DATA_FILE", str(tmp_path / "integrations.json"))
     monkeypatch.setattr(auth_routes, "migrate_from_settings", lambda: None)
 
-    class _AuthManager:
-        def get_username_for_token(self, token):
-            return "admin" if token == "session-token" else None
-
-        def is_admin(self, user):
-            return user == "admin"
-
-    router = auth_routes.setup_auth_routes(_AuthManager())
+    # X9 is single-user (no login) — setup_auth_routes takes no auth manager.
+    router = auth_routes.setup_auth_routes()
 
     def endpoint(path, method):
         for route in router.routes:
@@ -38,7 +32,7 @@ def integrations_routes(tmp_path, monkeypatch):
                 return route.endpoint
         raise AssertionError(f"{method} {path} route not registered")
 
-    return endpoint, auth_routes.SESSION_COOKIE, fastapi.HTTPException
+    return endpoint, "odysseus_session", fastapi.HTTPException
 
 
 class _JsonRequest(SimpleNamespace):
@@ -46,6 +40,9 @@ class _JsonRequest(SimpleNamespace):
         super().__init__(
             cookies={session_cookie: "session-token"},
             client=SimpleNamespace(host="127.0.0.1"),
+            # Config routes only reject bearer API tokens now; a browser
+            # request has api_token=False.
+            state=SimpleNamespace(api_token=False),
             _body=body,
         )
 

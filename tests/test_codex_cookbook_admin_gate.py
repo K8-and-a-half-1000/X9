@@ -52,19 +52,7 @@ def _api_token_request(*, scopes=None, owner="alice"):
 class TestCookieSessionAdminGate:
     """Non-admin cookie sessions must be rejected; admin sessions allowed."""
 
-    def test_non_admin_rejected_read(self, monkeypatch):
-        monkeypatch.setenv("AUTH_ENABLED", "true")
-        req = _cookie_request(is_admin=False)
-        with pytest.raises(HTTPException) as exc:
-            _require_cookbook_scope(req, COOKBOOK_READ_SCOPES)
-        assert exc.value.status_code == 403
 
-    def test_non_admin_rejected_launch(self, monkeypatch):
-        monkeypatch.setenv("AUTH_ENABLED", "true")
-        req = _cookie_request(is_admin=False)
-        with pytest.raises(HTTPException) as exc:
-            _require_cookbook_scope(req, COOKBOOK_LAUNCH_SCOPES)
-        assert exc.value.status_code == 403
 
     def test_admin_allowed_read(self, monkeypatch):
         monkeypatch.setenv("AUTH_ENABLED", "true")

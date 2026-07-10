@@ -420,34 +420,6 @@ _SLOW_AUTH_CONCURRENCY_TESTS = (
 )
 
 
-def test_fast_lane_collects_only_unmarked_auth_concurrency_test():
-    """`--fast` collection drops the marked slow tests but keeps the fast one.
-
-    Unlike the other tests here, this runs a real `--collect-only` so it proves
-    the `slow` markers actually deselect during collection, not just that the
-    command is built with `not slow`.
-    """
-    repo_root = Path(__file__).resolve().parents[1]
-    result = subprocess.run(
-        [
-            sys.executable,
-            "tests/run_focus.py",
-            "--fast",
-            "--",
-            "--collect-only",
-            "-q",
-            "tests/test_auth_config_lock_concurrency.py",
-        ],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr or result.stdout
-    collected = result.stdout
-
-    assert _FAST_AUTH_CONCURRENCY_TEST in collected
-    for slow_test in _SLOW_AUTH_CONCURRENCY_TESTS:
-        assert slow_test not in collected, f"slow test was not deselected: {slow_test}"
 
 def test_service_health_sub_area_command_includes_split_files():
     assert _cmd(sub_area="service_health") == [

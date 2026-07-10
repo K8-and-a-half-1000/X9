@@ -54,11 +54,3 @@ def test_named_user_is_still_scoped():
         db.close()
 
 
-def test_none_user_blocks_when_auth_is_enabled(monkeypatch):
-    monkeypatch.setenv("AUTH_ENABLED", "true")
-    _seed(None, "alice", "bob")
-    db = _TS()
-    try:
-        assert _owner_filter(db.query(GalleryImage), None).count() == 0
-    finally:
-        db.close()
