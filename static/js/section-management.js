@@ -243,11 +243,13 @@ export function initSectionDrag(Storage, loadUIVis) {
 
   sidebar.addEventListener('mousedown', onMouseDown);
 
-  // Restore saved order on load
+  // Restore saved order on load. The tools section is pinned above the
+  // chat list by the fixed layout, so it is excluded from saved orders
+  // (old installs may still have it recorded).
   try {
     const saved = Storage.get(Storage.KEYS.SECTION_ORDER);
     if (saved) {
-      const order = JSON.parse(saved);
+      const order = JSON.parse(saved).filter(id => id !== 'tools-section');
       order.forEach(id => {
         const section = document.getElementById(id);
         if (section) sidebarInner.appendChild(section);

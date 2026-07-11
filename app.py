@@ -100,7 +100,7 @@ try:
     _log_file = os.path.join(_log_dir, "app.log")
 
     # RotatingFileHandler is not multi-process safe (e.g. if uvicorn is run with --workers N).
-    # Odysseus is single-process by convention, so this is acceptable, but be aware that
+    # X9 is single-process by convention, so this is acceptable, but be aware that
     # concurrent log rotation issues can arise if multiple workers are configured.
     _file_h = logging.handlers.RotatingFileHandler(
         _log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
@@ -136,8 +136,8 @@ app.add_middleware(
         "Content-Type",
         "X-API-Key",
         "X-Auth-Token",
-        "X-Odysseus-Internal-Token",
-        "X-Odysseus-Owner",
+        "X-X9-Internal-Token",
+        "X-X9-Owner",
         "X-Requested-With",
         "X-TZ-Offset",
     ],
@@ -264,7 +264,7 @@ _PROXY_FWD_HEADERS = (
 
 def _is_trusted_loopback(request: Request) -> bool:
     """True ONLY for a DIRECT loopback connection with no proxy/tunnel
-    forwarding headers. Odysseus's own in-process agent loopback calls carry
+    forwarding headers. X9's own in-process agent loopback calls carry
     none of these headers, so they qualify; gateway-forwarded requests don't."""
     host = request.client.host if request.client else None
     if host not in ("127.0.0.1", "::1"):
@@ -896,7 +896,7 @@ async def _startup_event():
     # Keep-alive is opt-in. The ping path performs model discovery, and when
     # stale LAN endpoints are configured it can add periodic backend pressure
     # that delays unrelated UI requests such as Notes/Documents.
-    _keepalive_enabled = str(os.getenv("ODYSSEUS_MODEL_KEEPALIVE", "")).lower() in {"1", "true", "yes", "on"}
+    _keepalive_enabled = str(os.getenv("X9_MODEL_KEEPALIVE", "")).lower() in {"1", "true", "yes", "on"}
     if _keepalive_enabled:
         async def _keepalive_loop():
             while True:
@@ -947,12 +947,12 @@ async def _startup_event():
 
     # Start scheduled task runner — skip when running under a cron-driven
     # deployment where an external worker drives task firing.
-    _tasks_inprocess = os.environ.get("ODYSSEUS_INPROCESS_TASKS", "1").strip().lower()
+    _tasks_inprocess = os.environ.get("X9_INPROCESS_TASKS", "1").strip().lower()
     if _tasks_inprocess not in ("0", "false", "no", "off", ""):
         await task_scheduler.start()
     else:
         logger.info(
-            "In-process task scheduler disabled (ODYSSEUS_INPROCESS_TASKS=0); "
+            "In-process task scheduler disabled (X9_INPROCESS_TASKS=0); "
             "drive task firing externally (e.g. cron)."
         )
     # Periodic null-owner sweep — re-runs the legacy-owner assignment hourly

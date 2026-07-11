@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Odysseus — first-time setup script.
+"""X9 — first-time setup script.
 
 Creates data directories, initializes the database, and sets up an
 initial admin user. Safe to re-run (skips what already exists).
@@ -166,7 +166,7 @@ def main():
     print("\n=== Setup complete ===")
     # X9 is single-user with no login flow — serve it only behind your
     # Zero-Trust gateway (or on loopback).
-    if not os.getenv("ODYSSEUS_SKIP_RUN_HINT"):
+    if not os.getenv("X9_SKIP_RUN_HINT"):
         print(f"\nStart the server with:")
         print(f"  python -m uvicorn app:app --host 127.0.0.1 --port 7000")
         print(f"\nThen open http://localhost:7000")

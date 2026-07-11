@@ -1,5 +1,5 @@
 // ============================================
-// Odysseus UI — Main Application Orchestrator
+// X9 UI — Main Application Orchestrator
 // ES6 module — entry point, no exports (wires all modules together)
 // ============================================
 import Storage from './js/storage.js';
@@ -401,7 +401,7 @@ function initializeEventListeners() {
       e.stopPropagation();
       exportMenu.classList.remove('open');
       const meta = sessionModule.getSessions().find(s => s.id === sessionModule.getCurrentSessionId());
-      const sessionName = meta ? meta.name : 'Odysseus Chat';
+      const sessionName = meta ? meta.name : 'X9 Chat';
       const originalTitle = document.title;
       document.title = sessionName;
       const chatHistory = document.getElementById('chat-history');
@@ -2003,7 +2003,7 @@ function initializeEventListeners() {
       // Keep a prompt inside the composer even when the picker crowds the row.
       // A blank placeholder makes the mobile/compact empty state feel broken.
       if (textarea) {
-        textarea.setAttribute('placeholder', w < PLACEHOLDER_COMPACT_WIDTH ? 'Message...' : 'Message Odysseus...');
+        textarea.setAttribute('placeholder', w < PLACEHOLDER_COMPACT_WIDTH ? 'Message...' : 'Message X9...');
       }
       // Hide entire bottom toolbar (tools, mode toggle) — only send button remains
       if (inputBottom) {
@@ -2298,7 +2298,7 @@ function initializeEventListeners() {
     'tool-theme':          '#tool-theme-btn',
     'sidebar-settings-btn':'#user-bar-settings',
     'chat-meta':           '.chat-meta-overlay',
-    'welcome-text':        '.welcome-name, .welcome-sub, #welcome-tip',
+    'welcome-text':        '.welcome-name, .welcome-powered-by, .welcome-sub, #welcome-tip',
     'incognito-btn':       '.incognito-btn',
     'web-toggle-btn':      '#web-toggle-btn',
     'doc-toggle-btn':      '#overflow-doc-btn',
@@ -3230,7 +3230,7 @@ function initializeEventListeners() {
 // ============================================
 // INITIALIZATION ON PAGE LOAD
 // ============================================
-function startOdysseusApp() {
+function startX9App() {
   if (window.__odysseusAppStarted) return;
   window.__odysseusAppStarted = true;
   const _bumpChatPriority = (ms = 10000) => {
@@ -3862,11 +3862,12 @@ function startOdysseusApp() {
     });
   });
   
-  // Restore saved order on load
+  // Restore saved order on load. tools-section is pinned above the chat
+  // list by the fixed layout — drop it from any previously saved order.
   const savedOrder = Storage.get(Storage.KEYS.SECTION_ORDER);
   if (savedOrder) {
     try {
-      const order = JSON.parse(savedOrder);
+      const order = JSON.parse(savedOrder).filter(id => id !== 'tools-section');
       const innerContainer = sidebarInner || document.getElementById('sidebar');
 
       // Create a document fragment to minimize reflows
@@ -3905,7 +3906,7 @@ function startOdysseusApp() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startOdysseusApp, { once: true });
+  document.addEventListener('DOMContentLoaded', startX9App, { once: true });
 } else {
-  startOdysseusApp();
+  startX9App();
 }

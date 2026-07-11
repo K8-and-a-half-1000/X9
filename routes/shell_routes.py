@@ -210,7 +210,7 @@ def _package_pip_update_status(
 
     if pkg.get("kind") == "system" or not pkg.get("pip"):
         return PackageUpdateStatus(
-            False, "Update this system dependency outside Odysseus."
+            False, "Update this system dependency outside X9."
         )
 
     name = pkg.get("name")
@@ -233,7 +233,7 @@ def _package_pip_update_status(
     if name == "vllm" and binaries.get("vllm") and not dists.get("vllm"):
         return PackageUpdateStatus(
             False,
-            "Using a vLLM CLI on PATH without Python package metadata; update it outside Odysseus.",
+            "Using a vLLM CLI on PATH without Python package metadata; update it outside X9.",
         )
 
     return PackageUpdateStatus(
@@ -582,10 +582,10 @@ async def _generate_tmux(cmd: str, request: Request):
     script_path = TMUX_LOG_DIR / f"{session_id}.sh"
     script_path.write_text(
         f"#!/bin/bash\n"
-        f'ODYSSEUS_USER_SHELL="${{SHELL:-}}"\n'
-        f'if [ -n "$ODYSSEUS_USER_SHELL" ] && [ -x "$ODYSSEUS_USER_SHELL" ]; then\n'
-        f'  ODYSSEUS_USER_PATH="$("$ODYSSEUS_USER_SHELL" -ic \'printf "__ODYSSEUS_PATH__%s\\n" "$PATH"\' 2>/dev/null | sed -n \'s/^__ODYSSEUS_PATH__//p\' | tail -n 1 || true)"\n'
-        f'  if [ -n "$ODYSSEUS_USER_PATH" ]; then export PATH="$ODYSSEUS_USER_PATH:$PATH"; fi\n'
+        f'X9_USER_SHELL="${{SHELL:-}}"\n'
+        f'if [ -n "$X9_USER_SHELL" ] && [ -x "$X9_USER_SHELL" ]; then\n'
+        f'  X9_USER_PATH="$("$X9_USER_SHELL" -ic \'printf "__X9_PATH__%s\\n" "$PATH"\' 2>/dev/null | sed -n \'s/^__X9_PATH__//p\' | tail -n 1 || true)"\n'
+        f'  if [ -n "$X9_USER_PATH" ]; then export PATH="$X9_USER_PATH:$PATH"; fi\n'
         f"fi\n"
         f"{cmd} 2>&1 | tee '{log_path}'\n"
         f"EC=${{PIPESTATUS[0]}}\n"
@@ -1016,7 +1016,7 @@ def setup_shell_routes() -> APIRouter:
         """Check which optional packages are installed.
 
         Local-target packages are checked in-process. Remote-target packages
-        (vllm, sglang, llama_cpp, diffusers, hf_transfer) are checked on the SELECTED
+        (sglang, llama_cpp, diffusers, transformers) are checked on the SELECTED
         server over SSH, inside its venv — otherwise installing on a remote box
         never reflected because the check only ever looked at the local host.
         """
@@ -1052,16 +1052,6 @@ def setup_shell_routes() -> APIRouter:
             if not _SSH_PORT_RE.match(_port) or not (1 <= int(_port) <= 65535):
                 raise HTTPException(400, "Invalid ssh_port")
         packages = [
-            # ── System ── OS binaries, not pip packages
-            {
-                "name": "tmux",
-                "pip": "",
-                "desc": "Required for Linux/Termux Cookbook background downloads and serves",
-                "category": "System",
-                "target": "remote",
-                "kind": "system",
-                "install_hint": "Run Cookbook server setup, or install tmux with apt/pacman/dnf/apk/zypper.",
-            },
             # Note: cmake / gcc / git are not separate dependency rows —
             # they're declared as `system_prereqs` on llama_cpp (and any
             # other engine that compiles from source) so they appear as
@@ -1069,13 +1059,6 @@ def setup_shell_routes() -> APIRouter:
             # cluttering the panel with raw OS package names that aren't
             # meaningful product-level dependencies on their own.
             # ── LLM ── installs on GPU servers for model serving/downloading
-            {
-                "name": "hf_transfer",
-                "pip": "hf_transfer",
-                "desc": "Fast model downloads from HuggingFace",
-                "category": "LLM",
-                "target": "remote",
-            },
             {
                 "name": "llama_cpp",
                 "pip": "llama-cpp-python[server]",
@@ -1094,13 +1077,6 @@ def setup_shell_routes() -> APIRouter:
                 "name": "sglang",
                 "pip": "sglang[all]",
                 "desc": "Serve HF safetensors models via SGLang",
-                "category": "LLM",
-                "target": "remote",
-            },
-            {
-                "name": "vllm",
-                "pip": "vllm",
-                "desc": "Great for high-throughput multi-GPU inference",
                 "category": "LLM",
                 "target": "remote",
             },

@@ -767,7 +767,7 @@ class TaskScheduler:
             if gate_foreground:
                 waiting = db.query(TaskRun).filter(TaskRun.id == run_id).first()
                 if waiting and waiting.status == "queued":
-                    waiting.result = "Queued — waiting for Odysseus to be idle…"
+                    waiting.result = "Queued — waiting for X9 to be idle…"
                     db.commit()
                 from src.interactive_gate import wait_for_interactive_quiet
                 await wait_for_interactive_quiet(f"scheduled task {task.name}")
@@ -817,7 +817,7 @@ class TaskScheduler:
                         await asyncio.sleep(1.0)
                         if has_foreground_activity():
                             foreground_cancel["hit"] = True
-                            logger.info("Task '%s' interrupted because Odysseus became active", task.name)
+                            logger.info("Task '%s' interrupted because X9 became active", task.name)
                             if current_task:
                                 current_task.cancel()
                             return
@@ -863,7 +863,7 @@ class TaskScheduler:
                 return
             except asyncio.CancelledError:
                 msg = (
-                    "Paused because Odysseus became active"
+                    "Paused because X9 became active"
                     if foreground_cancel.get("hit")
                     else "Stopped by user"
                 )
@@ -1925,9 +1925,9 @@ class TaskScheduler:
             "subject": f"[Task] {task.name}",
             "body": result,
             "headers": {
-                "X-Odysseus-Origin": "odysseus-ui",
-                "X-Odysseus-Kind": "task",
-                "X-Odysseus-Ref": str(task.id),
+                "X-X9-Origin": "x9-ui",
+                "X-X9-Kind": "task",
+                "X-X9-Ref": str(task.id),
             },
         }
         if recipient:

@@ -1,7 +1,7 @@
 """
 agent_loop.py
 
-Streaming agent loop for odysseus-ui.
+Streaming agent loop for X9.
 Wraps stream_llm() with multi-round tool execution.
 The LLM decides when to use tools by writing fenced code blocks.
 """
@@ -126,7 +126,7 @@ _API_AGENT_RULES = """\
 - "Research X" / "do research on X" / "look into Y" / "deep dive on Z" → call `trigger_research` with `topic`. This starts a live job that appears in the Deep Research sidebar (streams progress + final report). **Do NOT use `web_search` for these** — saw the agent do a plain web_search for "do research on X" when the user wanted the deep-research job. "research X" is a deep-research request, not a quick lookup. (web_search is only for a single quick fact mid-task.) Do NOT POST /api/research/start via app_api either — blocked. After starting, tell the user it's running in the Deep Research sidebar. Only if the user explicitly wants it inline/quick should you fall back to web_search.
 - "Open/show <panel>" (documents, library, gallery, sessions, brain/memories, skills, settings, notes, cookbook) → call `ui_control` with `open_panel <name>`. Panel aliases: library/doc/docs/document→documents, images→gallery, chats/history→sessions, memory/memories→brain, preferences→settings, models/serve/serving→cookbook. CRITICAL: "open memory/memories/brain" / "open skills" / "open notes" / "open documents" / "open cookbook" means OPEN THE PANEL — call `ui_control`, NOT a manage/list tool. The "manage_*" tools list contents in chat; `ui_control open_panel` opens the visual modal the user is asking for.
 - User identity facts/preferences ("my name is <name>", "I live in <place>", "I prefer concise replies", "call me <name>") → use `manage_memory` with action=add. NEVER use `manage_contact` for facts about the user unless the user explicitly says to create/update a contact and provides contact details such as an email or phone.
-- You are running INSIDE Odysseus — there is no OpenWebUI, ChatGPT, or external chat backend to query. All chats/sessions live in THIS app and are accessed via `list_sessions` (or `manage_session` with `action=list`), and deleted via `manage_session` with `action=delete`. Do NOT shell out to find sqlite files, curl localhost:8080, or grep for routers — those don't exist here. If `list_sessions` returns rows, that IS the source of truth.
+- You are running INSIDE X9 — there is no OpenWebUI, ChatGPT, or external chat backend to query. All chats/sessions live in THIS app and are accessed via `list_sessions` (or `manage_session` with `action=list`), and deleted via `manage_session` with `action=delete`. Do NOT shell out to find sqlite files, curl localhost:8080, or grep for routers — those don't exist here. If `list_sessions` returns rows, that IS the source of truth.
 - After `list_sessions`, preserve the returned `[Chat title](#session-<id>)` links in your user-facing reply. Do not rewrite chat lists as plain tables with non-clickable titles.
 - "Cookbook" = the LLM-serving subsystem (NOT chat sessions, NOT a recipe app). Routing:
   • "What's running" / "what's serving" / "show my cookbook" / "is anything up" → **first action MUST be `list_served_models` (no args)**. The tool is ALWAYS available. Do not run `ps aux`, do not `curl localhost:8000`, do not `which vllm`. Even if you don't remember seeing the tool listed, it IS available — call it. The output IS the source of truth (it tracks diffusion models, vLLM, SGLang, llama.cpp, Ollama, etc. — anything spawned via the cookbook, including remote hosts that `ps aux` here can't see).
@@ -233,7 +233,7 @@ _DOMAIN_RULES = {
 - Tool toggles like "turn off shell/search/research" use `ui_control toggle <name> <on|off>`, not memory.""",
     "sessions": """\
 ## Chat/session rules
-- Odysseus chats are sessions. Use `list_sessions`/`manage_session`; do not shell out looking for chat files.
+- X9 chats are sessions. Use `list_sessions`/`manage_session`; do not shell out looking for chat files.
 - Preserve clickable session links from tool output in your final answer.""",
     "files": """\
 ## File rules
@@ -291,7 +291,7 @@ For LONG-running commands (package installs, pip/npm, ffmpeg, model downloads, t
 #!bg
 pip install openai-whisper
 ```
-SANDBOX LIMITS: stdin/stdout are pipes, so there is NO interactive terminal — `input()`, `curses`, `termios`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax (`python -c "import py_compile; py_compile.compile('x.py')"`) and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the Odysseus UI — no need to copy files out.
+SANDBOX LIMITS: stdin/stdout are pipes, so there is NO interactive terminal — `input()`, `curses`, `termios`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax (`python -c "import py_compile; py_compile.compile('x.py')"`) and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the X9 UI — no need to copy files out.
 NEVER pipe multi-line Python through `python -c "..."` — shell quoting eats real newlines and `\\n` arrives as literal backslash-n, which Python parses as a line-continuation error on line 1. To run multi-line code, either use the dedicated `python` tool block above, or save to a file first with a quoted HEREDOC (`cat > /tmp/x.py << 'EOF' ... EOF`) and then `python /tmp/x.py`."""
 
 # Windows: the same tool tag executes POWERSHELL (subprocess_tools.BashTool
@@ -310,7 +310,7 @@ For LONG-running commands (package installs, pip/npm, ffmpeg, model downloads, t
 #!bg
 pip install openai-whisper
 ```
-SANDBOX LIMITS: the shell runs -NonInteractive with pipes for stdin/stdout, so there is NO interactive terminal — `Read-Host`, `pause`, `input()`, `curses`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the Odysseus UI — no need to copy files out.
+SANDBOX LIMITS: the shell runs -NonInteractive with pipes for stdin/stdout, so there is NO interactive terminal — `Read-Host`, `pause`, `input()`, `curses`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the X9 UI — no need to copy files out.
 NEVER pipe multi-line Python through `python -c "..."` — quoting eats real newlines. To run multi-line code, use the dedicated `python` tool block, or save it to a file with `write_file` and then run `python <path>`."""
 
 # Each tool section is keyed by tool name(s) it covers.
@@ -454,7 +454,7 @@ Notes, checklists, AND user reminders. Use this for "create/add/write a note", t
 ```app_api
 {"action": "call", "method": "GET", "path": "/api/cookbook/gpus"}
 ```
-GENERIC LOOPBACK to allowed Odysseus internal endpoints. Use this whenever the user wants something the UI can do but there's NO named tool for it. Many UI buttons hit /api/* endpoints — you can hit allowed ones. Auth is handled automatically.
+GENERIC LOOPBACK to allowed X9 internal endpoints. Use this whenever the user wants something the UI can do but there's NO named tool for it. Many UI buttons hit /api/* endpoints — you can hit allowed ones. Auth is handled automatically.
 
 **Discovery first.** If you're not sure of the path, call `{"action":"endpoints","filter":"<keyword>"}` (e.g. filter='gallery' or 'theme') to list available endpoints with their methods + summaries. Then call with action='call'.
 
@@ -1067,7 +1067,7 @@ def _minimal_saved_memory_message(messages: List[Dict]) -> Optional[Dict]:
     return {
         "role": "user",
         "content": (
-            "Saved user memory facts from Odysseus Brain. These are the same "
+            "Saved user memory facts from X9 Brain. These are the same "
             "user facts available in the normal prompt path. Use them when "
             "the user asks for personalization, identity, background, "
             "preferences, or anything about \"me\" or \"my\":\n"
@@ -1077,7 +1077,7 @@ def _minimal_saved_memory_message(messages: List[Dict]) -> Optional[Dict]:
 
 
 def _minimal_odysseus_doc_messages(messages: List[Dict], active_document, stream_create: bool = False) -> List[Dict]:
-    """Tiny prompt path for the Odysseus document LoRA.
+    """Tiny prompt path for the X9 document LoRA.
 
     This model is trained on document tool behavior, so avoid the normal agent
     rule stack and send only the task plus the active document when editing.
@@ -1085,7 +1085,7 @@ def _minimal_odysseus_doc_messages(messages: List[Dict], active_document, stream
     latest = _extract_last_user_message(messages)
     if stream_create:
         system = (
-            "You are Odysseus. Create the requested document by streaming exactly one fenced block:\n"
+            "You are X9. Create the requested document by streaming exactly one fenced block:\n"
             "```document\n"
             "Title\n"
             "markdown\n"
@@ -1097,7 +1097,7 @@ def _minimal_odysseus_doc_messages(messages: List[Dict], active_document, stream
         )
     else:
         system = (
-            "You are Odysseus. Edit or suggest changes to the active document using exactly one fenced tool block when needed.\n"
+            "You are X9. Edit or suggest changes to the active document using exactly one fenced tool block when needed.\n"
             "If the user asks to add, remove, rewrite, transform, change, capitalize, shorten, expand, or otherwise apply a change, use edit_document or update_document, not suggest_document.\n"
             "Use suggest_document only when the user explicitly asks for suggestions, feedback, or proposed improvements without applying them.\n"
             "For targeted edits:\n"
@@ -1125,7 +1125,7 @@ def _minimal_odysseus_doc_messages(messages: List[Dict], active_document, stream
             "Do not use native function-call JSON or <tool_calls> markup. "
             "FIND text must be copied exactly from the active document with no labels like content:, title:, or markdown. "
             "Use only the fenced tool blocks above. Do not write anything before the fenced block. "
-            "After the tool succeeds, Odysseus will answer Done."
+            "After the tool succeeds, X9 will answer Done."
         )
     out = [{"role": "system", "content": system}]
     memory_message = _minimal_saved_memory_message(messages)

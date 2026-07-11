@@ -1,8 +1,8 @@
 # Backup & Restore
 
-Odysseus keeps all of your state in the `data/` directory — the SQLite database
+X9 keeps all of your state in the `data/` directory — the SQLite database
 (`app.db`), the Fernet encryption key (`data/.app_key`), the vault, memory, RAG
-indexes, personal documents, and uploads. The `scripts/odysseus-backup` tool
+indexes, personal documents, and uploads. The `scripts/x9-backup` tool
 snapshots that directory into a single gzip tarball and restores it later.
 
 Snapshots are safe to take while the app is running: SQLite databases are copied
@@ -20,17 +20,17 @@ write can't corrupt the snapshot.
 Run the tool from the repository root:
 
 ```bash
-# Create a snapshot → backups/odysseus-backup-<YYYYMMDD-HHMMSS>.tar.gz
-./scripts/odysseus-backup snapshot
+# Create a snapshot → backups/x9-backup-<YYYYMMDD-HHMMSS>.tar.gz
+./scripts/x9-backup snapshot
 
 # List existing snapshots (most recent first)
-./scripts/odysseus-backup list
+./scripts/x9-backup list
 
 # Check a tarball's integrity without extracting it
-./scripts/odysseus-backup verify backups/odysseus-backup-20260101-120000.tar.gz
+./scripts/x9-backup verify backups/x9-backup-20260101-120000.tar.gz
 
 # Restore (destructive — see the warning below)
-./scripts/odysseus-backup restore backups/odysseus-backup-20260101-120000.tar.gz --yes
+./scripts/x9-backup restore backups/x9-backup-20260101-120000.tar.gz --yes
 ```
 
 The script depends only on the Python standard library, so any `python3` on your
@@ -56,10 +56,10 @@ included.
 
 ```bash
 # Snapshot straight to a mounted NAS path
-./scripts/odysseus-backup snapshot --out /mnt/nas/odysseus-$(date +%F).tar.gz
+./scripts/x9-backup snapshot --out /mnt/nas/odysseus-$(date +%F).tar.gz
 
 # Full snapshot including research runs and mail attachments
-./scripts/odysseus-backup snapshot --include-research --include-attachments
+./scripts/x9-backup snapshot --include-research --include-attachments
 ```
 
 ### `list`
@@ -93,7 +93,7 @@ The tarball output composes cleanly with cron and any copy tool. For example, a
 nightly snapshot copied offsite:
 
 ```cron
-0 3 * * *  cd /path/to/odysseus && ./scripts/odysseus-backup snapshot --out "/mnt/nas/odysseus-$(date +\%F).tar.gz"
+0 3 * * *  cd /path/to/X9 && ./scripts/x9-backup snapshot --out "/mnt/nas/odysseus-$(date +\%F).tar.gz"
 ```
 
 Swap the `--out` target for `scp`, `rclone`, `s3cmd`, or similar to push the

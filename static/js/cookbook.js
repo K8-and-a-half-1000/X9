@@ -840,6 +840,42 @@ export function _persistEnvState() {
 
 // ── Dependencies ──
 
+// Render the Dependencies panel into an arbitrary container. Lives here
+// (not in settings.js) because the list/install/recipe machinery below is
+// deeply tied to cookbook's env state, but the panel itself is surfaced in
+// the global Settings window under its own "Dependencies" tab. The markup
+// reuses the same element ids (#hwfit-deps-server / #cookbook-deps-list)
+// the fetch + install wiring already targets.
+export async function renderDependenciesPanel(container) {
+  if (!container) return;
+  container.innerHTML =
+    '<div class="admin-card" style="display:flex;flex-direction:column;">'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+    + '<h2 style="margin:0;padding:0;line-height:1;">Dependencies</h2>'
+    + '<span style="font-size:10px;opacity:0.5;margin-left:auto;">Server</span>'
+    + '<select class="cookbook-field-input" id="hwfit-deps-server" style="height:28px;min-width:70px;">'
+    + '<option value="local" selected>Local</option>'
+    + '</select>'
+    + '</div>'
+    + '<p class="memory-desc doclib-desc">Optional packages that extend X9 capabilities.</p>'
+    + '<div class="doclib-grid" id="cookbook-deps-list"></div>'
+    + '</div>';
+  // Hydrate env/server state the same way open() does, so the server
+  // dropdown works even when the Cookbook window was never opened.
+  try { await _syncFromServer(); } catch (_) {}
+  try { Object.assign(_envState, _readStoredEnvState()); } catch (_) {}
+  const depsServer = container.querySelector('#hwfit-deps-server');
+  if (depsServer) {
+    depsServer.innerHTML = _buildServerOpts(false);
+    depsServer.addEventListener('change', () => {
+      _applyServerSelection(depsServer.value);
+      // Installed status is per-server — refresh the list on a switch.
+      _fetchDependencies();
+    });
+  }
+  _fetchDependencies();
+}
+
 // Category colors removed — using theme CSS classes instead
 
 async function _fetchDependencies() {
@@ -892,13 +928,13 @@ async function _fetchDependencies() {
     const data = await resp.json();
     const pkgs = data.packages || [];
     if (!pkgs.length) { list.innerHTML = '<div class="hwfit-loading">No packages found</div>'; return; }
-    const _winUnsupported = new Set(['hf_transfer', 'vllm', 'rembg', 'gfpgan']);
+    const _winUnsupported = new Set(['rembg', 'gfpgan']);
 
     const _statusTag = (pkg, isLocal, isSystemDep, winBlocked) => {
       if (winBlocked) return `<span class="cookbook-dep-tag cookbook-dep-na">N/A</span>`;
       if (pkg.installed && isSystemDep) return `<span class="cookbook-dep-tag cookbook-dep-installed" title="Found on selected server">Installed</span>`;
       if (pkg.installed && pkg.pip_update_available === false && pkg.name !== 'llama_cpp') {
-        const tip = esc(pkg.update_note || pkg.status_note || 'Found externally; update outside Odysseus.');
+        const tip = esc(pkg.update_note || pkg.status_note || 'Found externally; update outside X9.');
         return `<span class="cookbook-dep-tag cookbook-dep-installed" title="${tip}">Installed</span>`;
       }
       if (pkg.installed) return `<button class="cookbook-dep-tag cookbook-dep-installed cookbook-dep-installed-btn" title="Installed — click for actions"><span class="cookbook-dep-installed-label">Installed</span><span class="cookbook-dep-caret">&#9662;</span></button>`;
@@ -939,10 +975,8 @@ async function _fetchDependencies() {
       // diagnosis-style `_launchServeTask` with `pip install --force-reinstall`
       // so the user can watch the pip install in the Running tab.
       let _rebuildBtn = '';
-      if (pkg.name === 'vllm' && pkg.installed) {
-        _rebuildBtn = `<button type="button" class="cookbook-dep-tag cookbook-dep-rebuild cookbook-dep-reinstall" data-reinstall-pkg="vllm" title="Force-reinstall vLLM (pulls a matching torch). Runs as a tmux task in the Running tab.">Reinstall</button>`;
-      } else if (pkg.name === 'sglang' && pkg.installed) {
-        _rebuildBtn = `<button type="button" class="cookbook-dep-tag cookbook-dep-rebuild cookbook-dep-reinstall" data-reinstall-pkg="sglang" title="Force-reinstall SGLang (pulls a matching torch). Runs as a tmux task in the Running tab.">Reinstall</button>`;
+      if (pkg.name === 'sglang' && pkg.installed) {
+        _rebuildBtn = `<button type="button" class="cookbook-dep-tag cookbook-dep-rebuild cookbook-dep-reinstall" data-reinstall-pkg="sglang" title="Force-reinstall SGLang (pulls a matching torch). Runs as a background task in the Running tab.">Reinstall</button>`;
       }
       // For backends with a recipe catalog (vllm / sglang / llama_cpp),
       // append a caret button that toggles a per-row recipe panel below.
@@ -1066,7 +1100,7 @@ async function _fetchDependencies() {
     const _serverDeps = pkgs.filter(p => p.target !== 'local');
 
     list.innerHTML = [
-      _viewingRemote ? '' : _section('Odysseus app', 'Run inside the Odysseus app itself.', _appDeps),
+      _viewingRemote ? '' : _section('X9 app', 'Run inside the X9 app itself.', _appDeps),
       _section('Server', 'Run on the server chosen above (Local, or a remote box over SSH).', _serverDeps),
     ].join('');
 
@@ -1589,9 +1623,6 @@ function _wireTabEvents(body) {
       if (backend === 'Serve') {
         _fetchCachedModels(false, { allowNetwork: false });
       }
-      if (backend === 'Dependencies') {
-        _fetchDependencies();
-      }
     });
   });
 
@@ -1741,16 +1772,6 @@ function _wireTabEvents(body) {
     editDirsLink.addEventListener('click', () => {
       const settingsTab = body.querySelector('.cookbook-tab[data-backend="Settings"]');
       if (settingsTab) settingsTab.click();
-    });
-  }
-
-  const depsServer = document.getElementById('hwfit-deps-server');
-  if (depsServer) {
-    depsServer.addEventListener('change', () => {
-      _applyServerSelection(depsServer.value);
-      // Re-fetch the package list for the newly selected server — the installed
-      // status is per-server, so the list must refresh on a server switch.
-      _fetchDependencies();
     });
   }
 
@@ -2068,7 +2089,7 @@ function _wireTabEvents(body) {
           dlBtn.textContent = oldText;
         }
         if (!pickerInclude) {
-          uiModule.showToast('Pick a GGUF quant first. Odysseus will not download the whole GGUF repo without an include pattern.');
+          uiModule.showToast('Pick a GGUF quant first. X9 will not download the whole GGUF repo without an include pattern.');
           return;
         }
         uiModule.showToast('Pick the GGUF quant, then press Download again.');
@@ -2534,7 +2555,6 @@ function _renderRecipes() {
   html += '<div class="cookbook-tabs">';
   html += '<button class="cookbook-tab" data-backend="Serve"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="vertical-align:-1px;margin-right:3px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Launch</button>';
   html += '<button class="cookbook-tab active" data-backend="Search"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-1px;margin-right:3px;"><polyline points="7 14 12 19 17 14"/><line x1="12" y1="19" x2="12" y2="5"/><line x1="5" y1="21" x2="19" y2="21"/></svg>Download</button>';
-  html += '<button class="cookbook-tab" data-backend="Dependencies"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-1px;margin-right:3px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Dependencies</button>';
   html += '<button class="cookbook-tab" data-backend="Settings"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>';
   html += '</div>';
 
@@ -2703,7 +2723,7 @@ function _renderRecipes() {
   // after browsing, not a header.
   html += '<div class="hwfit-list-footer" style="display:none;">'
        + 'Don\'t see a model? '
-       + '<a href="https://github.com/pewdiepie-archdaemon/odysseus/discussions/1962" target="_blank" rel="noopener" style="color:var(--accent,var(--red));text-decoration:none;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;position:relative;top:-1px;">'
+       + '<a href="https://github.com/K8-and-a-half-1000/X9/discussions/1962" target="_blank" rel="noopener" style="color:var(--accent,var(--red));text-decoration:none;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;position:relative;top:-1px;">'
        + 'Request it →'
        + '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" style="flex-shrink:0;"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>'
        + '</a>'
@@ -2747,22 +2767,6 @@ function _renderRecipes() {
   html += '<div class="doclib-grid hwfit-cached-list" id="hwfit-cached-list"></div>';
   html += '</div></div>';
 
-  // Dependencies tab
-  html += '<div class="cookbook-group hidden" data-backend-group="Dependencies">';
-  html += '<div class="admin-card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">';
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">';
-  html += '<h2 style="margin:0;padding:0;line-height:1;">Dependencies</h2>';
-  // Rebuild llama.cpp button moved into the llama_cpp dep row (see _depRow);
-  // having it in the title polluted the section header.
-  html += '<span style="font-size:10px;opacity:0.5;margin-left:auto;">Server</span>';
-  html += '<select class="cookbook-field-input" id="hwfit-deps-server" style="height:28px;min-width:70px;">';
-  html += _buildServerOpts(false);
-  html += '</select>';
-  html += '</div>';
-  html += '<p class="memory-desc doclib-desc">Optional packages that extend Odysseus capabilities.</p>';
-  html += '<div class="doclib-grid" id="cookbook-deps-list"></div>';
-  html += '</div></div>';
-
   // Settings tab
   // Settings tab — split into two separate `.admin-card` blocks so the
   // HF Token and Server config look like distinct panels (matches the
@@ -2798,7 +2802,7 @@ function _renderRecipes() {
    // the same `.cal-add-btn-text` rules, so styling stays consistent.
   html += '<button class="cal-add-btn cal-add-btn-text" id="cookbook-server-add" title="Add server" style="margin-left:auto;"><span class="cal-add-plus">+</span><span class="cal-add-label">Add</span></button>';
   html += '</div>';
-  html += '<p class="memory-desc doclib-desc">Configure SSH servers, install Odysseus keys, choose model directories, and set the default server. Local is this machine.</p>';
+  html += '<p class="memory-desc doclib-desc">Configure SSH servers, install X9 keys, choose model directories, and set the default server. Local is this machine.</p>';
   html += '<div class="memory-toolbar cookbook-servers-toolbar" style="margin-top:4px;">';
   html += `<div id="cookbook-servers-list">`;
   for (let i = 0; i < _es.servers.length; i++) {

@@ -13,8 +13,8 @@ from starlette.responses import Response
 # routes via HTTP loopback (the agent's tool calls don't carry the
 # admin user's session cookie). Set once at import; tools read the
 # same value from this module. Never persisted or exposed externally.
-INTERNAL_TOOL_TOKEN = os.environ.get("ODYSSEUS_INTERNAL_TOKEN") or secrets.token_hex(32)
-INTERNAL_TOOL_HEADER = "X-Odysseus-Internal-Token"
+INTERNAL_TOOL_TOKEN = os.environ.get("X9_INTERNAL_TOKEN") or secrets.token_hex(32)
+INTERNAL_TOOL_HEADER = "X-X9-Internal-Token"
 # Pseudo-username on in-process tool-loopback requests; require_admin trusts it and it is reserved.
 INTERNAL_TOOL_USER = "internal-tool"
 
@@ -36,7 +36,7 @@ def require_admin(request: Request):
     API tokens, which must stay confined to their scope-aware routes.
     """
     # In-process bypass for tool-layer loopback calls. Two paths:
-    # (a) header-direct (caller set X-Odysseus-Internal-Token), or
+    # (a) header-direct (caller set X-X9-Internal-Token), or
     # (b) the identity middleware already validated the token and stamped
     #     request.state.current_user = "internal-tool".
     try:

@@ -20,11 +20,11 @@ REPO = Path(__file__).resolve().parent.parent
 
 # const name -> (env var, default bytes)
 _LIMITS = {
-    "GALLERY_UPLOAD_MAX_BYTES": ("ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES", 100 * 1024 * 1024),
-    "GALLERY_TRANSFORM_UPLOAD_MAX_BYTES": ("ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES", 25 * 1024 * 1024),
-    "MEMORY_IMPORT_MAX_BYTES": ("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES", 10 * 1024 * 1024),
-    "PERSONAL_UPLOAD_MAX_BYTES": ("ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES", 25 * 1024 * 1024),
-    "STT_MAX_AUDIO_BYTES": ("ODYSSEUS_STT_MAX_AUDIO_BYTES", 25 * 1024 * 1024),
+    "GALLERY_UPLOAD_MAX_BYTES": ("X9_GALLERY_UPLOAD_MAX_BYTES", 100 * 1024 * 1024),
+    "GALLERY_TRANSFORM_UPLOAD_MAX_BYTES": ("X9_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES", 25 * 1024 * 1024),
+    "MEMORY_IMPORT_MAX_BYTES": ("X9_MEMORY_IMPORT_MAX_BYTES", 10 * 1024 * 1024),
+    "PERSONAL_UPLOAD_MAX_BYTES": ("X9_PERSONAL_UPLOAD_MAX_BYTES", 25 * 1024 * 1024),
+    "STT_MAX_AUDIO_BYTES": ("X9_STT_MAX_AUDIO_BYTES", 25 * 1024 * 1024),
 }
 
 
@@ -79,11 +79,11 @@ def test_routes_import_from_upload_limits_not_local_defs():
     """Routes must import the constant, not redefine it via raw getenv / literal."""
     forbidden = {
         "routes/gallery/gallery_routes.py": [
-            'int(os.getenv("ODYSSEUS_GALLERY_UPLOAD_MAX_BYTES"',
-            'int(os.getenv("ODYSSEUS_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES"',
+            'int(os.getenv("X9_GALLERY_UPLOAD_MAX_BYTES"',
+            'int(os.getenv("X9_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES"',
         ],
-        "routes/memory/memory_routes.py": ['int(os.getenv("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES"'],
-        "routes/personal_routes.py": ['os.getenv("ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES"'],
+        "routes/memory/memory_routes.py": ['int(os.getenv("X9_MEMORY_IMPORT_MAX_BYTES"'],
+        "routes/personal_routes.py": ['os.getenv("X9_PERSONAL_UPLOAD_MAX_BYTES"'],
         "routes/stt_routes.py": ["STT_MAX_AUDIO_BYTES = 25 * 1024 * 1024"],
     }
     for path, needles in forbidden.items():

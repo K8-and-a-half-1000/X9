@@ -634,7 +634,7 @@ def rank_models(system, use_case=None, limit=50, search=None, sort="score", quan
         # ROCm support for vLLM/SGLang quantized safetensors is too brittle to
         # recommend blindly in the default scan. Keep AWQ/GPTQ/FP8 discoverable
         # only when the user explicitly picks that format from the quant filter;
-        # otherwise prefer GGUF/Q* entries that Odysseus can route through
+        # otherwise prefer GGUF/Q* entries that X9 can route through
         # llama.cpp/Ollama without pretending "fits VRAM" means "servable".
         if rocm and is_prequantized(m) and not filter_native:
             continue

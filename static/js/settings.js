@@ -40,6 +40,13 @@ function initTabs() {
       document.body.classList.toggle('settings-appearance-open', tab === 'appearance');
       syncAppearanceOpacity(tab === 'appearance');
       if (tab === 'ai') refreshAiModelEndpoints();
+      if (tab === 'dependencies') {
+        // Re-render on every open so installed status is fresh. The panel
+        // machinery lives in cookbook.js (env/server state, install flows).
+        import('./cookbook.js')
+          .then(m => m.renderDependenciesPanel(document.getElementById('settings-deps-root')))
+          .catch(e => console.error('Dependencies panel failed to load:', e));
+      }
     });
   });
 }
@@ -2759,10 +2766,10 @@ const AGENT_CONFIGS = {
     defaultName: 'Codex Agent',
     pluginPath: '/api/codex/plugin.zip',
     setupDescription: 'Downloads a plugin bundle and registers it.',
-    buildSetup: (origin, token) => `export ODYSSEUS_URL=${origin}
-export ODYSSEUS_API_TOKEN='${token}'
+    buildSetup: (origin, token) => `export X9_URL=${origin}
+export X9_API_TOKEN='${token}'
 mkdir -p ~/plugins
-curl -fsSL -H "Authorization: Bearer $ODYSSEUS_API_TOKEN" "$ODYSSEUS_URL/api/codex/plugin.zip" -o /tmp/odysseus-codex-plugin.zip
+curl -fsSL -H "Authorization: Bearer $X9_API_TOKEN" "$X9_URL/api/codex/plugin.zip" -o /tmp/odysseus-codex-plugin.zip
 python3 -m zipfile -e /tmp/odysseus-codex-plugin.zip ~/plugins
 python3 - <<'PY'
 import json
@@ -2797,10 +2804,10 @@ python3 ~/plugins/odysseus/scripts/odysseus_api.py capabilities`,
     defaultName: 'Claude Agent',
     pluginPath: '/api/claude/plugin.zip',
     setupDescription: 'Downloads a plugin bundle and registers it.',
-    buildSetup: (origin, token) => `export ODYSSEUS_URL=${origin}
-export ODYSSEUS_API_TOKEN='${token}'
+    buildSetup: (origin, token) => `export X9_URL=${origin}
+export X9_API_TOKEN='${token}'
 mkdir -p ~/.claude
-curl -fsSL -H "Authorization: Bearer $ODYSSEUS_API_TOKEN" "$ODYSSEUS_URL/api/claude/plugin.zip" -o /tmp/odysseus-claude-skill.zip
+curl -fsSL -H "Authorization: Bearer $X9_API_TOKEN" "$X9_URL/api/claude/plugin.zip" -o /tmp/odysseus-claude-skill.zip
 python3 -m zipfile -e /tmp/odysseus-claude-skill.zip ~/.claude/
 python3 ~/.claude/skills/odysseus/scripts/odysseus_api.py capabilities`,
   },
@@ -3114,7 +3121,7 @@ async function initUnifiedIntegrations() {
       if (ntfyHint) {
         ntfyHint.style.display = isNtfy ? 'block' : 'none';
         if (isNtfy) {
-          ntfyHint.innerHTML = 'Enter the ntfy server URL Odysseus can reach. Examples: <code>http://127.0.0.1:8091</code>, <code>http://100.x.y.z:8091</code>, or <code>https://ntfy.example.com</code>.';
+          ntfyHint.innerHTML = 'Enter the ntfy server URL X9 can reach. Examples: <code>http://127.0.0.1:8091</code>, <code>http://100.x.y.z:8091</code>, or <code>https://ntfy.example.com</code>.';
         }
       }
       if (url) {
@@ -3904,7 +3911,7 @@ async function initUnifiedIntegrations() {
               </button>
             </div>
             <div id="uf-codex-config-body" style="display:none;">
-              <div style="font-size:11px;opacity:0.62;margin:4px 0 6px;">Toggle which Odysseus tools this agent can use. New agents start with chat only.</div>
+              <div style="font-size:11px;opacity:0.62;margin:4px 0 6px;">Toggle which X9 tools this agent can use. New agents start with chat only.</div>
               <div id="uf-codex-inline-scopes"></div>
             </div>
           </div>
