@@ -1419,6 +1419,11 @@ def setup_shell_routes() -> APIRouter:
                 pkg["pip_update_available"] = update_status.available
                 if update_status.note:
                     pkg["update_note"] = update_status.note
+            # The llama_cpp card should show only its short description — drop
+            # the dynamic native-binary / update-source notes for that row.
+            if pkg["name"] == "llama_cpp":
+                pkg.pop("status_note", None)
+                pkg.pop("update_note", None)
         return {"packages": packages}
 
     @router.post("/api/cookbook/packages/install")
