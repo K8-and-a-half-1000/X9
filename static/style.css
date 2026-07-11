@@ -4238,7 +4238,7 @@ body.bg-pattern-sparkles {
          status bar / Dynamic Island; 0 in normal browser tabs. The top bar
          (and its centered session title) sits inside this padding via its
          negative margin, so it shifts down with the container. */
-      .chat-container { padding:10px; flex:1; margin-top:0; padding-top:calc(42px + env(safe-area-inset-top, 0px)); min-height:0; }
+      .chat-container { padding:10px 10px 2px; flex:1; margin-top:0; padding-top:calc(42px + env(safe-area-inset-top, 0px)); min-height:0; }
       .scroll-nav-btn { width:44px; height:44px; font-size:14px; margin-bottom:0; }
       .send-btn { width:48px; height:48px !important; border-radius:12px; }
       .send-btn svg { width:22px; height:22px; }
@@ -4261,6 +4261,11 @@ body.bg-pattern-sparkles {
            label show through the sidebar. */
         background: var(--panel) !important;
         backdrop-filter: none !important;
+        /* iOS PWA: keep the brand header below the status bar / Dynamic
+           Island and the last list items above the home-indicator strip.
+           The background still fills the full screen height. */
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
       .sidebar.hidden {
         width: 80% !important;
@@ -4398,6 +4403,10 @@ body.bg-pattern-sparkles {
         z-index: 200;
         width: 48px;
         box-shadow: 2px 0 12px rgba(0,0,0,0.4);
+        /* iOS PWA: first/last rail buttons clear the Dynamic Island and the
+           home-indicator strip (base padding is 48px top / 8px bottom). */
+        padding-top: max(48px, calc(12px + env(safe-area-inset-top, 0px)));
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
       }
       .icon-rail.mobile-mini.right-side {
         left: auto; right: 0;
@@ -4529,9 +4538,19 @@ body.bg-pattern-sparkles {
         padding: 6px !important;
         border-radius: 12px !important;
       }
-      /* Safe area padding for notched devices */
+      /* Safe area padding for notched devices. max() instead of 10px+inset:
+         the inset alone (~34px) already clears the home indicator — stacking
+         both left a fat dead strip under the send row. */
       .chat-input-bar {
-        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+      }
+      /* Model name in the input bar — wider cap + slightly smaller text so
+         long model ids don't ellipsize after a few characters. */
+      .model-picker-btn {
+        font-size: 0.8em;
+      }
+      .model-picker-btn #model-picker-label {
+        max-width: 200px;
       }
       /* Mode toggle — larger touch targets */
       .mode-toggle {
