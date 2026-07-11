@@ -1526,6 +1526,17 @@ function _closePage(id) {
   try { close(id); } catch (err) { console.warn('tool-page close failed', id, err); }
 }
 
+// Empty-field hints on pages are denoted by "(…)" instead of a dimmed color
+// (the placeholder color matches the chat text — see style.css). Re-run on
+// every sync so lazily-rendered fields get wrapped too; already-wrapped ones
+// are skipped.
+function _parenthesizePlaceholders(root) {
+  root.querySelectorAll('input[placeholder], textarea[placeholder]').forEach((f) => {
+    const p = f.getAttribute('placeholder');
+    if (p && !p.startsWith('(')) f.setAttribute('placeholder', '(' + p + ')');
+  });
+}
+
 function _syncPageView(openedId) {
   let anyVisible = false;
   for (const id of _PAGE_IDS) {
@@ -1540,6 +1551,7 @@ function _syncPageView(openedId) {
     if (!_pageVisible(el)) continue;
     if (openedId && id !== openedId) { _closePage(id); continue; }
     anyVisible = true;
+    _parenthesizePlaceholders(el);
   }
   document.body.classList.toggle('tool-page-view', anyVisible);
 }

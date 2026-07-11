@@ -4463,6 +4463,9 @@ body.bg-pattern-sparkles {
         left: auto !important;
         right: 4px !important;
         -webkit-tap-highlight-color: transparent;
+        /* Stay visible ABOVE the open sidebar drawer (z 400) so the same
+           button that opened the menu can close it. */
+        z-index: 420;
       }
       .hamburger-btn:hover,
       .hamburger-btn:active {
@@ -27863,6 +27866,13 @@ body.tool-page-view .hamburger-btn {
 /* Pages read like the chat page: slightly larger base text, and helper /
    description text in the chat's text color instead of a washed-out mix. */
 .tool-page > .modal-content { font-size: 15px; }
+/* Empty-field hints read in the chat text color; the "(…)" wrapping added
+   by modalManager's placeholder pass is what marks them as examples. */
+.tool-page input::placeholder,
+.tool-page textarea::placeholder {
+  color: var(--fg);
+  opacity: 1;
+}
 .tool-page .admin-toggle-sub {
   color: var(--fg);
   opacity: 0.92;
@@ -27983,6 +27993,15 @@ body.tool-page-view .hamburger-btn {
     background: color-mix(in srgb, var(--fg) 4%, transparent);
   }
   .tool-page .settings-panels { padding: 0 2px; }
+  /* Settings rows stack on phones: label on its own line, controls fill the
+     full width below it — a fixed-width input can never push past the right
+     edge again, and touch targets get the whole row. */
+  .tool-page .settings-row { flex-wrap: wrap; row-gap: 4px; }
+  .tool-page .settings-row > .settings-label {
+    flex: 1 0 100%;
+    min-width: 0;
+    font-size: 13px;
+  }
   /* The two levels: menu OR panel, never both. */
   .tool-page .settings-modal-content:not(.settings-panel-active) .settings-panels { display: none; }
   .tool-page .settings-modal-content.settings-panel-active .settings-sidebar { display: none; }
