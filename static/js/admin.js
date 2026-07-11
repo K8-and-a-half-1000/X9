@@ -2334,13 +2334,13 @@ function initBackup() {
   });
 }
 
-/* ── Refresh Interface (drop caches + reload) ── */
+/* ── Refresh Interface (drop caches + re-download UI + reload) ── */
 function initForceRefresh() {
   el('adm-forceRefreshBtn').addEventListener('click', async () => {
     const btn = el('adm-forceRefreshBtn');
     btn.disabled = true; btn.textContent = 'Refreshing…';
     // Best-effort cleanup of legacy layers (pre-removal service workers and
-    // their CacheStorage); the reload itself is what re-fetches the UI.
+    // their CacheStorage).
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -2350,7 +2350,19 @@ function initForceRefresh() {
         const keys = await caches.keys();
         await Promise.all(keys.map(k => caches.delete(k)));
       }
-    } catch (e) { /* ignore — proceed to reload */ }
+    } catch (e) { /* ignore — proceed */ }
+    // HTTP cache: location.reload() alone refetches only the document in
+    // Safari — subresources cached before the no-cache header era stay
+    // "fresh" by heuristic and survive reloads. cache:'reload' is the one
+    // primitive that both bypasses the cache AND overwrites the stale entry,
+    // so the reload below can only see freshly downloaded bytes.
+    try {
+      const res = await fetch('/api/ui-assets', { cache: 'reload', credentials: 'same-origin' });
+      const { assets } = await res.json();
+      await Promise.allSettled(
+        ['/'].concat(assets || []).map(u => fetch(u, { cache: 'reload', credentials: 'same-origin' }))
+      );
+    } catch (e) { /* offline or old server — plain reload still helps */ }
     location.reload();
   });
 }

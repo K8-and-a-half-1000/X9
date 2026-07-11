@@ -372,6 +372,27 @@ class _RevalidatingStatic(StaticFiles):
 
 app.mount("/static", _RevalidatingStatic(directory=STATIC_DIR), name="static")
 
+
+@app.get("/api/ui-assets")
+async def list_ui_assets():
+    """Every UI source file under /static, for Settings → System → Refresh UI.
+
+    The button re-fetches each URL with fetch(..., {cache: "reload"}) before
+    reloading: Safari serves subresources cached under the old header regime
+    (no Cache-Control → heuristic freshness) across normal reloads without
+    revalidating, so clearing CacheStorage + location.reload() alone can't
+    dislodge stale CSS/JS. The client needs the full list because ES-module
+    sub-imports never appear in the DOM."""
+    exts = (".js", ".css", ".html")
+    urls = []
+    for root, _dirs, files in os.walk(STATIC_DIR):
+        for fname in files:
+            if fname.endswith(exts):
+                rel = os.path.relpath(os.path.join(root, fname), STATIC_DIR)
+                urls.append("/static/" + rel.replace(os.sep, "/"))
+    return JSONResponse({"assets": sorted(urls)}, headers={"Cache-Control": "no-store"})
+
+
 # ========= GENERATED IMAGES =========
 @app.get("/api/generated-image/{filename}")
 async def serve_generated_image(filename: str, request: Request):
