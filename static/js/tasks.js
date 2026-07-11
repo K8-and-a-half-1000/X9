@@ -417,8 +417,6 @@ const _TASK_ICONS = {
   consolidate_memory:  '<path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/>',
   // Research (magnifying glass)
   tidy_research:       '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
-  // Calendar
-  tidy_calendar:       '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
   // Email
   summarize_emails:    '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   draft_email_replies: '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
@@ -589,10 +587,6 @@ const _CATEGORY_MAP = {
   tidy_documents:       'Documents',
   consolidate_memory:   'Memory',
   tidy_research:        'Research',
-  tidy_calendar:        'Calendar',
-  classify_events:      'Calendar',
-  ping_events:          'Calendar',
-  extract_email_events: 'Calendar',
   summarize_emails:           'Email',
   draft_email_replies:        'Email',
   email_auto_translate:       'Email',
@@ -610,9 +604,8 @@ const _CATEGORY_MAP = {
 // top instead of scrolling off the bottom of the list. The remaining
 // order is preserved for backwards-compatibility with users who've
 // learned where things are.
-const _CATEGORY_ORDER = ['Cookbook', 'Other', 'Calendar', 'Email', 'Chats', 'Documents', 'Memory', 'Research', 'Skills', 'Assistant', 'System'];
+const _CATEGORY_ORDER = ['Cookbook', 'Other', 'Email', 'Chats', 'Documents', 'Memory', 'Research', 'Skills', 'Assistant', 'System'];
 const _CATEGORY_ICONS = {
-  Calendar:  '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
   Email:     '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   Chats:     '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   Documents: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
@@ -713,7 +706,6 @@ const _TASK_CACHE_LABELS = {
   summarize_emails: 'email summaries',
   draft_email_replies: 'AI reply drafts',
   email_auto_translate: 'email translations',
-  extract_email_events: 'email calendar cache',
   learn_sender_signatures: 'sender signatures',
   check_email_urgency: 'email tags',
 };
@@ -2384,7 +2376,6 @@ const _CATEGORY_HUES = [
   { hue: 210, kw: /\b(email|inbox|mail|smtp|imap|reply|summary|spam|urgency)\b/i },     // blue   — email
   { hue: 280, kw: /\b(research|web ?search|deep[-_ ]research|sources?|investigate)\b/i },// purple — research
   { hue:  35, kw: /\b(cookbook|model[-_ ]?(serve|download)|hf|huggingface|vllm|llama|ollama)\b/i }, // amber — cookbook
-  { hue: 150, kw: /\b(calendar|event|meeting|appointment|schedule)\b/i },                // green  — calendar
   { hue: 330, kw: /\b(reminder|note|notify|alert)\b/i },                                 // pink   — reminders
   { hue:  10, kw: /\b(check[-_ ]?in|morning|evening|daily|standup)\b/i },                // red    — check-ins
   { hue: 190, kw: /\b(memory|memories|remember|recall)\b/i },                            // teal   — memory
@@ -2411,7 +2402,6 @@ const _CATEGORY_LABELS = [
   { label: 'email',     kw: /\b(email|inbox|mail|smtp|imap|reply|spam|urgency)\b/i },
   { label: 'research',  kw: /\b(research|web ?search|deep[-_ ]research|sources?|investigate)\b/i },
   { label: 'cookbook',  kw: /\b(cookbook|model[-_ ]?(serve|download)|hf|huggingface|vllm|llama|ollama)\b/i },
-  { label: 'calendar',  kw: /\b(calendar|event|meeting|appointment|schedule)\b/i },
   { label: 'reminders', kw: /\b(reminder|note|notify|alert)\b/i },
   { label: 'check-in',  kw: /\b(check[-_ ]?in|morning|evening|daily|standup)\b/i },
   { label: 'memory',    kw: /\b(memory|memories|remember|recall)\b/i },

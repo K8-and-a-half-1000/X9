@@ -65,32 +65,3 @@ def _resolver_spy(monkeypatch, candidates=None):
     return calls
 
 
-@pytest.mark.asyncio
-async def test_classify_events_resolves_llm_for_task_owner(monkeypatch):
-    from core import database
-    from src.builtin_actions import action_classify_events
-
-    class FakeCalendarEvent:
-        dtstart = _Column()
-        status = _Column()
-
-    event = SimpleNamespace(
-        summary="Demo presentation",
-        event_type="work",
-        importance="high",
-        color=None,
-        dtstart=datetime(2026, 1, 1, 9, 0, 0),
-        location="",
-    )
-    db = _Db({FakeCalendarEvent: [event]})
-    calls = _resolver_spy(monkeypatch)
-
-    monkeypatch.setattr(database, "CalendarEvent", FakeCalendarEvent)
-    monkeypatch.setattr(database, "SessionLocal", lambda: db)
-
-    message, ok = await action_classify_events("alice")
-
-    assert ok is True
-    assert "Scanned 1 upcoming event" in message
-    assert calls == ["alice"]
-    assert db.closed is True

@@ -22,7 +22,6 @@ let _serverByVal;
 let _serverKey;
 let _getPlatform;
 let _isWindows;
-let _isMetal;
 let _buildEnvPrefix;
 let _buildServeCmd;
 let _shellQuote;
@@ -144,12 +143,6 @@ function _serveBackendWarning(model, repo, backend, fields = {}) {
     return {
       title: 'AWQ needs vLLM or SGLang',
       body: 'This model looks like AWQ/GPTQ/FP8 safetensors. llama.cpp and Ollama need GGUF files, so this backend cannot serve it. Choose vLLM/SGLang on a CUDA/ROCm GPU server, or download a GGUF version for llama.cpp/Ollama.',
-    };
-  }
-  if (awqLike && _isMetal() && (backend === 'vllm' || backend === 'sglang')) {
-    return {
-      title: 'AWQ is not a unified-memory path',
-      body: 'This model looks like AWQ/GPTQ/FP8 safetensors. AWQ is for vLLM/SGLang on CUDA/ROCm-style GPU servers, not local unified-memory llama.cpp/Ollama serving. For unified memory, download a GGUF model and use llama.cpp/Ollama.',
     };
   }
   if (awqLike && fields.unified_mem) {
@@ -592,9 +585,7 @@ function _backendChoicesForTarget(target) {
     if (_remoteWindowsDiffusersUnsupported(target)) return [['llamacpp','llama.cpp']];
     return [['llamacpp','llama.cpp'],['diffusers','Diffusers']];
   }
-  return _isMetal()
-    ? [['llamacpp','llama.cpp'],['ollama','Ollama']]
-    : [['vllm','vLLM'],['sglang','SGLang'],['llamacpp','llama.cpp'],['ollama','Ollama'],['diffusers','Diffusers']];
+  return [['vllm','vLLM'],['sglang','SGLang'],['llamacpp','llama.cpp'],['ollama','Ollama'],['diffusers','Diffusers']];
 }
 
 async function _fetchServeRuntimePackage(panel, backend) {
@@ -1286,7 +1277,7 @@ function _rerenderCachedModels() {
         // (cpu_x86 / generic / unscanned) or the cache is stale.
         const _hwBackend = String(_hwfitCache?.system?.backend || '').toLowerCase();
         const _hwScanMatch = String(_hwfitCache?._scannedHost || '') === String(_envState.remoteHost || '');
-        const _llamaModeDefault = (_hwScanMatch && ['cuda', 'rocm', 'vulkan', 'metal', 'mps', 'apple'].includes(_hwBackend)) ? 'gpu' : 'cpu';
+        const _llamaModeDefault = (_hwScanMatch && ['cuda', 'rocm', 'vulkan'].includes(_hwBackend)) ? 'gpu' : 'cpu';
         const _savedUnified = !!sv('unified_mem', false);
         const _llamaModeRaw = sv('llama_mode', _llamaModeDefault);
         const _llamaMode = _savedUnified && _llamaModeRaw !== 'cpu' ? 'unified' : _llamaModeRaw;
@@ -3339,7 +3330,7 @@ function _rerenderCachedModels() {
           const _isLocalInContainer = !serveHost; // empty serveHost == cookbook container's local
           const _wantsGpu = ['llamacpp', 'vllm', 'sglang', 'diffusers'].includes(serveState.backend);
           const _detectedBackend = String(_hwfitCache?.system?.backend || '').toLowerCase();
-          const _gpuBackends = ['cuda', 'rocm', 'vulkan', 'metal', 'mps', 'apple'];
+          const _gpuBackends = ['cuda', 'rocm', 'vulkan'];
           if (_isLocalInContainer && _wantsGpu && _detectedBackend && !_gpuBackends.includes(_detectedBackend)) {
             const _proceed = await window.styledConfirm(
               `The local (in-container) target has no GPU backend detected (hwfit reports: "${_detectedBackend || 'none'}"). ${serveState.backend.toUpperCase()} will run on CPU only and may be unusably slow.\n\nIf this machine has a GPU on the host, add the host as a server in Settings and target that instead. Otherwise launch anyway for CPU inference.`,
@@ -3856,7 +3847,6 @@ export function initServe(shared) {
   _serverKey = shared._serverKey;
   _getPlatform = shared._getPlatform;
   _isWindows = shared._isWindows;
-  _isMetal = shared._isMetal;
   _buildEnvPrefix = shared._buildEnvPrefix;
   _buildServeCmd = shared._buildServeCmd;
   _shellQuote = shared._shellQuote;

@@ -909,56 +909,6 @@ def test_reprobe_preserves_pinned_models(monkeypatch):
     assert json.loads(ep.pinned_models) == ["deploy-1"]
     assert json.loads(ep.cached_models) == ["m1"]
 
-
-def test_reprobe_chatgpt_subscription_does_not_hide_models(monkeypatch):
-    # The whole point of the _probe_single_model short-circuit is that re-probing
-    # a chatgpt-subscription endpoint must NOT mark every (un-probeable) model as
-    # failed and write them all into hidden_models. Assert that end-to-end at the
-    # route level, with the REAL _probe_single_model doing the skip.
-    ep = _make_endpoint(
-        base_url="https://chatgpt.com/backend-api/codex",
-        api_key=None,
-        hidden_models=json.dumps(["stale-hidden"]),
-    )
-    db = _PinnedFakeDb([ep])
-    monkeypatch.setattr(model_routes, "SessionLocal", lambda: db)
-    monkeypatch.setattr(model_routes, "require_admin", lambda request: None)
-    monkeypatch.setattr(model_routes, "_normalize_base", lambda url: url.rstrip("/"))
-    monkeypatch.setattr(model_routes, "_probe_endpoint", lambda *a, **k: ["gpt-5.1-codex", "gpt-5.1"])
-    monkeypatch.setattr(model_routes, "_is_chat_model", lambda m: True)
-    # Any completion probe would be a bug for this provider.
-    monkeypatch.setattr(
-        model_routes.httpx, "post",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not probe chatgpt-subscription")),
-    )
-    endpoint = _get_route("/api/model-endpoints/{ep_id}/probe", "GET")
-
-    response = endpoint("ep1", _PinnedFakeRequest())
-    chunks = []
-
-    async def _drain():
-        async for chunk in response.body_iterator:
-            chunks.append(chunk.decode() if isinstance(chunk, bytes) else chunk)
-
-    asyncio.run(_drain())
-
-    events = []
-    for chunk in chunks:
-        for line in chunk.splitlines():
-            if line.startswith("data: "):
-                events.append(json.loads(line[len("data: "):]))
-
-    done = next(e for e in events if e.get("type") == "probe_done")
-    results = [e for e in events if e.get("type") == "probe_result"]
-
-    # Every model was skipped as ok; none failed → nothing hidden.
-    assert done["hidden"] == 0
-    assert done["ok"] == len(results) == 2
-    assert all(r["status"] == "ok" and r.get("skipped") is True for r in results)
-    # The stale hidden_models is cleared, not repopulated with every model.
-    assert ep.hidden_models is None
-
-
 def test_visible_models_handles_malformed_strings():
     # Non-JSON cached/pinned strings are treated as comma/newline lists and
     # never raise; a malformed hidden string is normalized too.

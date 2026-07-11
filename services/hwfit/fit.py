@@ -19,37 +19,14 @@ GPU_BANDWIDTH = {
     "6950 xt": 576, "6900 xt": 512, "6800 xt": 512, "6800": 512, "6700 xt": 384, "6600 xt": 256, "6600": 224,
     "mi300x": 5300, "mi300": 5300, "mi250x": 3277, "mi250": 3277, "mi210": 1638, "mi100": 1229,
     "9070 xt": 624, "9070": 488, "9060 xt": 322, "9060": 322,
-    # NVIDIA GB10 Grace-Blackwell superchip (DGX Spark). Unified LPDDR5X memory,
-    # not Apple Silicon, so it lives in the generic GPU table — the Apple-only
-    # lookup never matches it (its name carries no "apple").
+    # NVIDIA GB10 Grace-Blackwell superchip (DGX Spark). Unified LPDDR5X memory.
     "gb10": 273,
 }
 
 # Pre-sort keys by length descending for correct substring matching
 _BW_KEYS_SORTED = sorted(GPU_BANDWIDTH.keys(), key=len, reverse=True)
 
-# Apple Silicon unified-memory bandwidth (GB/s). For chip families with both
-# binned and full variants under the same "Apple Mx Max" brand string, prefer
-# GPU core count when hardware detection provides it; otherwise fall back to the
-# conservative tier so speed estimates do not over-promise.
-APPLE_BANDWIDTH_FIXED = {
-    "m1 ultra": 800, "m1 max": 400, "m1 pro": 200, "m1": 68,
-    "m2 ultra": 800, "m2 max": 400, "m2 pro": 200, "m2": 100,
-    "m3 ultra": 800, "m3 pro": 150, "m3": 100,
-    "m4 pro": 273, "m4": 120,
-    "m5 pro": 307, "m5": 153,
-}
-APPLE_BANDWIDTH_BY_CORES = {
-    "m3 max": {30: 300, 40: 400},
-    "m4 max": {32: 410, 40: 546},
-    "m5 max": {32: 460, 40: 614},
-}
-_APPLE_FIXED_KEYS_SORTED = sorted(APPLE_BANDWIDTH_FIXED.keys(), key=len, reverse=True)
-_APPLE_VARIANT_KEYS_SORTED = sorted(APPLE_BANDWIDTH_BY_CORES.keys(), key=len, reverse=True)
-
-# metal: backstop for Apple Silicon chips not in the explicit tables above
-# (e.g. a future M6) — use a conservative generic estimate when unknown.
-FALLBACK_K = {"cuda": 220, "rocm": 180, "metal": 150, "cpu_x86": 70, "cpu_arm": 90}
+FALLBACK_K = {"cuda": 220, "rocm": 180, "cpu_x86": 70, "cpu_arm": 90}
 
 USE_CASE_WEIGHTS = {
     "general":    (0.45, 0.30, 0.15, 0.10),
@@ -74,36 +51,6 @@ CONTEXT_TARGET = {
 }
 
 
-def _lookup_apple_bandwidth(system):
-    gpu_name = system.get("gpu_name")
-    if not isinstance(gpu_name, str) or not gpu_name:
-        return None
-    gn = gpu_name.lower()
-
-    # Guard against false matches on non-Apple GPUs whose names contain
-    # "m3"/"m4"/"m5" (e.g. NVIDIA Quadro M4 000).
-    if "apple" not in gn:
-        return None
-
-    raw_cores = system.get("gpu_cores")
-    try:
-        gpu_cores = int(raw_cores) if raw_cores is not None else None
-    except (TypeError, ValueError):
-        gpu_cores = None
-
-    for key in _APPLE_VARIANT_KEYS_SORTED:
-        if key not in gn:
-            continue
-        if gpu_cores in APPLE_BANDWIDTH_BY_CORES[key]:
-            return APPLE_BANDWIDTH_BY_CORES[key][gpu_cores]
-        return min(APPLE_BANDWIDTH_BY_CORES[key].values())
-
-    for key in _APPLE_FIXED_KEYS_SORTED:
-        if key in gn:
-            return APPLE_BANDWIDTH_FIXED[key]
-    return None
-
-
 def _lookup_bandwidth(system):
     if isinstance(system, dict):
         gpu_name = system.get("gpu_name")
@@ -112,16 +59,6 @@ def _lookup_bandwidth(system):
 
     if not isinstance(gpu_name, str) or not gpu_name:
         return None
-
-    # Apple tiers live only in the Apple-specific table now (#2564), so route
-    # BOTH dict and bare-string callers through it. A bare string carries no
-    # gpu_cores, so the helper falls back to the conservative (lowest) tier for
-    # that model -- before #2564 the generic table answered string lookups, and
-    # dropping that made _lookup_bandwidth("Apple M3 Max") return None.
-    apple_input = system if isinstance(system, dict) else {"gpu_name": gpu_name}
-    bw = _lookup_apple_bandwidth(apple_input)
-    if bw is not None:
-        return bw
 
     gn = gpu_name.lower()
     for key in _BW_KEYS_SORTED:
@@ -134,7 +71,7 @@ def _canonical_cpu_backend(system):
     """Return the canonical CPU backend for cpu_only speed estimation.
 
     Normalizes CPU-architecture aliases separately from the GPU backend, and
-    overrides GPU-only backends (CUDA/ROCm/Metal) so they do not inherit a
+    overrides GPU-only backends (CUDA/ROCm) so they do not inherit a
     discrete-GPU fallback constant when the model is actually running on CPU.
     """
     backend = (system.get("backend") or "").lower().strip()
@@ -147,7 +84,7 @@ def _canonical_cpu_backend(system):
         return backend
 
     # Raw CPU-architecture aliases. Treat plain "arm" as 32-bit ARM, not the
-    # ARM64-class CPU fallback used for Apple Silicon/aarch64 machines.
+    # ARM64-class CPU fallback used for aarch64 machines.
     if backend in ("x86_64", "amd64", "i386", "i686"):
         return "cpu_x86"
     if backend in ("arm64", "aarch64"):
@@ -159,10 +96,6 @@ def _canonical_cpu_backend(system):
             return "cpu_x86"
         if cpu_arch in ("arm64", "aarch64"):
             return "cpu_arm"
-
-    # Apple Silicon enters ranking as backend="metal"; its CPU path is ARM.
-    if backend in ("metal", "mps", "apple") or "apple" in cpu_name or "apple" in gpu_name:
-        return "cpu_arm"
 
     # Conservative default for CUDA/ROCm/discrete GPU backends and unknowns.
     return "cpu_x86"
@@ -186,7 +119,7 @@ def _estimate_speed(model, quant, run_mode, system, offload_frac=0.0):
     backend = system.get("backend", "cpu_x86")
 
     # CPU-only inference must never inherit a GPU backend's fallback constant,
-    # even if the detected system happens to report a CUDA/Metal/ROCm backend.
+    # even if the detected system happens to report a CUDA/ROCm backend.
     if run_mode == "cpu_only":
         backend = _canonical_cpu_backend(system)
 
@@ -677,7 +610,6 @@ def rank_models(system, use_case=None, limit=50, search=None, sort="score", quan
     ))
 
     system_backend = (system.get("backend") or "").lower()
-    apple_silicon = system_backend in ("mps", "metal", "apple")
     rocm = system_backend == "rocm"
     is_windows = system.get("platform") == "windows"
 
@@ -685,7 +617,7 @@ def rank_models(system, use_case=None, limit=50, search=None, sort="score", quan
     # is GGUF via llama.cpp. vLLM/SGLang on ROCm are validated for datacenter
     # Instinct (CDNA, gfx9xx) but are unreliable on consumer RDNA — AWQ kernels
     # are largely unsupported there and FP8 needs out-of-tree patches. So treat
-    # consumer RDNA like Apple Silicon (GGUF-only) and leave CDNA untouched.
+    # consumer RDNA as GGUF-only and leave CDNA untouched.
     # Unknown family (no rocminfo) is left untouched to avoid hiding models from
     # a possibly-capable Instinct box on a misdetect.
     gpu_family = (system.get("gpu_family") or "").lower()
@@ -694,8 +626,8 @@ def rank_models(system, use_case=None, limit=50, search=None, sort="score", quan
     for m in models:
         native_q = _native_quant(m)
 
-        # MLX needs the mlx_lm runtime, which Odysseus does not generate serve
-        # commands for. Hide it on every backend, including Metal.
+        # MLX models need Apple's mlx_lm runtime, which X9 does not support.
+        # Always hide them.
         if native_q.startswith("mlx-") or "mlx" in (m.get("name") or "").lower():
             continue
 
@@ -707,23 +639,13 @@ def rank_models(system, use_case=None, limit=50, search=None, sort="score", quan
         if rocm and is_prequantized(m) and not filter_native:
             continue
 
-        # On Apple Silicon the only serving engines are llama.cpp and Ollama,
-        # both GGUF-only (vLLM/SGLang are CUDA/ROCm and don't run on macOS). So
-        # a model is Metal-servable ONLY if it ships a real GGUF. Drop everything
-        # else — raw safetensors repos (which the catalog still tags with a
-        # default GGUF quant) and vLLM-only AWQ/GPTQ/FP8 builds alike. Without
-        # this the Cookbook recommends models the Mac can't run; on CUDA these
-        # stay visible because vLLM serves safetensors directly.
-        #
-        # Consumer AMD (RDNA) is the same story: GGUF via llama.cpp is the
-        # servable path, so a model needs a real GGUF to be recommended.
-        # Otherwise the Cookbook rates vLLM-only AWQ/GPTQ builds "GOOD" on a
-        # Radeon that can't actually serve them.
-        #
-        # Windows is the same: Odysseus only supports llama.cpp on Windows,
-        # which requires GGUF. vLLM/SGLang are explicitly blocked, so AWQ/GPTQ
-        # models without a GGUF source are unservable there.
-        if (apple_silicon or consumer_amd or is_windows) and not (m.get("is_gguf") or m.get("gguf_sources")):
+        # Consumer AMD (RDNA) and Windows both serve via GGUF/llama.cpp only:
+        # vLLM/SGLang are CUDA/datacenter-ROCm and are blocked on Windows. So a
+        # model is servable there ONLY if it ships a real GGUF — drop raw
+        # safetensors repos (which the catalog still tags with a default GGUF
+        # quant) and vLLM-only AWQ/GPTQ/FP8 builds alike. On CUDA these stay
+        # visible because vLLM serves safetensors directly.
+        if (consumer_amd or is_windows) and not (m.get("is_gguf") or m.get("gguf_sources")):
             continue
 
         # Format filter: AWQ tab -> only AWQ models, FP4 tab -> FP4-family models, etc.

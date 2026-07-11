@@ -2,7 +2,7 @@
 
 The same legacy `if row.owner and row.owner != user` / `(owner == user) |
 (owner == None)` pattern has regressed THREE times across reviews —
-once in gallery, once in calendar, once in notes/daily-brief. Without
+once in gallery, once in notes/daily-brief. Without
 tests it'll keep coming back. These tests exercise the small helper
 functions directly against MagicMock'd model rows.
 
@@ -18,7 +18,6 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from tests.helpers.calendar_routes import import_calendar_routes
 
 # `tests/conftest.py` stubs the heavy optional deps. We additionally
 # stub `core.database` here because the real module instantiates
@@ -30,7 +29,7 @@ from tests.helpers.calendar_routes import import_calendar_routes
 def _null_owner_stubs(monkeypatch):
     for _stub, _attrs in (
         ("core.database", (
-            "Base", "SessionLocal", "CalendarCal", "CalendarDeletedEvent", "CalendarEvent",
+            "Base", "SessionLocal",
             "Document", "DocumentVersion", "Session", "ChatMessage",
             "GalleryImage", "GalleryAlbum", "Note", "ScheduledTask",
             "TaskRun", "ModelEndpoint", "Webhook",
@@ -60,61 +59,6 @@ def _null_owner_stubs(monkeypatch):
         monkeypatch.setitem(sys.modules, "src.webhook_manager", wm)
 
 from fastapi import HTTPException
-
-
-# ---------------------------------------------------------------------------
-# calendar._get_or_404_calendar / _get_or_404_event
-# ---------------------------------------------------------------------------
-
-def test_calendar_gate_rejects_null_owner_for_authenticated_user():
-    cal_mod = import_calendar_routes()
-    db = MagicMock()
-    cal = SimpleNamespace(id="c1", owner=None)
-    db.query.return_value.filter.return_value.first.return_value = cal
-    with pytest.raises(HTTPException) as exc:
-        cal_mod._get_or_404_calendar(db, "c1", owner="alice")
-    assert exc.value.status_code == 404
-
-
-def test_calendar_gate_rejects_cross_owner():
-    cal_mod = import_calendar_routes()
-    db = MagicMock()
-    cal = SimpleNamespace(id="c1", owner="bob")
-    db.query.return_value.filter.return_value.first.return_value = cal
-    with pytest.raises(HTTPException) as exc:
-        cal_mod._get_or_404_calendar(db, "c1", owner="alice")
-    assert exc.value.status_code == 404
-
-
-def test_calendar_gate_accepts_matching_owner():
-    cal_mod = import_calendar_routes()
-    db = MagicMock()
-    cal = SimpleNamespace(id="c1", owner="alice")
-    db.query.return_value.filter.return_value.first.return_value = cal
-    out = cal_mod._get_or_404_calendar(db, "c1", owner="alice")
-    assert out is cal
-
-
-def test_calendar_event_gate_rejects_null_owner_calendar():
-    cal_mod = import_calendar_routes()
-    db = MagicMock()
-    cal = SimpleNamespace(owner=None)
-    ev = SimpleNamespace(uid="e1", calendar=cal)
-    db.query.return_value.join.return_value.filter.return_value.first.return_value = ev
-    with pytest.raises(HTTPException) as exc:
-        cal_mod._get_or_404_event(db, "e1", owner="alice")
-    assert exc.value.status_code == 404
-
-
-def test_calendar_event_gate_rejects_cross_owner():
-    cal_mod = import_calendar_routes()
-    db = MagicMock()
-    cal = SimpleNamespace(owner="bob")
-    ev = SimpleNamespace(uid="e1", calendar=cal)
-    db.query.return_value.join.return_value.filter.return_value.first.return_value = ev
-    with pytest.raises(HTTPException) as exc:
-        cal_mod._get_or_404_event(db, "e1", owner="alice")
-    assert exc.value.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +106,7 @@ def test_gallery_owner_filter_passes_user():
 # the token-authenticated sync-chat endpoint let any chat-scoped token resume
 # a null-owner session by passing its id, leaking its history and reusing the
 # owner's endpoint credentials. The gate must fail closed, exactly like the
-# calendar/notes/gallery gates above and _verify_session_owner.
+# notes/gallery gates above and _verify_session_owner.
 
 def _import_webhook_helper():
     """Import routes.webhook_routes. Stubs for core.database (ChatMessage,

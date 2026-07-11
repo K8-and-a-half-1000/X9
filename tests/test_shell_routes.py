@@ -120,38 +120,6 @@ class TestFindLineBreak:
         assert _find_line_break(b"ab\ncd\r") == (2, 1)
 
 
-class TestAppleSiliconDetection:
-    """APFEL should only surface as available on native Apple Silicon Macs."""
-
-    def test_reports_true_on_macos_arm64(self, monkeypatch):
-        import core.platform_compat as platform_compat
-
-        monkeypatch.setattr(platform_compat.platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(platform_compat.platform, "machine", lambda: "arm64")
-        importlib.reload(platform_compat)
-
-        assert platform_compat.IS_APPLE_SILICON is True
-
-    @pytest.mark.parametrize("machine", ["x86_64", "amd64"])
-    def test_reports_false_off_apple_silicon(self, monkeypatch, machine):
-        import core.platform_compat as platform_compat
-
-        monkeypatch.setattr(platform_compat.platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(platform_compat.platform, "machine", lambda: machine)
-        importlib.reload(platform_compat)
-
-        assert platform_compat.IS_APPLE_SILICON is False
-
-    def test_reports_false_on_non_macos(self, monkeypatch):
-        import core.platform_compat as platform_compat
-
-        monkeypatch.setattr(platform_compat.platform, "system", lambda: "Linux")
-        monkeypatch.setattr(platform_compat.platform, "machine", lambda: "arm64")
-        importlib.reload(platform_compat)
-
-        assert platform_compat.IS_APPLE_SILICON is False
-
-
 class TestPackageProbeStatus:
     """Dependency rows should reflect serve readiness, not import coincidences."""
 
@@ -215,15 +183,6 @@ class TestPackageProbeStatus:
         )
         assert status.available is False
         assert "package manager or source checkout" in status.note
-
-    def test_apfel_does_not_use_generic_outside_odysseus_note(self):
-        status = _package_pip_update_status(
-            {"name": "APFEL", "pip": "", "update_cmd": "brew upgrade apfel"},
-            {"binaries": {}, "dists": {}, "modules": {}},
-        )
-
-        assert status.available is False
-        assert "Update this system dependency outside Odysseus." not in status.note
 
     def test_diffusers_requires_torch_too(self):
         missing_torch = {

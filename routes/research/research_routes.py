@@ -148,9 +148,8 @@ def _owned_enabled_endpoint(db, owner, endpoint_id=None):
 def _resolve_endpoint_runtime(ep, owner=None, model: Optional[str] = None):
     """Resolve a ModelEndpoint row into (chat_url, model, headers).
 
-    Mirrors endpoint_resolver.resolve_endpoint's provider-auth handling for
-    panel-selected research endpoints. ChatGPT Subscription endpoints keep
-    OAuth tokens in ProviderAuthSession, so ep.api_key is intentionally empty.
+    Mirrors endpoint_resolver.resolve_endpoint for panel-selected research
+    endpoints.
     """
     from src.endpoint_resolver import (
         build_chat_url,

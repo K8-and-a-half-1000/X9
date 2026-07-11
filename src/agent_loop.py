@@ -82,7 +82,6 @@ _AGENT_RULES = """\
 - AFTER A TOOL SUCCEEDS, do not second-guess. The success message ("Document edited: v2, 1 edit") means it worked. Reply in ONE short sentence confirming what was done. No re-checking, no replaying the diff in your head, no validation theater.
 - AFTER A TOOL FAILS (timeout, error, "Unknown action", "not found"), DO NOT GO SILENT. The user expects a follow-up: either retry with a fix (e.g. correct args, longer-running form, run `tail -f /tmp/foo.log` to see progress, split into smaller steps), OR explicitly tell them "this didn't work, want me to try X instead?". A failed tool is not a stopping condition — only a successful one is.
 - YOU DECLARE WHEN THE JOB IS DONE — not a timer. Keep taking concrete steps while the task still needs them; you have plenty of rounds, so don't rush to quit just because you've made a few calls. There are exactly three ways to end a turn: (1) DONE — before you declare it, sanity-check that every concrete thing the user asked for actually exists or succeeded (file written, edit applied, command exited clean); then stop calling tools and write the final answer (that IS your "done" signal); (2) BLOCKED — you genuinely can't proceed (a capability is missing, permission denied, or data you can't obtain), so say plainly what's blocking you, in a sentence or two, and stop; (3) keep going with the single most useful next step. The only wrong moves are trailing off mid-task without one of these, and repeating a call you already ran.
-- Calendar: call `manage_calendar` with `action=list_calendars` FIRST before create/update/delete operations.
 - User identity facts/preferences ("my name is <name>", "I live in <place>", "I prefer concise replies", "call me <name>") → use `manage_memory` with action=add. NEVER use `manage_contact` for facts about the user unless the user explicitly says to create/update a contact and provides contact details such as an email or phone.
 - "Create/add/write a note" / "notes" / "todos" / "remind me to X at <time>" → use `manage_notes`. Do NOT store notes in `manage_memory`; memory is for persistent facts/preferences about the user, not note content. For reminders, include a `due_date`; for todos, use `note_type=checklist` when appropriate.
 - "Do X every morning / daily / on a schedule / automatically" (e.g. "summarize my inbox every morning") → this is a request to CREATE A SCHEDULED TASK, not to do X once right now. Call `manage_tasks` with action=create (prompt = what to do, schedule + cron/time). Do NOT just perform the action inline this turn — the user wants it to recur. After creating, return a clickable `[Task name](#task-<id>)` link and tell them it'll run on schedule and show in the Tasks panel. If you also want to show a sample of this run, do that AFTER creating the task, not instead of it.
@@ -93,7 +92,6 @@ _AGENT_RULES = """\
   - Documents: `[Title](#document-<id>)`
   - Notes: `[Title](#note-<id>)`
   - Gallery images: `[Caption](#image-<id>)`
-  - Calendar events (use the uid from manage_calendar): `[Summary](#event-<uid>)` — opens the calendar on that day
   - Tasks: `[Task name](#task-<id>)`
   - Skills: `[skill-name](#skill-<name>)`
   - Research jobs: `[Topic](#research-<session_id>)`
@@ -123,7 +121,6 @@ _API_AGENT_RULES = """\
 - AFTER A TOOL SUCCEEDS, do not second-guess. A success response means it worked. Reply in ONE short sentence confirming what was done. No verification thinking, no re-analyzing — move on.
 - AFTER A TOOL FAILS, DO NOT GO SILENT. The user expects a follow-up: retry with a fix, run a diagnostic (`tail`, `ls`, `which`), or explicitly tell them what didn't work and what you'll try next. Failure is not a stopping condition.
 - YOU DECLARE WHEN THE JOB IS DONE — not a timer. Keep taking concrete steps while the task still needs them; don't quit early just because you've made a few calls. Three ways to end a turn: (1) DONE — before declaring it, verify every concrete deliverable the user asked for actually exists or succeeded; then stop calling tools and write the final answer (that IS your "done" signal); (2) BLOCKED — you can't proceed (missing capability, permission denied, unobtainable data), so state plainly what's blocking you and stop; (3) keep going with the single most useful next step. Never trail off mid-task without (1) or (2), and never repeat a call you already ran.
-- Calendar: call `manage_calendar` with `action=list_calendars` FIRST before create/update/delete operations.
 - "Create/add/write a note" / "notes" / "todos" / "remind me to X at <time>" → use `manage_notes`. Do NOT store notes in `manage_memory`; memory is for persistent facts/preferences about the user, not note content. For reminders, include a `due_date`; for todos, use `note_type=checklist` when appropriate. `manage_tasks` is for RECURRING background AI jobs, NOT for one-off user reminders.
 - "Disable/turn off/enable/turn on <tool>" (shell, search, research, browser, documents, incognito, etc.) → call `ui_control` with `toggle <name> <on|off>`. Aliases accepted: shell→bash, search→web, deepresearch→research, documents→document_editor. NEVER record this as a memory — the user wants the toggle flipped, not a note about preferring it.
 - "Research X" / "do research on X" / "look into Y" / "deep dive on Z" → call `trigger_research` with `topic`. This starts a live job that appears in the Deep Research sidebar (streams progress + final report). **Do NOT use `web_search` for these** — saw the agent do a plain web_search for "do research on X" when the user wanted the deep-research job. "research X" is a deep-research request, not a quick lookup. (web_search is only for a single quick fact mid-task.) Do NOT POST /api/research/start via app_api either — blocked. After starting, tell the user it's running in the Deep Research sidebar. Only if the user explicitly wants it inline/quick should you fall back to web_search.
@@ -153,7 +150,6 @@ _API_AGENT_RULES = """\
   - Documents: `[Title](#document-<id>)`
   - Notes: `[Title](#note-<id>)`
   - Gallery images: `[Caption](#image-<id>)`
-  - Calendar events (use the uid from manage_calendar): `[Summary](#event-<uid>)` — opens the calendar on that day
   - Tasks: `[Task name](#task-<id>)`
   - Skills: `[skill-name](#skill-<name>)`
   - Research jobs: `[Topic](#research-<session_id>)`
@@ -202,7 +198,6 @@ When referencing app entities by id, use clickable markdown anchors:
 - Sessions: `[Name](#session-<id>)`
 - Documents: `[Title](#document-<id>)`
 - Notes: `[Title](#note-<id>)`
-- Calendar events: `[Summary](#event-<uid>)`
 - Tasks: `[Task name](#task-<id>)`
 - Skills: `[skill-name](#skill-<name>)`
 - Research jobs: `[Topic](#research-<session_id>)`
@@ -228,10 +223,9 @@ _DOMAIN_RULES = {
 - Downloads/serves run on a Cookbook server; pass the named `host` when the user names one.
 - Do not launch model servers manually with bash/ssh/tmux. Use `serve_model`/`serve_preset` so the UI can track and stop them.
 - After a successful serve, verify with `list_served_models`; if an external server is running but invisible, use `adopt_served_model`.""",
-    "notes_calendar_tasks": """\
-## Notes/calendar/tasks rules
+    "notes_tasks": """\
+## Notes/tasks rules
 - Notes/todos/reminders use `manage_notes`, not memory.
-- Calendar create/update/delete should call `manage_calendar` with `action=list_calendars` first.
 - Recurring/automatic/scheduled requests create a `manage_tasks` task; do not just perform the action once.""",
     "ui": """\
 ## UI rules
@@ -266,7 +260,7 @@ _DOMAIN_TOOL_MAP = {
     "web": {"web_search", "web_fetch", "trigger_research", "manage_research"},
     "documents": {"create_document", "edit_document", "update_document", "suggest_document", "manage_documents"},
     "cookbook": {"download_model", "serve_model", "serve_preset", "list_serve_presets", "list_served_models", "stop_served_model", "tail_serve_output", "list_downloads", "cancel_download", "search_hf_models", "list_cached_models", "list_cookbook_servers", "adopt_served_model"},
-    "notes_calendar_tasks": {"manage_notes", "manage_calendar", "manage_tasks"},
+    "notes_tasks": {"manage_notes", "manage_tasks"},
     "ui": {"ui_control"},
     "sessions": {"create_session", "list_sessions", "manage_session", "send_to_session", "search_chats"},
     "files": {"bash", "python", "read_file", "write_file", "edit_file", "grep", "glob", "ls", "get_workspace", "manage_bg_jobs"},
@@ -281,7 +275,7 @@ def _domain_rules_for_tools(tool_names: set) -> list[str]:
     for domain, domain_tools in _DOMAIN_TOOL_MAP.items():
         if names & domain_tools:
             rules.append(_DOMAIN_RULES[domain])
-    if names & {"create_session", "list_sessions", "manage_session", "manage_documents", "manage_notes", "manage_calendar", "manage_tasks", "manage_skills", "manage_research"}:
+    if names & {"create_session", "list_sessions", "manage_session", "manage_documents", "manage_notes", "manage_tasks", "manage_skills", "manage_research"}:
         rules.append(_LINK_RULES)
     return rules
 
@@ -431,7 +425,7 @@ Generate an image. Line 1 = description, line 2 = model name, line 3 = WxH (e.g.
     "manage_tokens": "- ```manage_tokens``` — Generate or revoke API access tokens for external integrations. Args (JSON): {\"action\": \"list|create|delete\", ...}",
     "manage_documents": "- ```manage_documents``` — List, read/open, delete, or tidy documents in the editor panel. Args (JSON): {\"action\": \"list|read|delete|tidy\", ...}. `list` returns rows like `[Title](#document-<id>) — lang, size, updated 5m ago` sorted MOST-RECENT FIRST; the user clicks the anchor to open. `read` (aliases: view/open/get) takes `document_id` and returns the content. When the user asks \"open/show/read my notes\" or \"what documents do I have\", use this — do NOT shell out, do NOT curl.",
     "manage_research": "- ```manage_research``` — List, read/open, or delete saved DEEP RESEARCH results from the Library. Args (JSON): {\"action\": \"list|read|delete\", \"id\": \"<id>\", \"search\": \"...\"}. `list` returns rows like `[query](#research-<id>) — N sources` MOST-RECENT FIRST; the user clicks to open. `read` (aliases: open/view/get) takes `id` and returns the report text + sources. Use when the user says \"open/read/find/delete my research\" or \"that report\". This IS how you read a finished report: when the user refers to a just-completed deep-research job (\"check it out\", \"read that report\", \"summarize the research\") WITHOUT giving an id, call `manage_research` with `action:list` to get the most-recent id, then `action:read` with that id, and answer from the returned text. Do NOT `web_fetch`/`app_api` the `/api/research/report/{id}` URL — that endpoint renders HTML for the browser, not clean text — and do NOT start a fresh `web_search`/`trigger_research` just to read an existing report. To START new research, use trigger_research instead.",
-    "manage_settings": "- ```manage_settings``` — View/change the REAL app settings (same ones the Settings panel writes) AND turn tools on/off. Change a setting: `{\"action\":\"set\",\"key\":\"...\",\"value\":\"...\"}` — keys accept friendly aliases, e.g. voice→tts_voice, \"search engine\"→search_provider, \"default model\"→default_model, \"teacher model\"→teacher_model, \"task/background model\"→task_model, \"image quality\"→image_quality, \"reminder channel\"→reminder_channel (browser|ntfy), \"agent timeout\"/\"max tool calls\"/\"token budget\". Read: `{\"action\":\"get\",\"key\":\"...\"}`; see all: `{\"action\":\"list\"}`; reset one: `{\"action\":\"reset\",\"key\":\"...\"}`. Use this when the user asks to change ANY preference instead of making them open Settings. Secrets/API keys are read-only (tell them to set those in the panel). Tool toggles: `{\"action\":\"disable_tool|enable_tool\",\"tool\":\"shell\"}` (aliases: shell/search/browser/documents/memory/skills/images/tasks/notes/calendar), list disabled: `{\"action\":\"list_tools\"}`.",
+    "manage_settings": "- ```manage_settings``` — View/change the REAL app settings (same ones the Settings panel writes) AND turn tools on/off. Change a setting: `{\"action\":\"set\",\"key\":\"...\",\"value\":\"...\"}` — keys accept friendly aliases, e.g. voice→tts_voice, \"search engine\"→search_provider, \"default model\"→default_model, \"teacher model\"→teacher_model, \"task/background model\"→task_model, \"image quality\"→image_quality, \"reminder channel\"→reminder_channel (browser|ntfy), \"agent timeout\"/\"max tool calls\"/\"token budget\". Read: `{\"action\":\"get\",\"key\":\"...\"}`; see all: `{\"action\":\"list\"}`; reset one: `{\"action\":\"reset\",\"key\":\"...\"}`. Use this when the user asks to change ANY preference instead of making them open Settings. Secrets/API keys are read-only (tell them to set those in the panel). Tool toggles: `{\"action\":\"disable_tool|enable_tool\",\"tool\":\"shell\"}` (aliases: shell/search/browser/documents/memory/skills/images/tasks/notes), list disabled: `{\"action\":\"list_tools\"}`.",
     "manage_notes": """\
 ```manage_notes
 {"action": "add", "title": "<short todo>", "due_date": "<natural language or ISO datetime>"}
@@ -439,19 +433,6 @@ Generate an image. Line 1 = description, line 2 = model name, line 3 = WxH (e.g.
 Notes, checklists, AND user reminders. Use this for "create/add/write a note", todos, checklists, and "remind me to X at <time>" — never use memory for note content. For reminders, pair a short `title` (what to do) with a `due_date` (when). `due_date` accepts natural language ("tomorrow at 1pm", "in 2 hours", "next monday 9am") or ISO ("2026-05-12T13:00:00"). Actions: `list`, `add` (title, content OR items:[{text,done}], note_type, color, label, due_date), `update`, `delete`, `toggle_item`.""",
     "resolve_contact": "- ```resolve_contact``` — Look up a contact's email or phone by name. Searches the CardDAV address book. Args (JSON): {\"name\": \"...\"}.",
     "manage_contact": "- ```manage_contact``` — Create/update/delete/list CardDAV contacts. Args (JSON): {\"action\": \"list|add|update|delete\", \"name\": \"...\", \"email\": \"...\", \"phones\": [...], \"address\": \"...\", \"uid\": \"...\"}. Use for info about another person: email, phone, postal address. For 'save this for <person>' / address paste / phone next to a name, use this — NOT manage_memory. Do NOT use for user identity facts ('my name is X'); those are manage_memory. For update/delete, call action=list first for the uid.",
-    "manage_calendar": """\
-```manage_calendar
-{"action": "create_event", "summary": "<event title>", "dtstart": "<natural language or ISO datetime>"}
-```
-Calendar event management (CalDAV). Actions: `list_events`, `create_event`, `update_event`, `delete_event`, `list_calendars`. \
-For `list_events`: {start?, end?, calendar?}; prefer `start`/`end` for the range, though start_date/end_date and from/to aliases are accepted. \
-For `create_event`: {summary, dtstart, dtend?, duration?, calendar?, location?, description?, reminder_minutes?, rrule?}. \
-For `update_event`: {uid, summary?, dtstart?, dtend?, all_day?, location?, description?, event_type?, importance?, rrule?}. Pass `rrule: ""` to remove recurrence and make a repeating event a single event. \
-`dtstart` accepts natural language ("tomorrow at 1pm", "in 2 hours", "next monday 9am") or ISO ("2026-05-12T13:00:00"). \
-If `dtend` omitted, defaults to dtstart+1h (or +1d when `all_day: true`). \
-For a RECURRING event pass `rrule` as an iCalendar RRULE string, e.g. `"FREQ=WEEKLY;BYDAY=MO"` (every Monday), `"FREQ=DAILY;COUNT=10"`, or `"FREQ=MONTHLY;BYMONTHDAY=1"` — create ONE event with the rrule, do not loop creating many events. Do not pass `rrule` for "next Wednesday only", "just this once", or any single occurrence. \
-If the user asks for a reminder/alarm before the event, pass `reminder_minutes` as an integer; do not write reminder text into the event description and do NOT also call `manage_notes` for the same reminder because calendar reminders are routed through Notes automatically. \
-`calendar` accepts a name ("Main") or short-id prefix.""",
     "create_session": "- ```create_session``` — Create a new chat. Line 1 = chat name, line 2 = model name. Use for background/parallel work.",
     "list_sessions": "- ```list_sessions``` — List chats sorted MOST-RECENT FIRST (the UI calls them 'chats') with clickable chat-title links. Output includes a relative \"last active\" timestamp per row, so the first row is the user's most recent chat. Content = optional filter keyword (matches chat name). When answering, preserve the `[title](#session-id)` links exactly; do not convert them into plain text.",
     "send_to_session": "- ```send_to_session``` — Send a message to another session. Line 1 = session_id, rest = message. Use for orchestrating work across sessions.",
@@ -475,10 +456,9 @@ If the user asks for a reminder/alarm before the event, pass `reminder_minutes` 
 ```
 GENERIC LOOPBACK to allowed Odysseus internal endpoints. Use this whenever the user wants something the UI can do but there's NO named tool for it. Many UI buttons hit /api/* endpoints — you can hit allowed ones. Auth is handled automatically.
 
-**Discovery first.** If you're not sure of the path, call `{"action":"endpoints","filter":"<keyword>"}` (e.g. filter='calendar' or 'gallery' or 'theme') to list available endpoints with their methods + summaries. Then call with action='call'.
+**Discovery first.** If you're not sure of the path, call `{"action":"endpoints","filter":"<keyword>"}` (e.g. filter='gallery' or 'theme') to list available endpoints with their methods + summaries. Then call with action='call'.
 
 **Common surfaces (use `endpoints` with filter to discover the full set per domain):**
-- Calendar: `/api/calendar/events`, `/api/calendar/calendars`, `/api/calendar/events/{uid}`
 - Cookbook: `/api/cookbook/gpus`, `/api/cookbook/state`, `/api/cookbook/setup`, `/api/cookbook/packages`, `/api/cookbook/hf-latest`, `/api/model/cached`. Do NOT use `app_api` for package installs, engine rebuilds, or PID signalling.
 - Gallery: `/api/gallery/list`, `/api/gallery/delete`, `/api/gallery/{id}`, `/api/gallery/albums`
 - Library / Documents: list all via `/api/documents/library`; docs in a session via `/api/documents/{session_id}`; a single doc via `/api/document/{id}` (singular) and its history via `/api/document/{id}/versions` (singular). Note the plural `/api/documents/...` vs singular `/api/document/{id}` split.
@@ -489,13 +469,12 @@ GENERIC LOOPBACK to allowed Odysseus internal endpoints. Use this whenever the u
 - Themes: `/api/prefs/themes`, `/api/prefs/custom-themes`
 - Settings: `/api/settings`, `/api/prefs/{key}`
 - Research: `/api/research/start`, `/api/research/tasks` (note: `/api/research/report/{id}` renders HTML — to READ a report's text use the `manage_research` tool with `action:read`, not this endpoint)
-- Compare: `/api/compare/sessions`, `/api/compare/start`
 - Endpoints (model providers): `/api/endpoints`, `/api/endpoints/{id}`
 - Shell: do NOT use `app_api` for `/api/shell/*`; use named command tooling instead.
 
 Body for POST/PUT/PATCH goes in `body` (object). Query params in `query` (object). Returns the parsed JSON of the response.
 
-**When to prefer named tools over app_api:** if a named wrapper exists (manage_calendar, manage_notes, list_served_models, etc.) USE IT — it has nicer output formatting and clearer schema. Reach for `app_api` only when there's no wrapper for what you need.
+**When to prefer named tools over app_api:** if a named wrapper exists (manage_notes, list_served_models, etc.) USE IT — it has nicer output formatting and clearer schema. Reach for `app_api` only when there's no wrapper for what you need.
 
 Blocked paths/routes (refused for safety): /api/auth/, /api/users/, /api/tokens/, /api/admin/, /api/shell/, /api/backup/restore, POST /api/cookbook/packages/install, POST /api/cookbook/rebuild-engine, POST /api/cookbook/kill-pid.""",
 }
@@ -625,9 +604,8 @@ _API_HOSTS = frozenset([
     "api.together.xyz", "api.fireworks.ai",
     "api.perplexity.ai", "api.x.ai",
     "ollama.com", "api.venice.ai", "api.kimi.com",
-    "api.githubcopilot.com",
 ])
-_MCP_KEYWORDS = frozenset(["mcp", "browse", "browser", "website", "calendar", "event",
+_MCP_KEYWORDS = frozenset(["mcp", "browse", "browser", "website", "event",
                            "screenshot", "navigate", "click", "miniflux", "rss", "feed"])
 _ADMIN_SCHEMA_NAMES = frozenset([
     "manage_session", "manage_skills", "manage_tasks",
@@ -817,7 +795,7 @@ _CASUAL_OPENING_RE = re.compile(
 )
 _CASUAL_BLOCKLIST_RE = re.compile(
     r"\b(?:cookbook|serve|serving|launch|start|vllm|sglang|llama\.?cpp|ollama|"
-    r"download|model|document|doc|note|calendar|task|search|web|research|"
+    r"download|model|document|doc|note|task|search|web|research|"
     r"file|folder|repo|git|settings?|endpoint|api|token|mcp)\b",
     re.IGNORECASE,
 )
@@ -946,11 +924,9 @@ def _classify_agent_request(messages: List[Dict], last_user: str) -> Dict[str, o
     if has(r"\b(cookbook|serve|serving|served|launch|start|preset|vllm|sglang|llama\.?cpp|ollama|download|downloading|pull|cached models?|running models?|model servers?|models? (?:are )?running|what models?|model picker|gpu box|kierkegaard|odysseus|ajax|qwen|gemma|llama|mistral|minimax)\b"):
         domains.add("cookbook")
     if has(r"\b(note|todo|to-do|checklist|task list|remind me|reminder|buy|pickup|pick up)\b"):
-        domains.add("notes_calendar_tasks")
+        domains.add("notes_tasks")
     if has(r"\b(every day|every morning|every evening|recurring|automatically|cron|scheduled task|background task)\b"):
-        domains.add("notes_calendar_tasks")
-    if has(r"\b(calendar|event|meeting|appointment|schedule)\b"):
-        domains.add("notes_calendar_tasks")
+        domains.add("notes_tasks")
     _code_write_intent = has(
         r"\b(?:python|javascript|typescript|java|c\+\+|cpp|c#|csharp|rust|go|golang|"
         r"ruby|php|swift|kotlin|bash|shell|html|css|sql)\b",
@@ -958,7 +934,7 @@ def _classify_agent_request(messages: List[Dict], last_user: str) -> Dict[str, o
     )
     if has(r"\b(documents?|docs?|draft|compose|poem|story|essay|outline|letter|edit|rewrite|proofread|suggest|feedback|review this|make a file)\b"):
         domains.add("documents")
-    if "notes_calendar_tasks" not in domains and has(r"\bwrite\b"):
+    if "notes_tasks" not in domains and has(r"\bwrite\b"):
         domains.add("documents")
     if has(r"\b(search|web|google|look up|latest|news|current|weather|forecast|stock price|price of|website|url|https?://|www\.)\b"):
         domains.add("web")
@@ -1225,7 +1201,7 @@ def _recent_context_for_retrieval(messages: List[Dict], max_user: int = 3, max_c
     A contextless follow-up ("yes", "and?", "do it in November") carries no
     tool signal on its own, so RAG/keyword retrieval drops the tools the
     conversation is actually about — the model then "forgets" it has e.g.
-    manage_calendar and improvises with bash/app_api. Concatenating the recent
+    manage_notes and improvises with bash/app_api. Concatenating the recent
     user turns lets the follow-up inherit the topic so just-used tools stay
     surfaced. Newest-first, so the latest turn survives the length cap."""
     collected = []
@@ -2091,7 +2067,7 @@ def build_active_plan_note(approved_plan: str) -> str:
 def _detect_runaway_call(call_freq, threshold=15):
     """Tool name of a call signature repeated >= ``threshold`` times — a real
     runaway loop. Counts IDENTICAL repeated calls (same tool AND args), so a
-    legitimate batch of distinct calls to one tool (e.g. creating 18 calendar
+    legitimate batch of distinct calls to one tool (e.g. creating 18 note
     events at once) is NOT flagged. Returns ``None`` when nothing is runaway.
 
     ``call_freq`` is a Counter keyed by ``"{tool_type}:{content[:120]}"``.
@@ -2676,7 +2652,7 @@ async def stream_agent_loop(
     _stuck_rounds = 0
     # Frequency of each exact call signature (tool + args), for the runaway
     # backstop. Counting identical repeats — not distinct same-tool calls —
-    # lets a legit batch (e.g. 18 calendar events at once) through.
+    # lets a legit batch (e.g. 18 notes at once) through.
     _call_freq: collections.Counter = collections.Counter()
     _force_answer = False  # set by loop-breaker → next round runs with NO tools
     # Supervisor: how many times we've nudged the model after it announced

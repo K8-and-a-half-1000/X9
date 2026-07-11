@@ -29,7 +29,7 @@ _CASUAL_OPENING_RE = re.compile(
 )
 _CASUAL_BLOCKLIST_RE = re.compile(
     r"\b(?:cookbook|serve|serving|launch|start|vllm|sglang|llama\.?cpp|ollama|"
-    r"download|model|document|doc|note|calendar|task|search|web|research|"
+    r"download|model|document|doc|note|task|search|web|research|"
     r"file|folder|repo|git|settings?|endpoint|api|token|mcp)\b",
     re.IGNORECASE,
 )
@@ -255,7 +255,6 @@ def try_fallback_endpoint(sess, session_id: str) -> dict | None:
         normalize_base,
         resolve_endpoint_runtime,
     )
-    from src.chatgpt_subscription import is_chatgpt_subscription_base
 
     current_url = sess.endpoint_url or ""
     owner = getattr(sess, "owner", None)
@@ -302,7 +301,7 @@ def try_fallback_endpoint(sess, session_id: str) -> dict | None:
             new_model = models[0]
             chat_url = build_chat_url(base)
             new_headers = build_headers(api_key, base)
-            persisted_headers = {} if is_chatgpt_subscription_base(base) else new_headers
+            persisted_headers = new_headers
 
             sess.model = new_model
             sess.endpoint_url = chat_url
@@ -432,9 +431,9 @@ def add_user_message(sess, chat_handler, preprocessed: PreprocessedMessage, inco
         chat_handler.update_session_name_if_needed(sess, preprocessed.text_for_context)
 
 
-def fire_message_event(request, webhook_manager, session_id: str, sess, message: str, compare_mode: bool = False):
+def fire_message_event(request, webhook_manager, session_id: str, sess, message: str):
     """Fire webhook and event_bus events for a new user message."""
-    if webhook_manager and not compare_mode:
+    if webhook_manager:
         webhook_manager.fire_and_forget("chat.message", {
             "session_id": session_id, "model": sess.model, "message": message[:2000],
         })
@@ -469,13 +468,8 @@ def _has_auth_keys(headers) -> bool:
 
 def resolve_session_auth(sess, session_id: str, owner: Optional[str] = None):
     """Ensure session has auth headers — resolve from endpoint DB if missing."""
-    try:
-        from src.chatgpt_subscription import is_chatgpt_subscription_base
-        is_chatgpt_subscription = is_chatgpt_subscription_base(getattr(sess, "endpoint_url", "") or "")
-    except Exception:
-        is_chatgpt_subscription = False
     has_auth = _has_auth_keys(sess.headers)
-    if has_auth and not is_chatgpt_subscription:
+    if has_auth:
         return
 
     try:
@@ -501,24 +495,8 @@ def resolve_session_auth(sess, session_id: str, owner: Optional[str] = None):
                     logger.warning("Failed to resolve provider auth for session %s: %s", session_id, e)
                     return
                 if not api_key:
-                    # No usable key (e.g. ChatGPT Subscription needs re-auth).
                     return
                 sess.headers = build_headers(api_key, base)
-                if is_chatgpt_subscription:
-                    # The bearer is short-lived and re-resolved per request, so it
-                    # stays request-local and is never written to the plaintext
-                    # sessions.headers column. Proactively strip any bearer an
-                    # older code path may have persisted so it does not linger.
-                    stale_q = db.query(DBSession).filter(DBSession.id == session_id)
-                    if owner:
-                        stale_q = stale_q.filter(DBSession.owner == owner)
-                    stored = stale_q.first()
-                    if stored is not None and _has_auth_keys(stored.headers):
-                        stale_q.update({"headers": {}})
-                        db.commit()
-                        logger.info(f"Cleared persisted ChatGPT Subscription bearer from session {session_id}")
-                    logger.debug(f"Resolved request-local ChatGPT Subscription auth for session {session_id}")
-                    return
                 update_q = db.query(DBSession).filter(DBSession.id == session_id)
                 if owner:
                     update_q = update_q.filter(DBSession.owner == owner)
@@ -632,8 +610,6 @@ async def build_chat_context(
     time_filter=None,
     incognito: bool = False,
     no_memory: bool = False,
-    search_context: str = None,
-    compare_mode: bool = False,
     webhook_manager=None,
     use_enhanced_message: bool = False,
     agent_mode: bool = False,
@@ -663,7 +639,7 @@ async def build_chat_context(
 
     # Fire events
     if not incognito:
-        fire_message_event(request, webhook_manager, session_id, sess, message, compare_mode)
+        fire_message_event(request, webhook_manager, session_id, sess, message)
 
     # Resolve owner-scoped prefs/context. Browser requests keep the cookie user;
     # bearer-token chat requests use the token owner instead of the "api" sentinel.
@@ -705,8 +681,7 @@ async def build_chat_context(
     if incognito or not allow_tool_preprocessing or is_research_spinoff or casual_low_signal:
         use_rag_val = False
 
-    # If pre-fetched search context was provided (compare mode), skip live web search
-    skip_web = bool(search_context) or not allow_tool_preprocessing or casual_low_signal
+    skip_web = not allow_tool_preprocessing or casual_low_signal
 
     # Build context preface
     # The stream path uses enhanced_message (with CoT/preprocessing applied),
@@ -731,10 +706,6 @@ async def build_chat_context(
 
     # Capture used memories immediately
     used_memories = getattr(chat_processor, '_last_used_memories', [])
-
-    # Inject pre-fetched search context (compare mode)
-    if search_context and allow_tool_preprocessing and not casual_low_signal:
-        preface.append(untrusted_context_message("prefetched search context", search_context))
 
     # YouTube transcripts
     for transcript in preprocessed.youtube_transcripts:
@@ -1131,7 +1102,6 @@ def run_post_response_tasks(
     webhook_manager,
     *,
     incognito: bool = False,
-    compare_mode: bool = False,
     character_name: str = None,
     agent_rounds: int = 0,
     agent_tool_calls: int = 0,
@@ -1159,7 +1129,7 @@ def run_post_response_tasks(
     # Memory extraction — only every 4th message pair to avoid excess LLM calls
     _msg_count = len(sess.history) if hasattr(sess, 'history') else 0
     _should_extract = (_msg_count >= 4) and (_msg_count % 4 == 0)
-    if allow_background_extraction and not incognito and not compare_mode and _should_extract and uprefs.get("auto_memory", True):
+    if allow_background_extraction and not incognito and _should_extract and uprefs.get("auto_memory", True):
         from services.memory.memory_extractor import extract_and_store
         from src.task_endpoint import resolve_task_endpoint
         t_url, t_model, t_headers = resolve_task_endpoint(
@@ -1171,8 +1141,8 @@ def run_post_response_tasks(
         )))
 
     # Skill extraction from complex agent runs. Only when the user actually
-    # chose agent mode — not a chat we auto-escalated for a notes/calendar
-    # intent, and never in incognito/compare.
+    # chose agent mode — not a chat we auto-escalated for a notes
+    # intent, and never in incognito.
     auto_skills_enabled = bool(uprefs.get("auto_skills", True))
     # Quiet by default — full gate/dispatch/start trace runs at DEBUG so
     # users can re-enable diagnostics with LOG_LEVEL=DEBUG when something
@@ -1180,8 +1150,8 @@ def run_post_response_tasks(
     # maybe_extract_skill (Auto-extracted / dropped / failed).
     logger.debug(
         "[skill-extract] gate: extract_skills=%s auto_skills=%s incognito=%s "
-        "compare=%s rounds=%d tools=%d skills_manager=%s",
-        extract_skills, auto_skills_enabled, incognito, compare_mode,
+        "rounds=%d tools=%d skills_manager=%s",
+        extract_skills, auto_skills_enabled, incognito,
         agent_rounds, agent_tool_calls, "set" if skills_manager else "MISSING",
     )
     if (
@@ -1189,7 +1159,6 @@ def run_post_response_tasks(
         and allow_background_extraction
         and auto_skills_enabled
         and not incognito
-        and not compare_mode
         and (agent_rounds >= 2 or agent_tool_calls >= 2)
     ):
         if skills_manager is None:
@@ -1219,7 +1188,7 @@ def run_post_response_tasks(
         accumulate_token_usage(session_id, last_metrics)
 
     # Webhook
-    if webhook_manager and not compare_mode:
+    if webhook_manager:
         webhook_manager.fire_and_forget("chat.completed", {
             "session_id": session_id, "model": sess.model,
             "user_message": message, "response": full_response[:2000],

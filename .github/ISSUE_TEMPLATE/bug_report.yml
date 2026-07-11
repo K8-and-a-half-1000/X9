@@ -34,7 +34,6 @@ body:
         - "-- Please Select --"
         - Manual Python install (pip / venv)
         - Windows native (launch-windows.ps1)
-        - macOS app (build-macos-app.sh / start-macos.sh)
         - Other (describe in the reproduction steps below)
     validations:
       required: true
@@ -46,7 +45,6 @@ body:
       options:
         - "-- Please Select --"
         - Linux
-        - macOS
         - Windows
         - Other
     validations:

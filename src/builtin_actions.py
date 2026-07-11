@@ -14,7 +14,7 @@ from typing import Tuple
 from src.auth_helpers import owner_filter
 from core.platform_compat import IS_WINDOWS, find_bash
 from core.constants import internal_api_base
-from src.constants import DATA_DIR, DEEP_RESEARCH_DIR, TIDY_CALENDAR_STATE_FILE, COOKBOOK_STATE_FILE
+from src.constants import DATA_DIR, DEEP_RESEARCH_DIR, COOKBOOK_STATE_FILE
 from src.interactive_gate import wait_for_interactive_quiet
 
 logger = logging.getLogger(__name__)
@@ -378,391 +378,20 @@ async def action_tidy_research(owner: str, **kwargs) -> Tuple[str, bool]:
         return str(e), False
 
 
-async def action_tidy_calendar(owner: str, **kwargs) -> Tuple[str, bool]:
-    """Find duplicate calendar events (same title + start time) and DELETE the dups,
-    keeping the oldest (first-seen) instance.
-
-    Incremental: remembers the newest `created_at` already scanned in
-    data/tidy_calendar_state.json. If no events have been added since then,
-    short-circuits. Otherwise only events newer than the watermark are candidates
-    for deletion, but they're checked against the FULL existing set so a new
-    duplicate of an old event still gets caught.
-    """
-    try:
-        import json
-        from pathlib import Path
-        from core.database import SessionLocal, CalendarEvent
-        from sqlalchemy import func
-
-        STATE_FILE = Path(TIDY_CALENDAR_STATE_FILE)
-        last_watermark = None
-        try:
-            if STATE_FILE.exists():
-                saved = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-                if saved.get("last_created_at"):
-                    last_watermark = datetime.fromisoformat(saved["last_created_at"])
-        except Exception:
-            last_watermark = None
-
-        db = SessionLocal()
-        try:
-            newest = db.query(func.max(CalendarEvent.created_at)).scalar()
-            db.query(CalendarEvent).count()
-
-            # Short-circuit: nothing new since last run
-            if last_watermark is not None and newest is not None and newest <= last_watermark:
-                raise TaskNoop(f"no new events since watermark {last_watermark.strftime('%Y-%m-%d %H:%M')}")
-
-            events = db.query(CalendarEvent).order_by(CalendarEvent.dtstart).all()
-            # Build full seen-set from events at or before the watermark (known-clean).
-            # Events after the watermark are candidates for deletion.
-            seen = {}
-            candidates = []
-            no_title = 0
-            for e in events:
-                title = (e.summary or "").strip()
-                if not title:
-                    no_title += 1
-                    continue
-                if last_watermark is None or (e.created_at and e.created_at <= last_watermark):
-                    # Known-clean region: first occurrence wins
-                    key = (title.lower(), e.dtstart)
-                    if key not in seen:
-                        seen[key] = e
-                    # If a dup exists in the known-clean region (first run, or imported later
-                    # with the same created_at), still remove it — fall through to candidate check.
-                    else:
-                        candidates.append(e)
-                else:
-                    candidates.append(e)
-
-            removed = []
-            for e in candidates:
-                title = (e.summary or "").strip()
-                key = (title.lower(), e.dtstart)
-                if key in seen:
-                    when = e.dtstart.strftime('%Y-%m-%d %H:%M') if e.dtstart else '?'
-                    removed.append(f"{title} @ {when}")
-                    db.delete(e)
-                else:
-                    seen[key] = e
-
-            if removed:
-                db.commit()
-
-            # Persist the new watermark (newest created_at among events that survive)
-            try:
-                STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-                if newest is not None:
-                    STATE_FILE.write_text(json.dumps({
-                        "last_created_at": newest.isoformat(),
-                        "last_run_at": datetime.utcnow().isoformat(),
-                        "scanned": len(events),
-                        "removed": len(removed),
-                    }, indent=2), encoding="utf-8")
-            except Exception as se:
-                logger.warning(f"tidy_calendar watermark save failed: {se}")
-
-            new_since = len(candidates)
-            parts = [f"Scanned {len(events)} event(s), {new_since} new since last run"]
-            if removed:
-                preview = "; ".join(removed[:5])
-                if len(removed) > 5:
-                    preview += f" (+{len(removed) - 5} more)"
-                parts.append(f"removed {len(removed)} duplicate(s): {preview}")
-            if no_title:
-                parts.append(f"{no_title} untitled (kept)")
-            if not removed and not no_title:
-                parts.append("no duplicates")
-            return " · ".join(parts), True
-        finally:
-            db.close()
-    except Exception as e:
-        logger.error(f"tidy_calendar action failed: {e}")
-        return str(e), False
-
-
-def _result_has_work(result: str | None) -> bool:
-    """Heuristic: did the email pass actually process anything?
-
-    `_run_auto_summarize_once` returns strings like 'Processed 0 emails',
-    'No new emails to summarize', 'Tagged 0 / Moved 0', etc. when nothing
-    was done. Used to decide whether to record the run or noop it.
-    """
-    if not isinstance(result, str) or not result:
-        return False
-    low = result.lower()
-    if "processed 0" in low or "no new" in low or "nothing to" in low:
-        return False
-    # "Tagged 0 / Moved 0" or similar zero-count summaries
-    if low.count(" 0") >= 2 and ("tagged" in low or "moved" in low or "drafted" in low):
-        return False
-    return True
-
-
-def _result_is_config_error(result: str | None) -> bool:
-    if not isinstance(result, str):
-        return False
-    low = result.lower()
-    return (
-        "no model configured" in low
-        or "no model endpoint configured" in low
-        or "no llm endpoint available" in low
-    )
-
-
-_TYPE_COLORS = {
-    "work":     "#5b8abf",  # blue
-    "personal": "#a07ae0",  # purple
-    "health":   "#e06c75",  # red
-    "travel":   "#e5a33a",  # orange
-    "meal":     "#d8b974",  # tan
-    "social":   "#82c882",  # green
-    "admin":    "#888888",  # gray
-    "other":    "#6b9cb5",  # default
-}
-
-_HEURISTIC_TYPES = {
-    "health":  ["doctor", "dentist", "clinic", "hospital", "appointment", "checkup", "therapy",
-                "physio", "chiropract", "vaccine", "blood test", "xray", "scan", "surgery"],
-    "travel":  ["flight", "airport", "train", "shinkansen", "boarding", "uber", "taxi", "trip",
-                "hotel", "airbnb", "depart", "arrival", "check-in", "checkout"],
-    "meal":    ["lunch", "dinner", "breakfast", "brunch", "coffee", "drinks", "restaurant",
-                "reservation", "bar", "cafe"],
-    "social":  ["birthday", "party", "hangout", "wedding", "date with", "drinks with",
-                "anniversary", "baby shower", "graduation", "picnic", "bbq"],
-    "admin":   ["bill", "renewal", "tax", "deadline", "filing", "submit", "due date",
-                "registration", "license", "passport", "visa", "form"],
-    "work":    ["meeting", "standup", "sync", "1:1", "1on1", "review", "interview",
-                "demo", "presentation", "kickoff", "retro", "all-hands", "town hall",
-                "call with", "client", "deck"],
-}
-
-_HEURISTIC_HIGH = ["flight", "interview", "wedding", "surgery", "exam", "deadline",
-                   "court", "presentation", "demo", "kickoff", "launch"]
-_HEURISTIC_CRITICAL = ["surgery", "court", "wedding day", "funeral", "delivery date"]
-
-
-def _classify_event_heuristic(summary: str) -> tuple:
-    """Quick heuristic classification — returns (event_type, importance) or (None, None) if unclear."""
-    s = (summary if isinstance(summary, str) else "").lower()
-    etype = None
-    for t, kws in _HEURISTIC_TYPES.items():
-        if any(k in s for k in kws):
-            etype = t
-            break
-    if any(k in s for k in _HEURISTIC_CRITICAL):
-        return etype, "critical"
-    if any(k in s for k in _HEURISTIC_HIGH):
-        return etype, "high"
-    return etype, None
-
-
-def _memory_context_lines(mems, limit: int = 40) -> list:
-    """Render Memory rows into short personal-context bullets for event classify.
-
-    Reads the Memory ORM `text` column. The previous inline code read a
-    non-existent `content` attribute, so it raised AttributeError on the first
-    row, the surrounding except swallowed it, and the classifier ran with no
-    personal context at all. getattr keeps it robust to future schema drift.
-    """
-    lines: list = []
-    for m in mems:
-        c = (getattr(m, "text", "") or "").strip()
-        if c:
-            lines.append(f"- {c[:200]}")
-        if len(lines) >= limit:
-            break
-    return lines
-
-
-async def action_classify_events(owner: str, **kwargs) -> Tuple[str, bool]:
-    """Hybrid classification of upcoming calendar events: fast heuristic for
-    obvious cases, LLM fallback for ambiguous ones. Assigns event_type +
-    importance + color. Re-classifies anything not already set."""
-    try:
-        from datetime import timedelta
-        from core.database import SessionLocal, CalendarEvent
-        from src.llm_core import llm_call_async_with_fallback
-        import re as _re, json as _json
-
-        db = SessionLocal()
-        try:
-            now = datetime.utcnow()
-            horizon = now + timedelta(days=30)
-            events = db.query(CalendarEvent).filter(
-                CalendarEvent.dtstart >= now,
-                CalendarEvent.dtstart <= horizon,
-                CalendarEvent.status != "cancelled",
-            ).all()
-            if not events:
-                return "No upcoming events to classify", True
-
-            from src.task_endpoint import resolve_task_candidates
-            llm_candidates = resolve_task_candidates(owner=owner)
-            llm_available = bool(llm_candidates)
-
-            # Pull user memories so the LLM has personal context (relationships,
-            # job, hobbies). Helps it know e.g. "<name> is your spouse" so their
-            # events are personal/social, not work.
-            _memory_context = ""
-            try:
-                from core.database import Memory as _Mem
-                _mems = db.query(_Mem).filter(_Mem.owner == owner).limit(60).all() if owner else []
-                _lines = _memory_context_lines(_mems)
-                if _lines:
-                    _memory_context = "USER CONTEXT (relationships, work, life):\n" + "\n".join(_lines) + "\n\n"
-            except Exception as _me:
-                logger.warning(f"Could not load memory for classify: {_me}")
-
-            classified_h = 0
-            classified_llm = 0
-            failed = 0
-            unchanged = 0
-            # Pass 1: heuristic for obvious cases, collect ambiguous for LLM batch
-            llm_queue = []  # list of CalendarEvent objects needing LLM
-            for ev in events:
-                if ev.event_type and ev.importance and ev.importance != "normal":
-                    unchanged += 1
-                    continue
-                etype, importance = _classify_event_heuristic(ev.summary or "")
-                if etype and importance:
-                    ev.event_type = etype
-                    ev.color = _TYPE_COLORS.get(etype)
-                    ev.importance = importance
-                    classified_h += 1
-                    continue
-                # Apply partial heuristic; queue for LLM to fill missing
-                if etype:
-                    ev.event_type = etype
-                    ev.color = _TYPE_COLORS.get(etype)
-                if llm_available:
-                    llm_queue.append(ev)
-                elif etype:
-                    classified_h += 1
-            # Persist heuristic results before LLM pass (in case LLM is slow/unavailable)
-            try:
-                db.commit()
-            except Exception:
-                pass
-
-            # Pass 2: batch LLM classification (10 events per call)
-            BATCH = 10
-            for i in range(0, len(llm_queue), BATCH):
-                batch = llm_queue[i:i+BATCH]
-                items = [
-                    {"i": idx, "title": (ev.summary or "")[:120],
-                     "when": ev.dtstart.isoformat() if ev.dtstart else "",
-                     "loc": (ev.location or "")[:80]}
-                    for idx, ev in enumerate(batch)
-                ]
-                prompt = (
-                    _memory_context +
-                    "Classify these calendar events using the USER CONTEXT above (people they know, "
-                    "their job, hobbies). Return ONLY a raw JSON array, no prose, no markdown.\n"
-                    "Each item: {\"i\": <index>, \"type\": \"work|personal|health|travel|meal|social|admin|other\", "
-                    "\"importance\": \"low|normal|high|critical\"}\n\n"
-                    "Type guidance:\n"
-                    "- personal = family, partner, kids, pets, errands, home stuff\n"
-                    "- social = friends, parties, birthdays, hangouts\n"
-                    "- work = the user's own job/career commitments only (not their partner's)\n"
-                    "- health = doctor, gym, therapy\n"
-                    "- travel = flights, trips, hotels\n"
-                    "- meal = lunch/dinner/coffee specifically\n"
-                    "- admin = bills, taxes, paperwork\n"
-                    "- other = anything else\n\n"
-                    "Importance guide: critical = surgery/court/wedding day; high = flight/interview/big presentation/exam; "
-                    "normal = regular meetings/appointments; low = recurring routine.\n\n"
-                    f"EVENTS: {_json.dumps(items)}"
-                )
-                try:
-                    await wait_for_interactive_quiet("calendar classification action")
-                    raw = await llm_call_async_with_fallback(
-                        llm_candidates,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.1, max_tokens=16384,
-                        timeout=180,
-                    )
-                    from src.text_helpers import strip_think as _st
-                    raw = _st(raw or "", prose=False, prompt_echo=False)
-                    raw = _re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=_re.MULTILINE).strip()
-                    m = _re.search(r"\[.*\]", raw, _re.DOTALL)
-                    if not m:
-                        logger.warning(f"[classify-llm] no JSON array in response: {raw[:300]!r}")
-                        failed += len(batch)
-                        continue
-                    arr = _json.loads(m.group())
-                    by_idx = {x.get("i"): x for x in arr if isinstance(x, dict)}
-                    for idx, ev in enumerate(batch):
-                        x = by_idx.get(idx)
-                        if not x:
-                            failed += 1
-                            continue
-                        t = (x.get("type") or "other").lower()
-                        imp = (x.get("importance") or "normal").lower()
-                        if t in _TYPE_COLORS:
-                            ev.event_type = t
-                            ev.color = _TYPE_COLORS[t]
-                        if imp in ("low", "normal", "high", "critical"):
-                            ev.importance = imp
-                        classified_llm += 1
-                        logger.info(f"[classify-llm] '{ev.summary}' → type={t} importance={imp}")
-                except Exception as e:
-                    logger.warning(f"[classify-llm] batch failed: {e}")
-                    failed += len(batch)
-                # Commit after each batch so partial progress persists
-                try:
-                    db.commit()
-                except Exception as ce:
-                    logger.warning(f"[classify-llm] commit failed: {ce}")
-            # Final commit covers heuristic-only updates from pass 1
-            db.commit()
-            parts = [f"Scanned {len(events)} upcoming event(s)"]
-            if classified_h:
-                parts.append(f"{classified_h} via heuristic")
-            if classified_llm:
-                parts.append(f"{classified_llm} via LLM")
-            if unchanged:
-                parts.append(f"{unchanged} already set (skipped)")
-            if failed:
-                parts.append(f"{failed} LLM failed")
-            return " · ".join(parts), True
-        finally:
-            db.close()
-    except Exception as e:
-        logger.error(f"classify_events action failed: {e}")
-        return str(e), False
-
-
-async def action_ping_events(owner: str, **kwargs) -> Tuple[str, bool]:
-    """Calendar event reminders are now dispatched by Notes."""
-    raise TaskNoop("calendar event reminders are handled by Notes")
-
-
 async def action_daily_brief(owner: str, **kwargs) -> Tuple[str, bool]:
-    """Build a short morning digest: today's calendar events and active todos."""
+    """Build a short morning digest: active todos and pinned notes."""
     try:
-        from datetime import datetime as _dt, timedelta as _td
+        from datetime import datetime as _dt
         import json as _json
 
-        from core.database import SessionLocal, CalendarEvent, CalendarCal, Note
+        from core.database import SessionLocal, Note
 
-        # ----- Calendar: today's events -----
         today = _dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        tomorrow = today + _td(days=1)
         # Single-user deploy: owner=None rows belong to the one user, so
         # including them in the brief is safe.
         _allow_null = True
         db = SessionLocal()
         try:
-            ev_q = db.query(CalendarEvent).join(CalendarCal).filter(
-                CalendarEvent.dtstart < tomorrow,
-                CalendarEvent.dtend > today,
-                CalendarEvent.status != "cancelled",
-            )
-            if owner:
-                ev_q = owner_filter(ev_q, CalendarCal, owner, include_shared=_allow_null)
-            events = ev_q.order_by(CalendarEvent.dtstart).all()
             # ----- Notes: pinned + non-archived todos with at least one undone item -----
             n_q = db.query(Note).filter(Note.archived == False)  # noqa: E712
             if owner:
@@ -792,17 +421,6 @@ async def action_daily_brief(owner: str, **kwargs) -> Tuple[str, bool]:
         date_label = today.strftime(f"%A, %B {today.day}, %Y")
 
         plain = [f"Daily brief — {date_label}", ""]
-        if events:
-            plain.append("Calendar:")
-            for e in events:
-                t = e.dtstart.strftime("%H:%M") if not e.all_day else "all day"
-                loc = f" @ {e.location}" if e.location else ""
-                plain.append(f"  {t}  {e.summary}{loc}")
-            plain.append("")
-        else:
-            plain.append("Calendar: nothing scheduled.")
-            plain.append("")
-
         if todo_lines:
             plain.append("Todos:")
             for t in todo_lines[:10]:
@@ -1014,7 +632,7 @@ async def action_audit_skills(owner: str, **kwargs) -> Tuple[str, bool]:
 async def action_ping_notes(owner: str, **kwargs) -> Tuple[str, bool]:
     """Background note-due scanner. Fires a reminder for any note whose
     `due_date` falls in the current ±5-minute window and hasn't been pinged
-    within the last 25 minutes. Mirrors `action_ping_events` for calendar.
+    within the last 25 minutes.
 
     State (`data/note_pings.json`): {note_id: iso_ts_of_last_ping}. Pruned
     on each run by dropping entries for notes that are gone/archived/replied.
@@ -1406,9 +1024,6 @@ BUILTIN_ACTIONS = {
     "tidy_documents": action_tidy_documents,
     "consolidate_memory": action_consolidate_memory,
     "tidy_research": action_tidy_research,
-    "classify_events": action_classify_events,
-    # ping_events removed from the user-facing registry. Calendar reminders
-    # are represented as Notes, so note pings are the single dispatch path.
     "daily_brief": action_daily_brief,
     "ssh_command": action_ssh_command,
     "run_script": action_run_script,
@@ -1425,8 +1040,7 @@ BUILTIN_ACTION_INFO = {
     "tidy_documents": "Remove junk/empty documents",
     "consolidate_memory": "Remove duplicate memories",
     "tidy_research": "Remove orphaned research files (sessions that were deleted)",
-    "classify_events": "Tag upcoming events with importance (low/normal/high/critical) and type (work/health/travel/etc.); colors them too",
-    "daily_brief": "Build a morning digest: today's calendar and active todos",
+    "daily_brief": "Build a morning digest: active todos and pinned notes",
     "ssh_command": "Run a shell command on a local or remote host",
     "run_script": "Run a script locally or on ODYSSEUS_SCRIPT_HOST",
     "test_skills": "Run the per-skill Test on every skill: agent run + LLM judge → records verdict on the skill (pass/needs_work/fail/inconclusive). Advisory only — never rewrites or demotes anything.",

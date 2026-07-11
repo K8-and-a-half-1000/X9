@@ -187,27 +187,6 @@ class TestProbeEndpointParsing:
         )
         assert _probe_endpoint("https://api.example.com/v1") == []
 
-    def test_chatgpt_subscription_probe_uses_discovery_only(self, monkeypatch):
-        _patch_resolve(monkeypatch)
-        calls = []
-
-        def fake_fetch(access_token, timeout=5):
-            calls.append((access_token, timeout))
-            return ["gpt-5.5"]
-
-        monkeypatch.setattr("src.chatgpt_subscription.fetch_available_models", fake_fetch)
-
-        assert _probe_endpoint("https://chatgpt.com/backend-api/codex", "ACCESS", timeout=7) == ["gpt-5.5"]
-        assert calls == [("ACCESS", 7)]
-
-    def test_chatgpt_subscription_probe_without_discovery_returns_empty(self, monkeypatch):
-        _patch_resolve(monkeypatch)
-        monkeypatch.setattr("src.chatgpt_subscription.fetch_available_models", lambda access_token, timeout=5: [])
-
-        assert _probe_endpoint("https://chatgpt.com/backend-api/codex", "ACCESS") == []
-        assert _probe_endpoint("https://chatgpt.com/backend-api/codex") == []
-
-
 # ── _ping_endpoint: reachability classification ──
 
 class TestPingEndpoint:
@@ -418,23 +397,6 @@ class TestProbeSingleModel:
         _probe_single_model("https://api.anthropic.com/v1", "sk-ant", "claude-sonnet-4-5", with_tools=True)
         assert "input_schema" in captured["payload"]["tools"][0]
 
-    def test_chatgpt_subscription_skips_completion_probe(self, monkeypatch):
-        # This provider speaks the Responses/Codex API. A chat-completions probe
-        # would 400 and (via the re-probe flow) hide every model, so it must be
-        # short-circuited as discovery-only without any HTTP call.
-        _patch_resolve(monkeypatch)
-
-        def boom(*args, **kwargs):
-            raise AssertionError("must not send a completion probe for chatgpt-subscription")
-
-        monkeypatch.setattr(model_routes.httpx, "post", boom)
-        result = _probe_single_model("https://chatgpt.com/backend-api/codex", None, "gpt-5.1-codex")
-        assert result["status"] == "ok"
-        assert result.get("skipped") is True
-        # Pin the full documented return shape — downstream JSON/UI reads latency_ms.
-        assert result["latency_ms"] == 0
-
-
 # ── _resolve_probe_key: static key vs provider-auth runtime token ──
 
 class TestResolveProbeKey:
@@ -442,19 +404,19 @@ class TestResolveProbeKey:
         ep = types.SimpleNamespace(id="e1", api_key="sk-static", provider_auth_id=None, owner=None)
         assert _resolve_probe_key(ep) == "sk-static"
 
-    def test_provider_auth_endpoint_resolves_runtime_token(self, monkeypatch):
+    def test_endpoint_resolves_runtime_key(self, monkeypatch):
         ep = types.SimpleNamespace(id="e2", api_key=None, provider_auth_id="auth123", owner="alice")
         seen = {}
 
         def fake_runtime(endpoint, owner=None):
             seen["owner"] = owner
-            return ("https://chatgpt.com/backend-api/codex", "live-bearer")
+            return ("http://gpu-box.local:8000/v1", "live-bearer")
 
         monkeypatch.setattr(endpoint_resolver, "resolve_endpoint_runtime", fake_runtime)
         assert _resolve_probe_key(ep) == "live-bearer"
         assert seen["owner"] == "alice"
 
-    def test_provider_auth_resolution_failure_returns_none(self, monkeypatch):
+    def test_runtime_key_resolution_failure_returns_none(self, monkeypatch):
         ep = types.SimpleNamespace(id="e3", api_key=None, provider_auth_id="auth123", owner=None)
 
         def boom(endpoint, owner=None):

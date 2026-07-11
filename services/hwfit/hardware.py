@@ -306,116 +306,6 @@ def _detect_amd():
         return None
 
 
-def _detect_apple_silicon():
-    """Detect Apple Silicon (M-series) GPUs.
-
-    Macs have no discrete VRAM — the GPU shares the system's unified memory.
-    We report a fraction of total RAM as the usable GPU budget (matching macOS's
-    default Metal working-set limit) so the Cookbook recommends models that
-    actually run on the GPU instead of classifying the machine as CPU-only.
-
-    backend="metal" is what services.hwfit.fit and the serve-command generation
-    key off of (they already understand MLX / llama.cpp-Metal). Works locally
-    (platform.system()=="Darwin") and over SSH (uname -s == Darwin).
-    """
-    # Gate to macOS — locally via platform, remotely via uname.
-    if _remote_host:
-        if "darwin" not in (_run(["uname", "-s"]) or "").lower():
-            return None
-        arch = (_run(["uname", "-m"]) or "").lower()
-    else:
-        if platform.system() != "Darwin":
-            return None
-        arch = platform.machine().lower()
-
-    # Only Apple Silicon (arm64) has a Metal GPU worth serving LLMs on; Intel
-    # Macs fall through to the CPU path.
-    if _canonical_cpu_arch(arch) != "arm64":
-        return None
-
-    # Chip name, e.g. "Apple M4 Max" — carries the Pro/Max/Ultra variant that
-    # the fit bandwidth table keys off of.
-    brand = (_run(["sysctl", "-n", "machdep.cpu.brand_string"]) or "Apple Silicon").strip()
-
-    # Total unified memory in bytes.
-    memsize = _run(["sysctl", "-n", "hw.memsize"])
-    try:
-        total_gb = int(memsize) / (1024**3) if memsize else 0.0
-    except ValueError:
-        total_gb = 0.0
-    if total_gb <= 0:
-        return None
-
-    def _parse_apple_gpu_cores(text):
-        if not text:
-            return None
-        try:
-            data = json.loads(text)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            data = None
-        if isinstance(data, dict):
-            for gpu in data.get("SPDisplaysDataType") or []:
-                if not isinstance(gpu, dict):
-                    continue
-                model = str(gpu.get("sppci_model") or gpu.get("_name") or "")
-                if "apple" not in model.lower():
-                    continue
-                cores = gpu.get("sppci_cores")
-                try:
-                    return int(str(cores).strip())
-                except (TypeError, ValueError):
-                    continue
-        m = re.search(r"Total Number of Cores:\s*(\d+)", text)
-        if m:
-            try:
-                return int(m.group(1))
-            except ValueError:
-                return None
-        return None
-
-    gpu_cores = _parse_apple_gpu_cores(_run(["system_profiler", "SPDisplaysDataType", "-json"]))
-    if gpu_cores is None:
-        gpu_cores = _parse_apple_gpu_cores(_run(["system_profiler", "SPDisplaysDataType"]))
-
-    # Usable GPU budget. macOS lets Metal use most of unified memory, but the
-    # default working-set limit scales with RAM: small machines have to keep
-    # more back for the OS + app. These fractions track Apple's
-    # recommendedMaxWorkingSetSize defaults across the lineup. Honour an
-    # explicit override if the user raised it with
-    # `sudo sysctl iogpu.wired_limit_mb=…`.
-    if total_gb <= 16:
-        frac = 0.67
-    elif total_gb <= 64:
-        frac = 0.75
-    else:
-        frac = 0.80
-    vram_gb = round(total_gb * frac, 1)
-    wired = _run(["sysctl", "-n", "iogpu.wired_limit_mb"])
-    try:
-        wired_mb = int(wired) if wired else 0
-        if wired_mb > 0:
-            vram_gb = round(wired_mb / 1024.0, 1)
-    except ValueError:
-        pass
-
-    gpu = {"index": 0, "name": brand, "vram_gb": vram_gb}
-    info = {
-        "gpu_name": brand,
-        "gpu_vram_gb": vram_gb,
-        "gpu_count": 1,
-        "gpus": [gpu],
-        "gpu_groups": _group_gpus([gpu]),
-        "homogeneous": True,
-        "backend": "metal",
-        # Unified memory: the "VRAM" above is carved out of system RAM, not a
-        # separate pool — downstream fit logic uses this to avoid double-budgeting.
-        "unified_memory": True,
-    }
-    if gpu_cores is not None:
-        info["gpu_cores"] = gpu_cores
-    return info
-
-
 def _read_file(path):
     """Read a file, locally or via SSH."""
     if _remote_host:
@@ -486,11 +376,6 @@ def _get_cpu_name():
             if line.startswith("model name"):
                 return line.split(":", 1)[1].strip()
 
-    # macOS has no /proc/cpuinfo — sysctl gives the chip name (e.g. "Apple M4").
-    # Harmlessly returns nothing on Linux, so it's safe to try unconditionally.
-    brand = _run(["sysctl", "-n", "machdep.cpu.brand_string"])
-    if brand and brand.strip():
-        return brand.strip()
 
     if not _remote_host:
         return platform.processor() or "unknown"
@@ -555,9 +440,6 @@ def _probe_remote_platform():
     if out and "Windows_NT" in out:
         return "windows"
     uname = (_run(["uname", "-s"]) or "").strip().lower()
-    if uname == "darwin":
-        # Mac uses the linux detection path (_detect_apple_silicon over SSH).
-        return "linux"
     if uname == "linux":
         out = _run("test -d /data/data/com.termux && echo termux || echo linux")
         if out and "termux" in out:
@@ -781,7 +663,7 @@ def detect_system(host="", ssh_port="", platform="", fresh=False):
     cpu_name = _get_cpu_name()
     cpu_arch = _get_cpu_arch()
 
-    gpu_info = _detect_apple_silicon() or _detect_nvidia() or _detect_amd()
+    gpu_info = _detect_nvidia() or _detect_amd()
 
     if gpu_info:
         result = {
@@ -799,7 +681,7 @@ def detect_system(host="", ssh_port="", platform="", fresh=False):
             "gpu_groups": gpu_info.get("gpu_groups", []),
             "homogeneous": gpu_info.get("homogeneous", True),
             "backend": gpu_info["backend"],
-            # Apple Silicon / AMD APUs share system RAM with the GPU — carry the
+            # AMD APUs share system RAM with the GPU — carry the
             # flag through so callers can tell unified from discrete VRAM.
             "unified_memory": gpu_info.get("unified_memory", False),
         }

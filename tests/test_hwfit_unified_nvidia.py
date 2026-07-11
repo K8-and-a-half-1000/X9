@@ -41,7 +41,6 @@ def test_detect_system_reports_gb10_as_gpu(monkeypatch):
     monkeypatch.setattr(hardware, "_get_available_ram_gb", lambda: 120.0)
     monkeypatch.setattr(hardware, "_get_cpu_count", lambda: 20)
     monkeypatch.setattr(hardware, "_get_cpu_name", lambda: "NVIDIA Grace")
-    monkeypatch.setattr(hardware, "_detect_apple_silicon", lambda: None)
     s = hardware.detect_system(fresh=True)
     assert s["has_gpu"] is True
     assert s["gpu_name"] == "NVIDIA GB10"
@@ -86,7 +85,6 @@ def test_detect_system_cache_separates_same_host_different_ports(monkeypatch):
     monkeypatch.setattr(hardware, "_get_available_ram_gb", lambda: 40.0)
     monkeypatch.setattr(hardware, "_get_cpu_count", lambda: 16)
     monkeypatch.setattr(hardware, "_get_cpu_name", lambda: "AMD Ryzen")
-    monkeypatch.setattr(hardware, "_detect_apple_silicon", lambda: None)
     monkeypatch.setattr(hardware, "_detect_nvidia", lambda: None)
     monkeypatch.setattr(hardware, "_detect_amd", lambda: None)
     monkeypatch.setattr(hardware, "_run", lambda _cmd: "x86_64")
@@ -135,7 +133,6 @@ def test_detect_system_cache_hits_when_remote_context_matches(monkeypatch):
     monkeypatch.setattr(hardware, "_get_available_ram_gb", lambda: 40.0)
     monkeypatch.setattr(hardware, "_get_cpu_count", lambda: 16)
     monkeypatch.setattr(hardware, "_get_cpu_name", lambda: "AMD Ryzen")
-    monkeypatch.setattr(hardware, "_detect_apple_silicon", lambda: None)
     monkeypatch.setattr(hardware, "_detect_nvidia", lambda: None)
     monkeypatch.setattr(hardware, "_detect_amd", lambda: None)
     monkeypatch.setattr(hardware, "_run", lambda _cmd: "x86_64")

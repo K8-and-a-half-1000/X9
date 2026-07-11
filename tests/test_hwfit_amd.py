@@ -4,7 +4,7 @@ Consumer AMD Radeon (RDNA: gfx10/11/12) can realistically only serve GGUF via
 llama.cpp — vLLM/SGLang on ROCm are validated for datacenter Instinct (CDNA,
 gfx9xx), not consumer cards, where AWQ kernels are largely unsupported and FP8
 needs out-of-tree patches. These tests lock in that consumer RDNA is treated
-like Apple Silicon (GGUF-only recommendations) while datacenter CDNA and
+as GGUF-only for recommendations, while datacenter CDNA and
 unknown-family AMD are left untouched, and that CUDA is unchanged.
 """
 
@@ -182,7 +182,7 @@ def test_sort_by_newest_orders_by_release_date():
 
 
 def test_no_vendor_specific_formats_on_consumer_rdna():
-    """Consumer Radeon can't run NVIDIA NVFP4, Apple MLX, or vLLM-only FP8/AWQ/
+    """Consumer Radeon can't run NVIDIA NVFP4, MLX, or vLLM-only FP8/AWQ/
     GPTQ builds — none should be recommended on RDNA even though such repos DO
     exist in the catalog. Guards the format filter directly (not just is_gguf)."""
     import re

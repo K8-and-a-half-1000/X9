@@ -230,13 +230,6 @@ export function _isWindows(hostOrTask) {
   return _getPlatform(hostOrTask) === 'windows';
 }
 
-/** Check if the detected (local) hardware is Apple Silicon / Metal. Keys off the
- *  hardware probe's backend rather than a platform string, since a local Mac
- *  reports no platform but does report backend: "metal". */
-export function _isMetal() {
-  return ['metal', 'mps', 'apple'].includes(String(_hwfitCache?.system?.backend || '').toLowerCase());
-}
-
 /** Detect model-specific vLLM optimizations */
 function _isStepFunStepModel(modelName) {
   const n = (modelName || '').toLowerCase();
@@ -406,7 +399,6 @@ export function _detectBackend(model) {
   const q = (model.quant || '').toUpperCase();
   const sysBackend = String(_hwfitCache?.system?.backend || '').toLowerCase();
   const isRocm = sysBackend === 'rocm';
-  const isAppleSilicon = ['metal', 'mps', 'apple'].includes(sysBackend);
   const _nm = `${model.repo_id || ''} ${model.path || ''} ${model.name || ''}`.toLowerCase();
   if (/\bmlx\b|mlx-|_mlx/i.test(_nm) || q.startsWith('MLX')) {
     return { backend: 'unsupported', label: 'Unsupported' };
@@ -422,8 +414,8 @@ export function _detectBackend(model) {
   }
 
   // AWQ / GPTQ / FP8 are safetensors GPU-serving formats. Never route them
-  // through llama.cpp/Ollama just because the host is Mac/Windows; those engines
-  // need GGUF. The UI will warn/block on Metal where vLLM/SGLang aren't viable.
+  // through llama.cpp/Ollama just because the host is Windows; those engines
+  // need GGUF.
   if (isAwqLike) {
     return { backend: 'vllm', label: 'vLLM' };
   }
@@ -435,13 +427,6 @@ export function _detectBackend(model) {
 
   // Windows → default to llama.cpp (no vLLM support on Windows)
   if (_isWindows()) {
-    return { backend: 'llamacpp', label: 'llama.cpp' };
-  }
-
-  // Apple Silicon (Metal) → llama.cpp (GGUF). vLLM/SGLang are CUDA/ROCm-only and
-  // don't run on macOS; vLLM-native quantized models are already filtered out
-  // of metal Cookbook results, so llama.cpp is always the right engine here.
-  if (['metal', 'mps', 'apple'].includes(sysBackend)) {
     return { backend: 'llamacpp', label: 'llama.cpp' };
   }
 
@@ -467,9 +452,9 @@ export function _psQuote(value) {
 }
 
 // Pick the GPU-pinning env-var name for the detected backend. NVIDIA uses
-// CUDA_VISIBLE_DEVICES; ROCm/HIP uses HIP_VISIBLE_DEVICES; Vulkan and
-// Apple Metal don't take an index env var at all (and CUDA_VISIBLE_DEVICES
-// is a silent no-op on those, which silently hides "wrong backend" config
+// CUDA_VISIBLE_DEVICES; ROCm/HIP uses HIP_VISIBLE_DEVICES; Vulkan doesn't
+// take an index env var at all (and CUDA_VISIBLE_DEVICES is a silent no-op
+// on those, which silently hides "wrong backend" config
 // bugs). Returns 'cmd ' style prefix ('CUDA_VISIBLE_DEVICES=0 ') or '' when
 // the backend doesn't support pinning. Pass isWindows=true to get PowerShell
 // `$env:` syntax instead. backend defaults to whatever hwfit detected.
@@ -487,7 +472,7 @@ function _gpuEnvVarName() {
   const sb = String(_hwfitCache?.system?.backend || '').toLowerCase();
   if (sb === 'cuda') return 'CUDA_VISIBLE_DEVICES';
   if (sb === 'rocm') return 'HIP_VISIBLE_DEVICES';
-  return ''; // vulkan / metal / mps / apple / cpu / generic / unknown — no env-var pinning
+  return ''; // vulkan / cpu / generic / unknown — no env-var pinning
 }
 function _gpuEnvPrefix(gpuId, isWindows = false) {
   const id = String(gpuId || '').trim();
@@ -663,7 +648,7 @@ export function _buildServeCmd(f, modelName, backend) {
       f.ngl = '99';
     }
     const _cpuOnly = String(f.ngl).trim() === '0';
-    // GGML_CUDA_* env vars are no-ops on Vulkan/ROCm/Metal/CPU. Only emit
+    // GGML_CUDA_* env vars are no-ops on Vulkan/ROCm/CPU. Only emit
     // them when the detected backend is actually CUDA AND the hwfit scan
     // was run against the currently-targeted host, so a saved preset
     // from a prior NVIDIA target doesn't pollute a non-NVIDIA launch
@@ -686,7 +671,7 @@ export function _buildServeCmd(f, modelName, backend) {
     const needsGgufPrelude = /^\$\(\{\s*find\s/.test(String(ggufPath || ''));
     const modelArg = needsGgufPrelude ? '"$MODEL_FILE"' : `"${ggufPath}"`;
     // Prefer native llama-server. The backend bootstrap resolves/builds the
-    // right binary (Vulkan/HIP/CUDA/Metal/CPU), so keep the generated command
+    // right binary (Vulkan/HIP/CUDA/CPU), so keep the generated command
     // as a validator-safe binary + args with no shell chaining.
     // Don't suppress stderr — surface real errors (missing file, lib, OOM).
     // Optional perf/fit flags from a hardware profile (see services/hwfit/
@@ -2269,7 +2254,7 @@ function _wireTabEvents(body) {
           return data.models || [];
         };
         let models = await _fetchLatest(vram);
-        if (['rocm', 'metal', 'mps', 'apple', 'generic', 'cpu'].includes(hwInfo.backend)) {
+        if (['rocm', 'generic', 'cpu'].includes(hwInfo.backend)) {
           models = models.filter(m => !_hfModelLooksAwqLike(m));
         }
         if (!models.length) {
@@ -3161,7 +3146,6 @@ const shared = {
   _selectedServer,
   _getPlatform,
   _isWindows,
-  _isMetal,
   _buildEnvPrefix,
   _buildServeCmd,
   _shellQuote,

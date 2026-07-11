@@ -18,8 +18,6 @@ ALLOWED_SCOPES = {
     "todos:write",
     "documents:read",
     "documents:write",
-    "calendar:read",
-    "calendar:write",
     "memory:read",
     "memory:write",
     "cookbook:read",
@@ -61,7 +59,6 @@ def _normalize_scopes(scopes: str | list[str] | None = None, profile: str | None
 
     ensure_before("todos:write", "todos:read")
     ensure_before("documents:write", "documents:read")
-    ensure_before("calendar:write", "calendar:read")
     ensure_before("memory:write", "memory:read")
     ensure_before("cookbook:launch", "cookbook:read")
 

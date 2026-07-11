@@ -559,24 +559,6 @@ def _is_chat_model(model_id: str) -> bool:
     return True
 
 
-def _delete_orphaned_provider_auth(db, auth_id: Optional[str], exclude_ep_id: Optional[str] = None) -> bool:
-    """Delete a ProviderAuthSession once no endpoint still references it."""
-    if not auth_id:
-        return False
-    from core.database import ProviderAuthSession
-    still_referenced = db.query(ModelEndpoint.id).filter(
-        ModelEndpoint.provider_auth_id == auth_id,
-        ModelEndpoint.id != exclude_ep_id,
-    ).first()
-    if still_referenced is not None:
-        return False
-    auth_row = db.query(ProviderAuthSession).filter(ProviderAuthSession.id == auth_id).first()
-    if auth_row is None:
-        return False
-    db.delete(auth_row)
-    return True
-
-
 def _safe_detect_provider(base_url: str) -> str:
     """Best-effort provider detection that must not break endpoint probing."""
     try:
@@ -606,10 +588,6 @@ def _safe_build_headers(api_key: Optional[str], base_url: str) -> dict:
         return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
 
-def _is_discovery_only_provider(provider: str) -> bool:
-    return provider == "chatgpt-subscription"
-
-
 def _resolve_probe_key(ep) -> Optional[str]:
     """API key/bearer to probe an endpoint with."""
     try:
@@ -624,8 +602,6 @@ def _resolve_probe_key(ep) -> Optional[str]:
 def _probe_single_model(base: str, api_key: str, model_id: str, timeout: int = 10, with_tools: bool = False) -> dict:
     """Send a realistic completion request to a single model. Returns {status, latency_ms, error?}."""
     provider = _safe_detect_provider(base)
-    if _is_discovery_only_provider(provider):
-        return {"status": "ok", "latency_ms": 0, "skipped": True}
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Say OK"},
@@ -791,11 +767,6 @@ def _probe_endpoint(base_url: str, api_key: str = None, timeout: int = 5) -> Lis
     from src.llm_core import httpx_get_kimi_aware
     base = resolve_url(_normalize_base(base_url))
     provider = _safe_detect_provider(base)
-    if provider == "chatgpt-subscription":
-        from src.chatgpt_subscription import fetch_available_models
-        if api_key:
-            return fetch_available_models(api_key, timeout=timeout)
-        return []
     if provider == "anthropic":
         # Try Anthropic's /v1/models endpoint first
         url = _safe_build_models_url(base)
@@ -2389,9 +2360,7 @@ def setup_model_routes(model_discovery):
             cleared_user_preferences = _clear_user_prefs_for_endpoint(ep_id)
             cleared_sessions = _clear_sessions_for_endpoint(db, ep.base_url)
             cleared_loaded_sessions = _clear_loaded_sessions_for_endpoint(ep.base_url)
-            auth_id = getattr(ep, "provider_auth_id", None)
             db.delete(ep)
-            cleared_provider_auth = _delete_orphaned_provider_auth(db, auth_id, exclude_ep_id=ep_id)
             db.commit()
             _invalidate_models_cache()
             _local_probe_cache["data"] = None
@@ -2401,7 +2370,6 @@ def setup_model_routes(model_discovery):
                 "cleared_user_preferences": cleared_user_preferences,
                 "cleared_sessions": cleared_sessions,
                 "cleared_loaded_sessions": cleared_loaded_sessions,
-                "cleared_provider_auth": cleared_provider_auth,
             }
         finally:
             db.close()

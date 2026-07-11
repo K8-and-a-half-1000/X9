@@ -123,15 +123,14 @@ async def do_manage_notes(content: str, owner: Optional[str] = None) -> Dict:
             due_iso = None
             if due_raw:
                 try:
-                    from routes.calendar_routes import parse_due_for_user as _pdt_user
+                    from src.due_parsing import parse_due_for_user as _pdt_user
                     due_iso = _pdt_user(due_raw)
                 except Exception:
                     due_iso = due_raw  # fall through; trust the model
             if due_iso and title:
-                # Calendar event reminders are represented as Notes. If the
-                # model creates a calendar event with reminder_minutes and then
-                # also creates a separate note reminder for the same title/time,
-                # keep the existing note so the user gets only one dispatch.
+                # If the model creates a duplicate reminder note for the same
+                # title/time, keep the existing note so the user gets only one
+                # dispatch.
                 existing_q = db.query(Note).filter(
                     Note.archived == False,  # noqa: E712
                     Note.due_date == due_iso,
@@ -196,7 +195,7 @@ async def do_manage_notes(content: str, owner: Optional[str] = None) -> Dict:
             if args.get("due_date") is not None:
                 due_raw = args["due_date"]
                 try:
-                    from routes.calendar_routes import parse_due_for_user as _pdt_user
+                    from src.due_parsing import parse_due_for_user as _pdt_user
                     note.due_date = _pdt_user(due_raw)
                 except Exception:
                     note.due_date = due_raw  # fall through; trust the model

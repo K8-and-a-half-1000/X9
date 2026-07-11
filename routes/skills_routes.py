@@ -326,7 +326,7 @@ def _should_check_retrieval_precision(skill: dict) -> bool:
     broad = {
         "arch", "arch linux", "linux", "network", "networking", "wifi",
         "installation", "install", "system", "ssh", "document", "documents",
-        "search", "email", "calendar", "gpu", "server", "python",
+        "search", "gpu", "server", "python",
     }
     if not isinstance(skill, dict):
         return False

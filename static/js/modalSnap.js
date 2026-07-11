@@ -518,7 +518,7 @@ function _applyDockInternal(modal, side, dockClass) {
   if (!modal._dockCloseWatcher && typeof MutationObserver !== 'undefined') {
     const onGone = () => _onDockedModalGone(modal, dockClass);
     // Watch the modal for: the `.hidden` class flip, an inline
-    // `display:none` (how the draggable modals — calendar, plan, workspace,
+    // `display:none` (how the draggable modals — plan, workspace,
     // etc. — actually close), and parent removal. Without the `style` filter
     // a display:none close left the body's dock padding on, so the chat
     // stayed shifted after the docked modal was closed.
@@ -572,7 +572,7 @@ function _onDockedModalGone(modal, dockClass) {
   modal.classList.remove('modal-right-docked');
   modal.classList.remove('modal-left-docked');
   // Clear the content's docked inline geometry. Singleton modals (plan,
-  // workspace, calendar, …) reuse the same element across open/close, so if we
+  // workspace, …) reuse the same element across open/close, so if we
   // only drop the body push the element stays positioned (position:fixed;
   // right:0; fixed width) on the next open — floating over the chat with no
   // push. We deliberately do NOT restore the pre-dock snapshot here: that

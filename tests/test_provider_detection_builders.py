@@ -31,12 +31,6 @@ class TestBuildersRejectLookalikeHosts:
     def test_real_anthropic_chat(self):
         assert build_chat_url("https://api.anthropic.com") == "https://api.anthropic.com/v1/messages"
 
-    def test_chatgpt_subscription_chat_uses_responses(self):
-        assert build_chat_url("https://chatgpt.com/backend-api/codex") == "https://chatgpt.com/backend-api/codex/responses"
-
-    def test_chatgpt_subscription_models_uses_no_live_probe(self):
-        assert build_models_url("https://chatgpt.com/backend-api/codex") is None
-
     def test_lookalike_anthropic_chat_is_openai(self):
         assert build_chat_url("https://notanthropic.com") == "https://notanthropic.com/chat/completions"
 

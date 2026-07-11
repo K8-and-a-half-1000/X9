@@ -106,16 +106,3 @@ def test_probe_remote_platform_detects_windows(monkeypatch):
     monkeypatch.setattr(hardware, "_run", lambda cmd: "Windows_NT\n")
     assert hardware._probe_remote_platform() == "windows"
 
-
-def test_probe_remote_platform_detects_darwin(monkeypatch):
-    from services.hwfit import hardware
-
-    def fake_run(cmd):
-        if cmd == "echo %OS%":
-            return "%OS%"
-        if cmd == ["uname", "-s"]:
-            return "Darwin"
-        raise AssertionError(f"unexpected probe cmd: {cmd!r}")
-
-    monkeypatch.setattr(hardware, "_run", fake_run)
-    assert hardware._probe_remote_platform() == "linux"

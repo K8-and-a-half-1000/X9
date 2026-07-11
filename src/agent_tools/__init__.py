@@ -85,7 +85,7 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "suggest_document",
              "manage_endpoints", "manage_mcp", "manage_webhooks",
              "manage_tokens", "manage_documents", "manage_settings",
-             "manage_notes", "manage_calendar",
+             "manage_notes",
              "resolve_contact", "manage_contact",
              # Cookbook tools (LLM serving + downloads). Without these
              # entries, native function calls to e.g. list_served_models

@@ -21,7 +21,7 @@ from src import tool_implementations
 def _install_fakes(monkeypatch, note, parse=None):
     """Stub the modules do_manage_notes imports lazily at call time.
 
-    core.database opens a real sqlite file and routes.calendar_routes needs
+    core.database opens a real sqlite file and src.due_parsing needs
     dateutil, so we inject light fakes. We also pin sqlalchemy.orm.attributes
     (for flag_modified): it imports fine in isolation, but other tests in the
     suite replace sys.modules['sqlalchemy.orm'] with a non-package, so we make
@@ -63,9 +63,9 @@ def _install_fakes(monkeypatch, note, parse=None):
         calls["parsed"].append(s)
         return "PARSED::" + s
 
-    fake_cal = types.ModuleType("routes.calendar_routes")
+    fake_cal = types.ModuleType("src.due_parsing")
     fake_cal.parse_due_for_user = parse or _default_parse
-    monkeypatch.setitem(sys.modules, "routes.calendar_routes", fake_cal)
+    monkeypatch.setitem(sys.modules, "src.due_parsing", fake_cal)
     return calls
 
 

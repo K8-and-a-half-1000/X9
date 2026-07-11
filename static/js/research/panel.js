@@ -258,7 +258,7 @@ export function openPanel(focusJobId) {
   overlay.id = 'research-overlay';
   overlay.className = 'modal research-overlay';
 
-  // Match doclib/gallery/calendar modal sizing exactly so research feels like
+  // Match doclib/gallery modal sizing exactly so research feels like
   // the rest of the modal family (centered, ~640px, 85vh).
   const pane = document.createElement('div');
   pane.id = 'research-pane';
@@ -287,7 +287,7 @@ export function openPanel(focusJobId) {
   };
   document.addEventListener('keydown', _onDocKeydown);
 
-  // Make the pane draggable by its header — same pattern as Library/Calendar.
+  // Make the pane draggable by its header — same pattern as Library.
   const paneHeader = pane.querySelector('.research-pane-header');
   if (themeModule && themeModule.makeDraggable && paneHeader) {
     themeModule.makeDraggable(pane, paneHeader);

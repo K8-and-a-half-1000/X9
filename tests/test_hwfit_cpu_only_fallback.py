@@ -29,12 +29,6 @@ CPU_ARM_SYSTEM = {
     "gpu_vram_gb": 0,
 }
 
-METAL_SYSTEM = {
-    "backend": "metal",
-    "gpu_name": "Apple M3 Max",
-    "gpu_vram_gb": 36.0,
-}
-
 ROCM_SYSTEM = {
     "backend": "rocm",
     "gpu_name": "AMD Radeon RX 7900 XTX",
@@ -76,15 +70,6 @@ def test_cpu_only_on_non_cpu_backend_uses_cpu_x86_fallback(non_cpu_system):
     assert non_cpu_tps > 0
 
 
-def test_cpu_only_on_metal_apple_silicon_uses_cpu_arm_fallback():
-    """Apple Silicon/Metal cpu_only should map to the ARM CPU fallback constant."""
-    metal_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", METAL_SYSTEM)
-    arm_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", CPU_ARM_SYSTEM)
-
-    assert metal_tps == pytest.approx(arm_tps, rel=1e-9, abs=1e-9)
-    assert metal_tps > 0
-
-
 def test_cpu_only_on_gpu_backend_uses_detected_arm64_cpu_arch():
     """A GPU backend on an ARM64 host should use the ARM CPU fallback for cpu_only."""
     cuda_arm64 = dict(CUDA_SYSTEM, cpu_arch="aarch64", cpu_name="Ampere Altra")
@@ -110,7 +95,7 @@ def test_cpu_only_preserves_arm_backends(arm_alias_system):
 
 
 def test_cpu_only_does_not_treat_plain_arm_as_arm64_fallback():
-    """A plain 32-bit `arm` machine string is not the ARM64-class fallback used for Apple Silicon."""
+    """A plain 32-bit `arm` machine string is not the ARM64-class fallback."""
     arm32_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", ARM32_SYSTEM)
     x86_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", CPU_X86_SYSTEM)
 

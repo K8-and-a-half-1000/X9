@@ -377,7 +377,7 @@ function _pickCustomBgImage() {
 
 const COLOR_HEX = {
   '':       'var(--border)',
-  // Pale/pastel palette — matches the calendar event color picker.
+  // Pale/pastel palette.
   red:      '#f0b5ba',
   orange:   '#e8ccb2',
   yellow:   '#f2dfbd',

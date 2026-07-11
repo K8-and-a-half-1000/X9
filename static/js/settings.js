@@ -1833,10 +1833,8 @@ const SHORTCUT_DEFAULTS = {
   incognito:      'ctrl+alt+i',
   settings:       'ctrl+,',
   focus_input:    'ctrl+/',
-  // Open-tool shortcuts. Calendar is bound by default; the rest are
+  // Open-tool shortcuts (all unbound by default).
   // unbound (empty) so the user can assign their own in the panel.
-  open_calendar:  'ctrl+alt+c',
-  open_compare:   '',
   open_cookbook:  '',
   open_research:  '',
   open_gallery:   '',
@@ -1858,8 +1856,6 @@ const SHORTCUT_ICONS = {
   incognito:      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><line x1="8" y1="16" x2="16" y2="8"/><line x1="8" y1="8" x2="16" y2="16"/></svg>',
   settings:       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   focus_input:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  open_calendar:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-  open_compare:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="8" height="18" rx="1"/><rect x="14" y="3" width="8" height="18" rx="1"/></svg>',
   open_cookbook:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   open_research:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
   open_gallery:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
@@ -1881,8 +1877,6 @@ const SHORTCUT_LABELS = {
   incognito:      'Toggle incognito',
   settings:       'Toggle Window',
   focus_input:    'Focus chat input',
-  open_calendar:  'Open Calendar',
-  open_compare:   'Open Compare',
   open_cookbook:  'Open Cookbook',
   open_research:  'Open Deep Research',
   open_gallery:   'Open Gallery',
@@ -1897,7 +1891,7 @@ const SHORTCUT_CATEGORIES = [
   { name: 'Navigation', keys: ['search', 'toggle_sidebar', 'focus_input', 'settings'] },
   { name: 'Sessions', keys: ['new_session', 'fav_session', 'delete_session'] },
   { name: 'Tools', keys: ['incognito', 'tts', 'cancel'] },
-  { name: 'Open Tools', keys: ['open_calendar', 'open_compare', 'open_cookbook', 'open_research', 'open_gallery', 'open_library', 'open_memory', 'open_notes', 'open_tasks', 'open_theme'] },
+  { name: 'Open Tools', keys: ['open_cookbook', 'open_research', 'open_gallery', 'open_library', 'open_memory', 'open_notes', 'open_tasks', 'open_theme'] },
 ];
 
 function _formatKeyCaps(combo) {
@@ -2746,7 +2740,6 @@ async function initIntegrations() {
 
 const INTG_TYPES = {
   api:     { label: 'API',     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' },
-  caldav:  { label: 'CalDAV',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
   contacts: { label: 'Contacts', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
   carddav: { label: 'CardDAV', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' },
   mcp:     { label: 'MCP',     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>' },
@@ -2841,24 +2834,18 @@ async function initUnifiedIntegrations() {
   }
 
   async function fetchAll() {
-    const [apiRes, calRes, cardRes, contactsRes, mcpRes, vaultRes, tokenRes, calendarsRes] = await Promise.all([
+    const [apiRes, cardRes, contactsRes, mcpRes, vaultRes, tokenRes] = await Promise.all([
       fetch('/api/auth/integrations', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { integrations: [] }).catch(() => ({ integrations: [] })),
-      fetch('/api/calendar/config/accounts', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { accounts: [] }).catch(() => ({ accounts: [] })),
       fetch('/api/contacts/config', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
       fetch('/api/contacts/list', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { contacts: [], count: 0 }).catch(() => ({ contacts: [], count: 0 })),
       fetch('/api/mcp/servers', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
       fetch('/api/vault/config', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : {}).catch(() => ({})),
       fetch('/api/tokens', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch('/api/calendar/calendars', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : { calendars: [] }).catch(() => ({ calendars: [] })),
     ]);
     const items = [];
     // API integrations
     for (const intg of (apiRes.integrations || [])) {
       items.push({ type: 'api', id: intg.id, name: intg.name || 'Unnamed', detail: intg.base_url || '', enabled: intg.enabled !== false, data: intg });
-    }
-    // CalDAV — one card per account
-    for (const acc of (calRes.accounts || [])) {
-      items.push({ type: 'caldav', id: acc.id, name: acc.label || 'Calendar (CalDAV)', detail: acc.url, enabled: true, data: acc });
     }
     // Contacts import first, then the optional CardDAV sync account.
     const contactCount = Number(contactsRes.count || (contactsRes.contacts || []).length || 0);
@@ -2961,7 +2948,6 @@ async function initUnifiedIntegrations() {
         const id = btn.dataset.intgId;
         try {
           if (type === 'api') await fetch(`/api/auth/integrations/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-          else if (type === 'caldav') await fetch(`/api/calendar/config/accounts/${id}`, { method: 'DELETE', credentials: 'same-origin' });
           else if (type === 'contacts') {
             await fetch('/api/contacts/clear', { method: 'DELETE', credentials: 'same-origin' });
           }
@@ -2982,7 +2968,6 @@ async function initUnifiedIntegrations() {
   function showForm(type, editId) {
     formEl.style.display = '';
     if (type === 'api') showApiForm(editId);
-    else if (type === 'caldav') showCalDavForm(editId);
     else if (type === 'contacts' || type === 'carddav') showCardDavForm();
     else if (type === 'mcp') showMcpForm(editId);
     else if (type === 'codex') showAgentForm('codex', editId);
@@ -3190,117 +3175,6 @@ async function initUnifiedIntegrations() {
           el('uf-api-msg').style.color = 'var(--red)';
         }
       } catch (e) { el('uf-api-msg').textContent = 'Error: ' + e.message; el('uf-api-msg').style.color = 'var(--red)'; }
-    });
-  }
-
-  // ── CalDAV form (supports add + edit per account) ──
-  async function showCalDavForm(editId) {
-    const isNew = !editId || editId === 'new';
-    formEl.innerHTML = `
-      <div class="admin-card" style="margin-top:8px">
-        <h2 style="font-size:13px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${isNew ? 'Add CalDAV Calendar' : 'Edit CalDAV Calendar'}</h2>
-        <div class="settings-col">
-          <div class="settings-row"><label class="settings-label">Label</label><input id="uf-caldav-label" class="settings-input" placeholder="e.g. Work, Personal"></div>
-          <div class="settings-row"><label class="settings-label">Server URL</label><input id="uf-caldav-url" class="settings-input" placeholder="https://www.google.com/calendar/dav/you@gmail.com/user/"></div>
-          <div class="settings-row"><label class="settings-label">Username</label><input id="uf-caldav-user" class="settings-input" placeholder="you@example.com"></div>
-          <div class="settings-row"><label class="settings-label">Password</label><input id="uf-caldav-pass" class="settings-input" type="password" placeholder="${isNew ? '' : 'Leave blank to keep existing'}"></div>
-          <div class="settings-row" style="margin-top:10px;align-items:center;justify-content:flex-end;gap:6px;">
-            <span id="uf-caldav-msg" style="font-size:11px;flex:1;margin-right:8px"></span>
-            <button class="admin-btn-add" id="uf-caldav-test" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));">Test</button>
-            <button class="admin-btn-add" id="uf-caldav-save" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));font-weight:600;">Save</button>
-            <button class="admin-btn-add" id="uf-caldav-cancel" style="display:inline-flex;align-items:center;gap:5px;background:transparent;color:var(--accent, var(--red));border-color:color-mix(in srgb, var(--accent, var(--red)) 45%, var(--border));">Cancel</button>
-          </div>
-        </div>
-      </div>`;
-
-    if (!isNew) {
-      try {
-        const r = await fetch('/api/calendar/config/accounts', { credentials: 'same-origin' });
-        const d = await r.json();
-        const acc = (d.accounts || []).find(a => a.id === editId);
-        if (acc) {
-          el('uf-caldav-label').value = acc.label || '';
-          el('uf-caldav-url').value = acc.url || '';
-          el('uf-caldav-user').value = acc.username || '';
-        }
-      } catch (_) {}
-    }
-
-    el('uf-caldav-cancel').addEventListener('click', () => { formEl.style.display = 'none'; });
-
-    const _runCalDavTest = async () => {
-      const body = {
-        url: el('uf-caldav-url').value.trim(),
-        username: el('uf-caldav-user').value.trim(),
-        password: el('uf-caldav-pass').value,
-      };
-      if (!isNew && !body.password) body.account_id = editId;
-      try {
-        const r = await fetch('/api/calendar/test', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        return await r.json();
-      } catch (e) {
-        return { ok: false, error: 'Network error: ' + e.message };
-      }
-    };
-
-    const _setCalDavMsg = (text, ok) => {
-      const msg = el('uf-caldav-msg');
-      msg.textContent = text;
-      msg.style.color = ok ? 'var(--green, #50fa7b)' : 'var(--red)';
-    };
-
-    el('uf-caldav-save').addEventListener('click', async () => {
-      _setCalDavMsg('Testing…', true);
-      el('uf-caldav-msg').style.color = '';
-      const d = await _runCalDavTest();
-      if (!d.ok) {
-        _setCalDavMsg(d.error || 'Connection failed — not saved', false);
-        return;
-      }
-      try {
-        const payload = {
-          label: el('uf-caldav-label').value.trim(),
-          url: el('uf-caldav-url').value.trim(),
-          username: el('uf-caldav-user').value.trim(),
-          password: el('uf-caldav-pass').value,
-        };
-        let resp;
-        if (isNew) {
-          resp = await fetch('/api/calendar/config/accounts', {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        } else {
-          resp = await fetch(`/api/calendar/config/accounts/${editId}`, {
-            method: 'PUT', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        }
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          _setCalDavMsg(err.detail || 'Save failed', false);
-          return;
-        }
-        _setCalDavMsg('Saved', true);
-        formEl.style.display = 'none';
-        await renderList();
-        notifyIntegrationsChanged();
-      } catch (_) {
-        _setCalDavMsg('Save failed', false);
-      }
-    });
-
-    el('uf-caldav-test').addEventListener('click', async () => {
-      _setCalDavMsg('Testing…', true);
-      el('uf-caldav-msg').style.color = '';
-      const d = await _runCalDavTest();
-      _setCalDavMsg(d.ok ? 'Connected' : (d.error || 'Failed'), d.ok);
     });
   }
 
@@ -3936,8 +3810,6 @@ async function initUnifiedIntegrations() {
       { key: 'todos:write', label: 'Todos write', detail: 'Create, update, delete, and toggle todo items' },
       { key: 'documents:read', label: 'Documents', detail: 'Read documents when a document API is enabled' },
       { key: 'documents:write', label: 'Documents write', detail: 'Create and update draft documents' },
-      { key: 'calendar:read', label: 'Calendar', detail: 'Read calendar events when enabled' },
-      { key: 'calendar:write', label: 'Calendar write', detail: 'Create and update calendar events' },
       { key: 'memory:read', label: 'Memory', detail: 'Read memory when enabled' },
       { key: 'memory:write', label: 'Memory write', detail: 'Write memory when enabled' },
       { key: 'cookbook:read', label: 'Cookbook', detail: 'List cookbook tasks + tail their tmux output (debug a model serve from outside the UI)' },
@@ -3951,7 +3823,6 @@ async function initUnifiedIntegrations() {
     const _scopeIcons = {
       todos: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
       documents: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-      calendar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
       memory: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0-2.5 2.5A2.5 2.5 0 0 0 2 9.5v3A2.5 2.5 0 0 0 4.5 15a2.5 2.5 0 0 0 2.5 2.5A2.5 2.5 0 0 0 9.5 20H10V2z"/><path d="M14.5 2a2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1 2.5 2.5A2.5 2.5 0 0 1 22 9.5v3A2.5 2.5 0 0 1 19.5 15a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 14.5 20H14V2z"/></svg>',
       cookbook: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
     };
@@ -4362,7 +4233,6 @@ async function initUnifiedIntegrations() {
   if (addBtn) {
     const _typeOptions = [
       ['api', 'API Service'],
-      ['caldav', 'CalDAV Calendar'],
       ['claude', 'Claude Agent'],
       ['codex', 'Codex Agent'],
       ['carddav', 'Contacts (CardDAV)'],

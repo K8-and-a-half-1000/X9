@@ -237,12 +237,14 @@ HOUSEKEEPING_DEFAULTS = {
     "tidy_documents":       {"name": "Documents Tidy",           "trigger_type": "event", "trigger_event": "document_created", "trigger_count": 5, "schedule": None, "scheduled_time": None, "cron_expression": None, "legacy_names": ["Tidy Documents"]},
     "consolidate_memory":   {"name": "Memory Tidy",              "trigger_type": "event", "trigger_event": "memory_added", "trigger_count": 5, "schedule": None, "scheduled_time": None, "cron_expression": None, "legacy_names": ["Tidy Memory"]},
     "tidy_research":        {"name": "Research Tidy",            "trigger_type": "event", "trigger_event": "research_completed", "trigger_count": 5, "schedule": None, "scheduled_time": None, "cron_expression": None, "legacy_names": ["Tidy Research"]},
-    "classify_events":      {"name": "Calendar Classify Events", "schedule": "cron",  "scheduled_time": None,    "cron_expression": "0 6,18 * * *", "ship_paused": True, "legacy_names": ["Classify Calendar Events"]},
     "audit_skills":          {"name": "Skills Audit",             "trigger_type": "event", "trigger_event": "skill_added", "trigger_count": 5, "schedule": None, "scheduled_time": None, "cron_expression": None, "legacy_names": ["Audit Skills"]},
 }
 
 RETIRED_HOUSEKEEPING_ACTIONS = frozenset({
+    # Calendar feature removed from X9 — retire previously seeded calendar
+    # tasks so existing installs clean them up on boot.
     "tidy_calendar",
+    "classify_events",
     "tidy_email_inbox",
     "mark_email_boundaries",
     # Email feature removed from X9 — retire any previously seeded email tasks
@@ -254,43 +256,6 @@ RETIRED_HOUSEKEEPING_ACTIONS = frozenset({
     "check_email_urgency",
     "learn_sender_signatures",
 })
-
-
-def _digest_windows(now):
-    """(label, start, end) buckets for the calendar check-in digest.
-
-    The windows are contiguous so no event is dropped between buckets — an
-    earlier version started the 30-day window at now+8d while the week window
-    ended at now+7d, so events ~7-8 days out fell into no bucket.
-    """
-    return [
-        ("today_tomorrow", now, now + timedelta(days=2)),
-        ("this_week", now + timedelta(days=2), now + timedelta(days=7)),
-        ("next_30_days", now + timedelta(days=7), now + timedelta(days=30)),
-    ]
-
-
-def _checkin_calendar_events(db, owner, start, end):
-    """Calendar events in [start, end] for ONE owner, for the check-in digest.
-
-    Ownership lives on CalendarCal.owner; events inherit it via calendar_id.
-    The digest query had no owner scope, so it pulled EVERY user's events into
-    one user's check-in (a cross-tenant leak of summaries/locations). Scope it
-    by joining CalendarCal, mirroring routes/calendar_routes.list_events.
-    """
-    from core.database import CalendarEvent as _CE, CalendarCal as _CC
-    return (
-        db.query(_CE)
-        .join(_CC, _CE.calendar_id == _CC.id)
-        .filter(
-            _CC.owner == owner,
-            _CE.dtstart >= start,
-            _CE.dtstart <= end,
-            _CE.status != "cancelled",
-        )
-        .order_by(_CE.dtstart)
-        .all()
-    )
 
 
 def _normalize_chat_endpoint(url: str) -> str:
@@ -537,12 +502,8 @@ class TaskScheduler:
         self._task = asyncio.create_task(self._loop())
         # Internal background scanner that isn't a user-facing "task" — pure
         # infra (no LLM), shouldn't clutter the Tasks UI, fires on its own
-        # cadence inside the scheduler process.
-        #
-        # Calendar event reminders are represented as Notes by the calendar UI,
-        # so the Notes scanner is the single reminder dispatch path. Running the
-        # old event scanner too caused duplicate emails/notifications for the
-        # same calendar event.
+        # cadence inside the scheduler process. The Notes scanner is the
+        # single reminder dispatch path.
         self._note_pings_task = asyncio.create_task(self._note_pings_loop())
         logger.info(f"Task scheduler started (concurrency cap: {self._concurrency_cap})")
         # Audit clusters: show any minute-of-day where >1 active scheduled
@@ -580,12 +541,11 @@ class TaskScheduler:
                 await self._task
             except asyncio.CancelledError:
                 pass
-        for attr in ("_note_pings_task", "_event_pings_task"):
-            t = getattr(self, attr, None)
-            if t:
-                t.cancel()
-                try: await t
-                except asyncio.CancelledError: pass
+        t = getattr(self, "_note_pings_task", None)
+        if t:
+            t.cancel()
+            try: await t
+            except asyncio.CancelledError: pass
         logger.info("Task scheduler stopped")
 
     async def _note_pings_loop(self):
@@ -608,33 +568,13 @@ class TaskScheduler:
                     logger.warning(f"ping_notes background scanner errored for owner={ow!r}: {e}")
             await asyncio.sleep(60)  # 1 min
 
-    async def _event_pings_loop(self):
-        """Built-in calendar-event scanner — same recipe as note pings. Runs
-        every 10 min, fires reminders via dispatch_reminder. Not a user task.
-        Iterates per-owner so each user only gets their own calendar pings
-        (passing owner="" globally would email User B's events to User A's
-        configured SMTP "from" address — see review C3).
-        """
-        await asyncio.sleep(90)
-        from src.builtin_actions import action_ping_events, TaskNoop
-        while self._running:
-            owners = self._known_task_owners()
-            for ow in (owners or [""]):
-                try:
-                    await action_ping_events(owner=ow)
-                except TaskNoop:
-                    pass
-                except Exception as e:
-                    logger.warning(f"ping_events background scanner errored for owner={ow!r}: {e}")
-            await asyncio.sleep(600)  # 10 min
-
     def _known_task_owners(self) -> list:
         """Distinct non-empty owners that background scanners should visit.
 
-        Scheduled tasks used to be the only owner source. Calendar reminders
-        are stored as Notes, though, so an account with due notes but no task
-        rows could get the browser reminder while the backend email/ntfy
-        scanner never ran for that owner.
+        Scheduled tasks used to be the only owner source. Reminders are
+        stored as Notes, though, so an account with due notes but no task
+        rows could get the browser reminder while the backend ntfy scanner
+        never ran for that owner.
         """
         from core.database import SessionLocal, ScheduledTask, Note
         db = SessionLocal()
@@ -1263,42 +1203,6 @@ class TaskScheduler:
 
         raw = {}
 
-        # Calendar: today+tomorrow, this week, month ahead
-        # Pull directly from DB so we can include event_type and importance.
-        try:
-            from core.database import SessionLocal as _SL, CalendarEvent as _CE
-            _db = _SL()
-            try:
-                for label, start, end in _digest_windows(now):
-                    # Strip timezone for naive DB comparison
-                    _s = start.replace(tzinfo=None) if start.tzinfo else start
-                    _e = end.replace(tzinfo=None) if end.tzinfo else end
-                    evs = _checkin_calendar_events(_db, task.owner, _s, _e)
-                    if not evs:
-                        continue
-                    # Group by importance for richer output
-                    by_imp = {"critical": [], "high": [], "normal": [], "low": []}
-                    for ev in evs:
-                        imp = (ev.importance or "normal").lower()
-                        by_imp.setdefault(imp, []).append(ev)
-                    lines = []
-                    for tier in ("critical", "high", "normal", "low"):
-                        items = by_imp.get(tier, [])
-                        if not items:
-                            continue
-                        marker = {"critical": "[!!]", "high": "[!]", "normal": "  ", "low": " ·"}[tier]
-                        for ev in items:
-                            t = ev.dtstart.strftime("%a %b %d %H:%M")
-                            tag = f" ({ev.event_type})" if ev.event_type else ""
-                            loc = f" @ {ev.location}" if ev.location else ""
-                            lines.append(f"{marker} {t} — {ev.summary}{tag}{loc}")
-                    if lines:
-                        raw[f"calendar_{label}"] = "\n".join(lines)
-            finally:
-                _db.close()
-        except Exception as e:
-            raw["calendar"] = f"Error: {e}"
-
         # Notes/Tasks
         try:
             r = await do_manage_notes(json.dumps({"action": "list"}), owner=task.owner)
@@ -1403,11 +1307,6 @@ class TaskScheduler:
             data_dump +
             f"---\n\n{task.prompt}\n\n"
             "Write the check-in. YOU decide what matters, what to skip, how to format. "
-            "Only show future events. Calendar events are pre-tagged with importance: "
-            "[!!] critical, [!] high, plain = normal, ' ·' = low. "
-            "GROUP your output by importance — lead with critical/high, then normal, "
-            "skip low entirely unless explicitly relevant. Mention event type (work/health/travel/etc) "
-            "where it adds context (e.g. 'leave 1h early for travel'). "
             "Flag anything coming up that needs prep (birthdays, deadlines, holidays). "
             "Use tools to take action if needed. Keep it concise — no raw data dumps."
         )
@@ -2267,9 +2166,9 @@ class TaskScheduler:
                     scheduled_time=defs["scheduled_time"],
                     cron_expression=defs["cron_expression"],
                     next_run=next_run,
-                    # Most built-ins are active by default. The invasive
-                    # AI/email/calendar tasks opt into a paused starting state
-                    # via ship_paused so users can enable them deliberately.
+                    # Most built-ins are active by default. Invasive AI
+                    # tasks opt into a paused starting state via ship_paused
+                    # so users can enable them deliberately.
                     status="paused" if ships_paused else "active",
                     output_target=defs.get("output_target", "none"),
                     notifications_enabled=False,
@@ -2327,7 +2226,6 @@ class TaskScheduler:
                 "Never waste time with fluff. Default to English.\n\n"
 
                 "CORE RULE: You MUST use your tools to take action — do not describe what you would do. "
-                "Never say 'I would check your calendar' — actually call manage_calendar. "
                 "Never say 'I can look that up' — actually call web_search or search_chats. "
                 "If you have a tool for it, use it. No hypotheticals, no promises, only actions and results.\n\n"
 
@@ -2357,7 +2255,6 @@ class TaskScheduler:
                 "- Before starting a complex task, check manage_skills for an existing procedure.\n\n"
 
                 "AUTONOMY RULES:\n"
-                "- Auto-add calendar events from clear meeting invitations (mention what you added)\n"
                 "- NEVER delete anything without explicit instruction\n"
                 "- If uncertain, ask rather than guess"
             )
@@ -2392,7 +2289,7 @@ class TaskScheduler:
                 endpoint_url=endpoint_url,
                 greeting=None,
                 enabled_tools=json.dumps([
-                    "manage_calendar", "manage_notes", "manage_tasks", "manage_memory",
+                    "manage_notes", "manage_tasks", "manage_memory",
                     "resolve_contact",
                     "search_chats", "web_search", "web_fetch", "read_file",
                     "create_document", "update_document", "edit_document",

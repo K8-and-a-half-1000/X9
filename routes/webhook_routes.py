@@ -47,7 +47,7 @@ def _caller_owns_session(sess_owner, caller) -> bool:
     endpoint (`POST /api/v1/chat`).
 
     Mirrors ``_verify_session_owner`` in session_routes.py and the null-owner
-    gates in notes/calendar/gallery: a caller may resume a session ONLY when
+    gates in notes/gallery: a caller may resume a session ONLY when
     its owner matches them exactly. A null/empty session owner (legacy or
     migrated rows) is deliberately NOT resumable by an arbitrary token — the
     old ``sess_owner and sess_owner != caller`` form skipped the check whenever

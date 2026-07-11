@@ -432,17 +432,6 @@ def _query_context_length(endpoint_url: str, model: str) -> Tuple[int, bool]:
         except Exception:
             pass
 
-    # GitHub Copilot's /models requires auth + X-GitHub-Api-Version headers that
-    # aren't available here; an unauthenticated probe just 400s. All Copilot
-    # picker models are major API models covered by the known-context table, so
-    # rely on that instead of a doomed network call.
-    from src.copilot import is_copilot_base
-    if is_copilot_base(endpoint_url):
-        if known:
-            logger.info(f"Using known context window for {model}: {known}")
-            return known, True
-        return DEFAULT_CONTEXT, False
-
     from src.endpoint_resolver import build_models_url
 
     models_url = build_models_url(endpoint_url)

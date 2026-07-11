@@ -24,16 +24,6 @@ import platform
 
 IS_WINDOWS = os.name == "nt"
 IS_POSIX = not IS_WINDOWS
-# Allows APFEL support and ARM-native binary recommendations on Apple Silicon Macs.
-IS_APPLE_SILICON = (
-    IS_POSIX
-    and platform.system() == "Darwin"
-    and platform.machine().lower()
-    in {
-        "arm64",
-        "aarch64",
-    }
-)
 
 
 # ── File permissions ────────────────────────────────────────────────────────

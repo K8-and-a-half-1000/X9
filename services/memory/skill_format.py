@@ -12,7 +12,7 @@ Frontmatter shape (YAML):
     version: 1.0.0
     category: dev
     tags: [git, github]
-    platforms: [linux, macos]            # optional
+    platforms: [linux]                   # optional
     requires_toolsets: []                # optional
     fallback_for_toolsets: []            # optional
     status: published                    # draft | published

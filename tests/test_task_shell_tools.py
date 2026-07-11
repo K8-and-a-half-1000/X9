@@ -38,7 +38,6 @@ def test_assistant_and_rag_tools_preserved():
         {"web_fetch"}, ASSISTANT_ALWAYS_AVAILABLE, None
     )
     assert "web_fetch" in tools          # RAG-selected tool kept
-    assert "manage_calendar" in tools    # assistant-always member kept
     assert "bash" in tools               # shell default added
 
 

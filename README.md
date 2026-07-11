@@ -39,14 +39,13 @@ uvicorn app:app --host 127.0.0.1 --port 7000
 
 Open `http://localhost:7000`. On Windows, `launch-windows.ps1 -Port 7000` performs the venv, dependency, setup, and run steps in one go.
 
-Native install details, GPU notes, Windows/macOS instructions, HTTPS, and configuration live in the [setup guide](docs/setup.md).
+Native install details, GPU notes, Windows instructions, HTTPS, and configuration live in the [setup guide](docs/setup.md).
 
 ## Features
 
 - **Chat + Agents** — local/API models, tools, MCP, files, shell, skills, and memory.
 - **Cookbook** — hardware-aware model recommendations, downloads, and serving.
 - **Deep Research** — multi-step web research with source reading and report generation.
-- **Compare** — blind side-by-side model testing and synthesis.
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
 - **Extras** — gallery/image editor, themes, uploads, web search, presets, and sessions.

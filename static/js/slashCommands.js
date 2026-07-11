@@ -20,8 +20,6 @@ import documentModule from './document.js';
 import workspaceModule from './workspace.js';
 import settingsModule from './settings.js';
 import cookbookModule from './cookbook.js';
-import { EVAL_PROMPTS } from './compare/index.js';
-import { PROVIDER_DEVICE_FLOWS, formatDeviceFlowError, runProviderDeviceFlow } from './providerDeviceFlow.js';
 
 // ── Module state ──────────────────────────────────────────────────────
 
@@ -37,51 +35,14 @@ let _hideWelcomeScreen = chatRenderer.hideWelcomeScreen;
 let _isStreamingFn = () => false;  // callback to check streaming state
 
 // API key patterns for provider auto-detection
-const PROVIDER_PATTERNS = [
-  { re: /^sk-ant-/,          name: 'Anthropic',  url: 'https://api.anthropic.com/v1' },
-  { re: /^sk-or-/,           name: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
-  { re: /^sk-proj-/,         name: 'OpenAI',     url: 'https://api.openai.com/v1' },
-  { re: /^gsk_/,             name: 'Groq',       url: 'https://api.groq.com/openai/v1' },
-  { re: /^AIza/,             name: 'Gemini',     url: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-  { re: /^xai-/,             name: 'xAI',        url: 'https://api.x.ai/v1' },
-  { re: /^nvapi-/,           name: 'NVIDIA',     url: 'https://integrate.api.nvidia.com/v1' },
-];
-const SETUP_PROVIDER_URLS = {
-  deepseek: { name: 'DeepSeek', url: 'https://api.deepseek.com/v1' },
-  openai: { name: 'OpenAI', url: 'https://api.openai.com/v1' },
-  openrouter: { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
-  ollama: { name: 'Ollama Cloud', url: 'https://ollama.com/api' },
-  xai: { name: 'xAI', url: 'https://api.x.ai/v1' },
-  anthropic: { name: 'Anthropic', url: 'https://api.anthropic.com/v1' },
-  groq: { name: 'Groq', url: 'https://api.groq.com/openai/v1' },
-  gemini: { name: 'Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-  google: { name: 'Gemini', url: 'https://generativelanguage.googleapis.com/v1beta/openai' },
-  'opencode-zen': { name: 'OpenCode Zen', url: 'https://opencode.ai/zen/v1' },
-  'opencode-go': { name: 'OpenCode Go', url: 'https://opencode.ai/zen/go/v1' },
-  nvidia: { name: 'NVIDIA', url: 'https://integrate.api.nvidia.com/v1' },
-};
-const SETUP_PROVIDER_NAMES = ['deepseek', 'openai', 'openrouter', 'ollama', 'xai', 'anthropic', 'groq', 'gemini', 'opencode-zen', 'opencode-go', 'nvidia'];
-const SETUP_DEVICE_AUTH_PROVIDERS = [
-  { key: 'copilot', name: 'GitHub Copilot', aliases: ['github'], command: '/setup copilot' },
-  { key: 'chatgpt-subscription', name: 'ChatGPT Subscription', aliases: ['chatgptsubscription', 'chatgpt-sub', 'codex'], command: '/setup chatgpt-subscription' },
-];
-const SETUP_PROVIDER_HINT_NAMES = SETUP_PROVIDER_NAMES.concat(SETUP_DEVICE_AUTH_PROVIDERS.map(provider => provider.key));
-const SETUP_PROVIDER_HINT = SETUP_PROVIDER_HINT_NAMES.slice(0, -1).join(', ') + ', or ' + SETUP_PROVIDER_HINT_NAMES[SETUP_PROVIDER_HINT_NAMES.length - 1];
+// X9 runs local models only — no cloud provider presets or API-key auto-detection.
+const PROVIDER_PATTERNS = [];
+const SETUP_PROVIDER_URLS = {};
+const SETUP_PROVIDER_NAMES = [];
+const SETUP_DEVICE_AUTH_PROVIDERS = [];
+const SETUP_PROVIDER_HINT = 'a local endpoint URL';
 const SETUP_LOCAL_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>';
-const SETUP_API_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
 const SETUP_SETTINGS_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-
-function _setupApiProviderChips() {
-  return SETUP_PROVIDER_NAMES.map(name =>
-    '<span class="setup-clickable-provider" data-setup-kind="api-key" data-setup-provider="' + name + '" style="cursor:pointer;text-decoration:underline;margin-right:8px;" title="Click to setup ' + name + '">' + name + '</span>'
-  ).join(' ');
-}
-
-function _setupDeviceAuthProviderChips() {
-  return SETUP_DEVICE_AUTH_PROVIDERS.map(provider =>
-    '<span class="setup-clickable-provider" data-setup-kind="device-auth" data-setup-provider="' + provider.key + '" style="cursor:pointer;text-decoration:underline;margin-right:8px;" title="Run ' + provider.command + '">' + provider.name + '</span>'
-  ).join(' ');
-}
 
 function _setupProviderFromInput(input) {
   const raw = (input || '').trim().toLowerCase().replace(/\s+/g, '');
@@ -119,29 +80,7 @@ function _setupDeviceAuthProviderFromInput(input) {
 }
 
 function _extractSetupProviderCredential(input) {
-  const raw = (input || '').trim();
-  if (!raw) return null;
-  const providerAliases = [
-    ['deepseek ai', 'deepseek'], ['deepseek', 'deepseek'],
-    ['open router', 'openrouter'], ['openrouter', 'openrouter'],
-    ['ollama cloud', 'ollama'], ['ollama', 'ollama'],
-    ['open ai', 'openai'], ['openai', 'openai'], ['chatgpt', 'openai'],
-    ['anthropic', 'anthropic'], ['claude', 'anthropic'],
-    ['groq', 'groq'],
-    ['google', 'gemini'], ['gemini', 'gemini'],
-    ['x ai', 'xai'], ['xai', 'xai'], ['grok', 'xai'],
-    ['nvidia', 'nvidia'],
-    ['opencode zen', 'opencode-zen'], ['opencode-zen', 'opencode-zen'],
-    ['opencode go', 'opencode-go'], ['opencode-go', 'opencode-go'],
-  ];
-  for (const [alias, key] of providerAliases) {
-    const re = new RegExp('(^|\\s|[,;:])(' + alias.replace(/\s+/g, '\\s+') + ')(?=$|\\s|[,;:])', 'i');
-    const match = raw.match(re);
-    if (!match) continue;
-    const provider = SETUP_PROVIDER_URLS[key];
-    const credential = raw.replace(match[0], match[1] || '').replace(/^[\s,;:]+|[\s,;:]+$/g, '');
-    return { provider, credential };
-  }
+  // X9 is local-only: no cloud provider name+key parsing.
   return null;
 }
 
@@ -195,8 +134,6 @@ function _setupReply(text, remember = true) {
 }
 
 function _showSetupEndpointChoices() {
-  const providers = _setupApiProviderChips();
-  const deviceAuthProviders = _setupDeviceAuthProviderChips();
   return slashReply(
     '<div class="setup-guide-no-censor" style="display:grid;gap:10px;">' +
       '<div>' +
@@ -210,13 +147,6 @@ function _showSetupEndpointChoices() {
         '<pre style="margin:2px 0 0;"><code class="setup-clickable-code" style="cursor:pointer;text-decoration:underline;" title="Click to fill in chat">http://llm-host.local:8000/v1</code></pre>' +
         '<div style="margin-top:4px;">or llama.cpp (llama-server):</div>' +
         '<pre style="margin:2px 0 0;"><code class="setup-clickable-code" style="cursor:pointer;text-decoration:underline;" title="Click to fill in chat">http://localhost:8080/v1</code></pre>' +
-      '</div>' +
-      '<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:color-mix(in srgb,var(--bg) 88%,var(--fg) 12%);">' +
-        '<div style="font-weight:700;margin-bottom:6px;">' + SETUP_API_ICON + 'API setup</div>' +
-        '<div>Paste provider name then API key (example):</div>' +
-        '<pre style="margin:4px 0 0;"><code class="setup-clickable-code" style="cursor:pointer;text-decoration:underline;" title="Click to fill in chat">deepseek sk-...</code></pre>' +
-        '<div style="margin-top:8px;font-size:1em;"><span>Supported providers:</span><br>' + providers + '</div>' +
-        '<div style="margin-top:8px;font-size:1em;"><span>Account sign-in:</span><br>' + deviceAuthProviders + '</div>' +
       '</div>' +
     '</div>'
   );
@@ -246,15 +176,6 @@ function _showSetupEndpointChoicesStreamed(options = {}) {
       text: 'http://localhost:8080/v1',
       copyText: 'http://localhost:8080/v1',
     },
-    { kind: 'heading', html: SETUP_API_ICON + 'API setup' },
-    { kind: 'p', text: 'Paste provider name then API key (example):' },
-    {
-      kind: 'code',
-      text: 'deepseek sk-...',
-      copyText: 'deepseek sk-...',
-    },
-    { kind: 'p', html: '<strong>Supported providers:</strong><br>' + _setupApiProviderChips() },
-    { kind: 'p', html: '<strong>Account sign-in:</strong><br>' + _setupDeviceAuthProviderChips() },
   ];
   return typewriterBlocksReply(blocks, { gap: '4px', bodyClass: 'setup-guide-no-censor', interval: 3 });
 }
@@ -1709,14 +1630,14 @@ async function _cmdNote(args, ctx) {
   return true;
 }
 
-// ── Todo / Remind / Event ───────────────────────────────────────────────
-// Quick deterministic wrappers over /api/notes and /api/calendar/events.
+// ── Todo / Remind ───────────────────────────────────────────────────────
+// Quick deterministic wrappers over /api/notes.
 // They never involve the LLM — they parse the string locally and hit the
 // API directly, so they work instantly regardless of chat/agent mode.
 
 function _pad2(n) { return String(n).padStart(2, '0'); }
 
-/** Local-time ISO-8601 string (no Z, no offset) — what the calendar API wants. */
+/** Local-time ISO-8601 string (no Z, no offset). */
 function _toLocalIso(d) {
   return `${d.getFullYear()}-${_pad2(d.getMonth()+1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:00`;
 }
@@ -1812,33 +1733,6 @@ async function _cmdTodo(args, ctx) {
   });
   if (res.ok) await typewriterReply(`Todo added: ${ctx.esc(rest)}`);
   else slashReply('Failed to add todo');
-  return true;
-}
-
-async function _cmdEvent(args, ctx) {
-  const raw = args.join(' ').trim();
-  if (!raw) { slashReply('Usage: /event tomorrow 14:00 Title  ·  /event in 30m Title  ·  /event 2026-04-20 15:00 Title'); return true; }
-  const parsed = _parseTimeSpec(raw);
-  if (!parsed || !parsed.rest) { slashReply(`Could not parse time from: ${ctx.esc(raw)}`); return true; }
-  const start = parsed.date;
-  const end = new Date(start.getTime() + 60 * 60 * 1000); // default 1h block
-  const body = {
-    summary: parsed.rest,
-    dtstart: _toLocalIso(start),
-    dtend: _toLocalIso(end),
-    all_day: false,
-  };
-  const res = await fetch(`${API_BASE}/api/calendar/events`, {
-    method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (res.ok) {
-    await typewriterReply(`Event: ${ctx.esc(parsed.rest)} — ${start.toLocaleString()}`);
-  } else {
-    const err = await res.text().catch(() => '');
-    slashReply(`Failed to create event${err ? `: ${ctx.esc(err.slice(0,200))}` : ''}`);
-  }
   return true;
 }
 
@@ -3484,7 +3378,7 @@ async function _cmdTourSettings(args, ctx) {
       text: '<b>Vision</b> — powers any image-recognition feature: drop a photo in chat, ask what\'s in it, OCR, etc.',
       before: () => _clickNav('ai') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="integrations"]',
-      text: '<b>Integrations</b> — wire up calendar, contacts, and services here (per-account).',
+      text: '<b>Integrations</b> — wire up contacts and services here (per-account).',
       before: () => _clickNav('integrations') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="search"]',
       text: '<b>Search</b> — plug in your own search provider, or use the bundled <b>SearXNG</b> out of the box.',
@@ -3493,7 +3387,7 @@ async function _cmdTourSettings(args, ctx) {
       text: '<b>Appearance</b> — too many tools you don\'t need? Adjust them here! Toggle sidebar buttons, tool icons, and section visibility.',
       before: () => _clickNav('appearance') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="reminders"]',
-      text: '<b>Reminders</b> — quiet hours and how the app nudges you about calendar events and notes.',
+      text: '<b>Reminders</b> — quiet hours and how the app nudges you about due notes.',
       before: () => _clickNav('reminders') },
   ];
 
@@ -4867,16 +4761,14 @@ async function _cmdTourLibrary(args, ctx) {
 // ── Prompt ──
 
 async function _cmdPrompt(args, ctx) {
-  // Pull chat-appropriate prompts from compare templates. Skip the
-  // `image` category (raw image-gen prompts — wrong for a text chat)
-  // and `search` (bare keyword queries, not full prompts).
-  const CHAT_CATS = ['chat', 'code', 'agent', 'html'];
-  const all = [];
-  for (const cat of CHAT_CATS) {
-    const list = EVAL_PROMPTS[cat] || [];
-    for (const p of list) all.push(p.prompt);
-  }
-  if (!all.length) { slashReply('No prompts available'); return true; }
+  const all = [
+    'Explain how HTTPS keeps a connection private, step by step.',
+    'Write a Python function that returns the nth Fibonacci number, with tests.',
+    'Draft a short, friendly message declining a meeting invite.',
+    'Summarize the tradeoffs between SQLite and Postgres for a small app.',
+    'Build a single-file HTML page with a bouncing-ball canvas animation.',
+    'Plan a 3-step approach to debug a slow API endpoint.',
+  ];
   const firstUseKey = 'odysseus_prompt_command_used';
   const firstUse = localStorage.getItem(firstUseKey) !== '1';
   const prompt = firstUse
@@ -5016,53 +4908,8 @@ function _clearSetupCommandInput() {
 
 async function _setupProviderDeviceFlow(providerKey) {
   _clearSetupGuideMessages();
-  const config = PROVIDER_DEVICE_FLOWS[providerKey];
-  if (!config) {
-    await _setupReply('Provider not recognised.');
-    return;
-  }
-  await _setupReply(`Starting ${config.label} sign-in...`);
-  try {
-    const result = await runProviderDeviceFlow(providerKey, {
-      onStart: async ({ start, authUrl }) => {
-        const place = providerKey === 'copilot' ? 'GitHub' : 'OpenAI';
-        const action = providerKey === 'copilot' ? 'approve the request' : 'enter the code';
-        if (providerKey === 'chatgpt-subscription') {
-          slashReply(
-            '<div class="setup-guide-no-censor" style="display:grid;gap:6px;">' +
-              '<div>Open this URL in your browser, enter the code, then come back here. Waiting...</div>' +
-              '<div>Code: <code>' + uiModule.esc(start.user_code || '') + '</code></div>' +
-              '<div><a href="' + uiModule.esc(authUrl || '') + '" target="_blank" rel="noopener noreferrer">' + uiModule.esc(authUrl || '') + '</a></div>' +
-            '</div>'
-          );
-          return;
-        }
-        await _setupReply(`Opening ${place} - ${action} (code ${start.user_code}). Waiting...`);
-      },
-      openWindow: (url) => {
-        if (providerKey === 'chatgpt-subscription') return;
-        try { if (url) window.open(url, '_blank', 'noopener'); } catch (e) {}
-      },
-    });
-    if (result.status === 'authorized') {
-      const n = ((result.endpoint && result.endpoint.models) || []).length;
-      await _setupReply(`Connected - ${n} ${config.label} model${n !== 1 ? 's' : ''} available.`);
-      if (modelsModule) modelsModule.refreshModels(true);
-      return;
-    }
-    if (result.status === 'failed') {
-      await _setupReply(`${config.label} sign-in failed (${result.error || 'denied'}).`);
-      return;
-    }
-    if (result.status === 'expired') {
-      await _setupReply(`${config.label} sign-in expired - run /setup ${providerKey} again.`);
-      return;
-    }
-  } catch (e) {
-    await _setupReply(formatDeviceFlowError(e));
-  }
+  await _setupReply('Cloud account sign-in is not supported — X9 runs local models only. Paste a local endpoint URL instead.');
 }
-
 async function _cmdSetup(args, ctx) {
   _hideWelcomeScreen();
   _clearSetupCommandInput();
@@ -5825,14 +5672,6 @@ const COMMANDS = {
     handler: _cmdTodo,
     noUserBubble: true,
     usage: '/todo Your task  ·  /todo list',
-  },
-  event: {
-    alias: ['ev'],
-    category: 'Productivity',
-    help: 'Create a calendar event',
-    handler: _cmdEvent,
-    noUserBubble: true,
-    usage: '/event tomorrow 14:00 Team call',
   },
   setup: {
     alias: ['su', 'seutp'],

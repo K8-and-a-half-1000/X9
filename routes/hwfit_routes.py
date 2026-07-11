@@ -13,9 +13,8 @@ from routes._validators import validate_remote_host, validate_ssh_port
 
 # Backends the manual hardware simulator accepts. Must stay a subset of what
 # services.hwfit.fit understands so a simulated box ranks like a real one:
-# "metal" routes through the Apple-Silicon path (GGUF-only, llama.cpp/Ollama),
-# the CPU backends through the RAM/offload path, cuda/rocm through vLLM.
-_MANUAL_BACKENDS = {"cuda", "rocm", "metal", "cpu_x86", "cpu_arm"}
+# the CPU backends route through the RAM/offload path, cuda/rocm through vLLM.
+_MANUAL_BACKENDS = {"cuda", "rocm", "cpu_x86", "cpu_arm"}
 
 
 def _validate_detection_target(host: str = "", ssh_port: str = "") -> tuple[str, str]:
@@ -101,14 +100,9 @@ def _apply_manual_hardware(system, manual_mode="", manual_gpu_count="", manual_v
     }]
     system["homogeneous"] = True
     system["backend"] = backend
-    # Apple Silicon shares one unified memory pool with the GPU; flag it so
-    # the API/UI report it the way real Metal detection does. Discrete GPUs
-    # (cuda/rocm) and the CPU backends carry separate VRAM, so clear any
-    # stale flag a previous detection left on the dict.
-    if backend == "metal":
-        system["unified_memory"] = True
-    else:
-        system.pop("unified_memory", None)
+    # Discrete GPUs (cuda/rocm) and the CPU backends carry separate VRAM, so
+    # clear any stale unified-memory flag a previous detection left on the dict.
+    system.pop("unified_memory", None)
     return system
 
 

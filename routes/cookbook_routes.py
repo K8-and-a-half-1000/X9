@@ -241,8 +241,8 @@ def setup_cookbook_routes() -> APIRouter:
                 "vLLM could not find a supported GPU (CUDA or ROCm). "
                 "This machine may have integrated or unsupported graphics only.",
                 [
-                    {"label": "switch to llama.cpp (CPU/Metal, works without a discrete GPU)", "op": "manual"},
-                    {"label": "switch to Ollama (CPU/Metal, works without a discrete GPU)", "op": "manual"},
+                    {"label": "switch to llama.cpp (CPU, works without a discrete GPU)", "op": "manual"},
+                    {"label": "switch to Ollama (CPU, works without a discrete GPU)", "op": "manual"},
                 ],
             ),
             (
@@ -621,8 +621,8 @@ def setup_cookbook_routes() -> APIRouter:
             lines.append(f"export HUGGINGFACE_HUB_CACHE={_dl_hf_home_shell}/hub")
             lines.append(f"export HF_HUB_CACHE={_dl_hf_home_shell}/hub")
         # Ensure pip-user scripts (e.g. hf CLI installed via --user) are on PATH
-        lines.append('export PATH="$HOME/.local/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"')
-        # When Odysseus runs from a venv (e.g. native macOS install), put its bin
+        lines.append('export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"')
+        # When Odysseus runs from a venv, put its bin
         # on PATH so the tmux shell finds the bundled `hf`/`python3` without an
         # activated venv. Local bash runs only — meaningless over SSH.
         if not req.remote_host:
@@ -631,7 +631,7 @@ def setup_cookbook_routes() -> APIRouter:
         # is fast but flaky on large files — it tends to crash near the end at high
         # throughput. Retries set disable_hf_transfer to fall back to the plain,
         # slower-but-reliable downloader (resumes cleanly from the .incomplete files).
-        # Use `python3 -m pip` not `pip` — macOS has no bare `pip` command.
+        # Use `python3 -m pip` not `pip` — some systems have no bare `pip` command.
         if is_ollama_download:
             _append_local_ollama_download_command_lines(lines, ollama_cmd)
         else:
@@ -750,7 +750,7 @@ def setup_cookbook_routes() -> APIRouter:
                     'done'
                 )
             # Ensure pip-user scripts (e.g. hf CLI installed via --user) are on PATH
-            runner_lines.append('export PATH="$HOME/.local/bin:$HOME/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"')
+            runner_lines.append('export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"')
             # Install hf CLI + optional hf_transfer best-effort. Retries disable
             # hf_transfer because the Rust parallel path is fast but has been
             # flaky near the end of very large multi-file downloads.
@@ -1246,7 +1246,7 @@ def setup_cookbook_routes() -> APIRouter:
         elif "ollama" in req.cmd:
             port = 11434
         else:
-            port = 8080  # llama.cpp's llama-server default — the Apple Silicon path
+            port = 8080  # llama.cpp's llama-server default
 
         # Determine host. Local serves run on this machine, so the right URL
         # for the backend to reach them is `localhost`. For remote serves we
@@ -1569,10 +1569,9 @@ def setup_cookbook_routes() -> APIRouter:
                 # Jinja2 rejects (do_tojson ensure_ascii). Build it once from
                 # source if missing; keep llama-cpp-python only as a fallback.
                 runner_lines.append('# Ensure a llama.cpp server (prefer native llama-server)')
-                # Include the Homebrew bin dirs so a brew-installed llama-server /
-                # ollama is found (otherwise macOS falls back to a slow source build).
-                # /opt/homebrew = Apple Silicon, /usr/local = Intel; harmless on Linux.
-                runner_lines.append('export PATH="$HOME/.local/bin:$HOME/bin:$HOME/llama.cpp/build/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"')
+                # Include common local bin dirs so a package-manager llama-server /
+                # ollama is found instead of falling back to a slow source build.
+                runner_lines.append('export PATH="$HOME/.local/bin:$HOME/bin:$HOME/llama.cpp/build/bin:/usr/local/bin:$PATH"')
                 runner_lines.append('if [ -d /data/data/com.termux ]; then')
                 runner_lines.append('  # Termux: no native build — use the Python bindings (CPU).')
                 runner_lines.append('  if ! python3 -c "import llama_cpp" 2>/dev/null; then')
@@ -1584,24 +1583,10 @@ def setup_cookbook_routes() -> APIRouter:
                 runner_lines.append('  echo "Native llama-server not found — building from source (one-time, may take a few minutes)..."')
                 runner_lines.append('  mkdir -p ~/bin')
                 runner_lines.append('  cd ~ && [ -d llama.cpp ] || git clone --depth 1 https://github.com/ggml-org/llama.cpp')
-                # Build with the right accelerator: Metal on macOS (llama.cpp
-                # enables it automatically, no flag), CUDA on Linux when present,
-                # else a plain CPU build. nproc is Linux-only — fall back to
-                # `sysctl hw.ncpu` on macOS. (Tip: `brew install llama.cpp` ships
-                # a prebuilt llama-server and skips this whole source build.)
-                runner_lines.append('  NPROC="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"')
-                runner_lines.append('  if [ "$(uname -s)" = "Darwin" ]; then')
-                runner_lines.append('    command -v cmake >/dev/null 2>&1 || echo "WARNING: cmake not found — install it with: brew install cmake (or: brew install llama.cpp for a prebuilt llama-server)."')
-                # Start from a clean cache: a prior failed configure (e.g. a CUDA
-                # attempt) poisons build/CMakeCache.txt, so a plain `cmake -B build`
-                # would reuse the bad settings and fail again. CMAKE_BUILD_TYPE is
-                # explicit so the binary is optimized (Metal auto-enables on macOS).
-                runner_lines.append('    cd ~/llama.cpp && rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Release \\')
-                runner_lines.append('      && cmake --build build -j"$NPROC" --target llama-server \\')
-                runner_lines.append('      && ln -sf ~/llama.cpp/build/bin/llama-server ~/bin/llama-server')
-                runner_lines.append('  else')
+                # Build with the right accelerator: CUDA when present, else a
+                # plain CPU build.
+                runner_lines.append('  NPROC="$(nproc 2>/dev/null || echo 4)"')
                 _append_llama_cpp_linux_accel_build_lines(runner_lines)
-                runner_lines.append('  fi')
                 # Source the env file the prebuilt-download path writes so
                 # LD_LIBRARY_PATH includes the directory holding libllama.so
                 # and friends. No-op when prebuilt wasn't used.
@@ -1718,11 +1703,6 @@ def setup_cookbook_routes() -> APIRouter:
                 runner_lines.append('echo "=== Process exited with code ${_ody_exit} ==="')
                 runner_lines.append('exec bash -i')
             elif "vllm serve" in req.cmd:
-                # vLLM is CUDA/ROCm-only and does not run on macOS at all.
-                runner_lines.append('if [ "$(uname -s)" = "Darwin" ]; then')
-                runner_lines.append('  echo "ERROR: vLLM does not run on macOS. Use Ollama or llama.cpp (Metal) instead."')
-                runner_lines.append('  ODYSSEUS_PREFLIGHT_EXIT=1')
-                runner_lines.append('fi')
                 # Put ~/.local/bin on PATH first — without a venv, vllm installs
                 # there via --user and the non-login serve shell otherwise can't
                 # find the `vllm` CLI ("command not found"). Mirrors llama.cpp above.
@@ -2311,46 +2291,6 @@ def setup_cookbook_routes() -> APIRouter:
 
         if gpus:
             return {"ok": True, "gpus": gpus, "backend": "cuda", "source": "nvidia-smi"}
-
-        # Local Apple Silicon / Metal fallback. macOS has no nvidia-smi and no
-        # Linux /sys/class/drm tree, but services.hwfit.hardware already knows
-        # how to size the shared unified-memory GPU budget. Keep this route in
-        # sync so Cookbook's GPU picker doesn't show "nvidia-smi not found" on
-        # native Mac launches.
-        if not host and sys.platform == "darwin":
-            try:
-                from services.hwfit.hardware import detect_system
-                info = detect_system(fresh=True)
-                backend = str(info.get("backend") or "").lower()
-                if backend in {"metal", "mps", "apple"} and info.get("gpu_count", 0) > 0:
-                    total_mb = int(float(info.get("gpu_vram_gb") or info.get("total_ram_gb") or 0) * 1024)
-                    free_mb = int(float(info.get("available_ram_gb") or 0) * 1024)
-                    if total_mb and (free_mb <= 0 or free_mb > total_mb):
-                        free_mb = total_mb
-                    used_mb = max(0, total_mb - max(0, free_mb))
-                    return {
-                        "ok": True,
-                        "gpus": [{
-                            "index": 0,
-                            "name": info.get("gpu_name") or info.get("cpu_name") or "Apple Silicon GPU",
-                            "uuid": "apple-metal-0",
-                            "free_mb": max(0, free_mb),
-                            "total_mb": max(0, total_mb),
-                            "used_mb": used_mb,
-                            "util_pct": 0,
-                            "busy": bool(total_mb and (free_mb / total_mb) < 0.5),
-                            "processes": [],
-                            "backend": "metal",
-                            "source": "apple-metal",
-                            "unified_memory": True,
-                        }],
-                        "backend": "metal",
-                        "source": "apple-metal",
-                        "fallback_from": "nvidia-smi",
-                        "nvidia_error": nvidia_error,
-                    }
-            except Exception as e:
-                logger.warning("Apple Metal GPU fallback failed: %s", e)
 
         amd_gpus = await _probe_amd_sysfs(host, ssh_port)
         if amd_gpus:

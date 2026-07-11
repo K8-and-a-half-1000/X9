@@ -20,7 +20,6 @@ def _stub_common_probe(monkeypatch, machine):
     monkeypatch.setattr(hardware, "_get_available_ram_gb", lambda: 48.0)
     monkeypatch.setattr(hardware, "_get_cpu_count", lambda: 16)
     monkeypatch.setattr(hardware, "_get_cpu_name", lambda: "Test CPU")
-    monkeypatch.setattr(hardware, "_detect_apple_silicon", lambda: None)
     monkeypatch.setattr(hardware, "_detect_amd", lambda: None)
 
 

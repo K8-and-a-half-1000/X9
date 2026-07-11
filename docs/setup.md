@@ -13,10 +13,10 @@ inside **Settings**. Only edit `.env` for deployment-level overrides like
 Contributing? See [CONTRIBUTING.md](../CONTRIBUTING.md) for setup, testing, and
 pull request guidelines.
 
-### Native Linux / macOS
+### Native Linux
 ```bash
-git clone https://github.com/pewdiepie-archdaemon/odysseus.git
-cd odysseus
+git clone https://github.com/K8-and-a-half-1000/X9.git
+cd X9
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -27,33 +27,6 @@ Requirements: Python 3.11+. Cookbook also needs `tmux` for background model
 downloads and serves. The app itself is lightweight; local model serving is the
 heavy part and depends on the model, runtime, GPU, and VRAM, so small hosts can
 connect to API or remote model servers instead. Use `--host 0.0.0.0` only when you intentionally want LAN/reverse-proxy access.
-
-### Apple Silicon
-For GPU-accelerated Cookbook on an M-series Mac, run Odysseus natively:
-
-```bash
-git clone https://github.com/pewdiepie-archdaemon/odysseus.git
-cd odysseus
-./start-macos.sh
-```
-
-It launches at `http://127.0.0.1:7860`. To expose it to your phone over a trusted LAN/VPN such as Tailscale, bind all interfaces:
-
-```bash
-ODYSSEUS_HOST=0.0.0.0 ./start-macos.sh
-# then open http://<tailscale-ip>:7860
-```
-
-The script also reads `.env` at startup, so `APP_BIND=0.0.0.0` and `APP_PORT`
-set there are picked up automatically without a command-line override each run.
-
-Do not expose this port directly to the public internet — X9 has no login
-flow; serve it exclusively through your Zero-Trust gateway. To build a
-clickable app wrapper:
-
-```bash
-./build-macos-app.sh
-```
 
 <details>
 <summary>Cookbook, GPU, Ollama, and troubleshooting notes</summary>
@@ -83,11 +56,6 @@ http://localhost:11434/v1
 Cookbook **Serve** is a separate workflow for serving downloaded models
 through Odysseus/llama.cpp, so users with an existing Ollama install usually
 only need to add the endpoint in Settings.
-
-**macOS details.** `start-macos.sh` installs Homebrew deps, creates the venv,
-runs setup, and starts uvicorn on port `7860` because AirPlay often holds
-`7000`. It uses llama.cpp/Ollama for Metal. vLLM/SGLang are CUDA/ROCm-only and
-do not run on macOS. MLX-only models are not served by Odysseus.
 
 </details>
 
@@ -170,7 +138,6 @@ To expose Odysseus on a local network or Tailscale with HTTPS:
 A grab-bag of small gotchas that otherwise turn into long debugging sessions.
 
 - **The first `.env` setting is silently ignored (Windows).** If you edited `.env` in Notepad it may have saved a UTF-8 **BOM**, turning the first key into `﻿APP_PORT` (etc.) so it is never matched. Odysseus loads `.env` with `encoding="utf-8-sig"` to tolerate a leading BOM, but the safe fix is to re-save `.env` as **UTF-8 without BOM** (VS Code: *Save with Encoding → UTF-8*).
-- **macOS: the app isn't at `http://localhost:7000`.** macOS AirPlay Receiver usually holds port `7000`, so the macOS start script serves on **`7860`** instead — open `http://localhost:7860`. To use `7000`, free it (System Settings → General → AirDrop & Handoff → turn off *AirPlay Receiver*) and set `APP_PORT=7000`.
 - **Copy buttons do nothing over a plain-HTTP Tailscale/LAN URL.** Browsers only expose the clipboard API (`navigator.clipboard`) on **secure origins** — HTTPS, or `localhost`. Over `http://100.x.y.z:7860` it is blocked. Serve over HTTPS (see *HTTPS + LAN/Tailscale exposure* above); `localhost` is exempt, so copy still works on the host itself.
 - **Self-hosted ntfy reminders don't reach your phone.** Two things: (1) a loopback-bound ntfy is unreachable from your phone — bind ntfy to your host/Tailscale IP and use that same server URL in Odysseus reminder settings; (2) in the ntfy **Android** app, subscribe to the topic with **Instant delivery** enabled — non-`ntfy.sh` servers don't get instant push otherwise.
 - **Calendar/contacts (Radicale) won't sync.** Point Odysseus at the **full collection URL** with its trailing slash — e.g. `http://host:5232/<user>/<collection-id>/` — not just the server root. Radicale shows this address for each calendar/address book in its web UI.

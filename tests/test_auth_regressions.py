@@ -248,15 +248,15 @@ def test_task_create_notification_default_allows_action_specific_defaults():
     assert req.notifications_enabled is None
 
 
-def test_ship_paused_housekeeping_stays_paused_by_default():
-    """Built-ins marked ship_paused are intentionally opt-in even after
-    the user enables the rest of Tasks."""
+def test_ship_paused_housekeeping_mechanism_is_wired():
+    """The ship_paused opt-in mechanism stays wired so a built-in can ship
+    paused. (No built-in currently sets it — the calendar-classify task that
+    used it was removed with the calendar feature.)"""
     from routes import task_routes
     from src import task_scheduler
 
     route_src = open(task_routes.__file__, encoding="utf-8").read()
     scheduler_src = open(task_scheduler.__file__, encoding="utf-8").read()
-    assert '"ship_paused": True' in scheduler_src
     assert 'defs.get("ship_paused")' in scheduler_src
     assert 'defs.get("ship_paused")' in route_src
 

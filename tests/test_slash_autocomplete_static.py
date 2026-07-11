@@ -13,5 +13,5 @@ def test_exact_parent_command_expands_subcommands_before_top_level_row_cap():
     assert "items = groupItems.slice(0, MAX_VISIBLE);" in _AC
 
 
-def test_setup_group_has_room_for_chatgpt_subscription_suggestion():
+def test_setup_group_has_room_for_suggestions():
     assert "const MAX_VISIBLE = 14;" in _AC

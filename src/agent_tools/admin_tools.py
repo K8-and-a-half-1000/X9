@@ -705,7 +705,6 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
                 "image": ["generate_image"],
                 "tasks": ["manage_tasks"],
                 "notes": ["manage_notes"],
-                "calendar": ["manage_calendar"],
                 "research": ["web_search", "web_fetch"],  # research is a per-request flag, not a tool (closest analog)
             }
 
@@ -715,7 +714,7 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
                     "response": (
                         f"Currently disabled: {', '.join(current) if current else '(none)'}.\n"
                         "Common toggles: shell (bash), search (web_search), browser, documents, "
-                        "memory, skills, images, tasks, notes, calendar, email."
+                        "memory, skills, images, tasks, notes."
                     ),
                     "disabled": list(current),
                     "exit_code": 0,

@@ -13,7 +13,7 @@ TOPIC_KEYWORDS: Dict[str, List[str]] = {
     "Personal": ["personal", "family", "friend", "relationship", "health", "wellness", "exercise", "diet"],
     "Learning": ["learn", "study", "education", "course", "tutorial", "guide", "how to", "explain"],
     "Creativity": ["write", "story", "create", "design", "art", "music", "draw", "paint"],
-    "Planning": ["plan", "schedule", "organize", "arrange", "coordinate", "timeline", "calendar"],
+    "Planning": ["plan", "schedule", "organize", "arrange", "coordinate", "timeline"],
     "Troubleshooting": ["error", "bug", "fix", "problem", "issue", "debug", "troubleshoot"],
 }
 

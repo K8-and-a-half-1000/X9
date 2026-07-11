@@ -14,7 +14,7 @@ import tempfile
 from collections import namedtuple
 from pathlib import Path
 from typing import Dict, Any
-from core.platform_compat import IS_APPLE_SILICON, which_tool
+from core.platform_compat import which_tool
 from core.middleware import INTERNAL_TOOL_USER
 from src.optional_deps import prepare_optional_dependency_import
 
@@ -207,11 +207,6 @@ def _package_pip_update_status(
     native llama-server can come from a package manager/source build, and a CLI
     may be on PATH without matching Python package metadata.
     """
-    if pkg.get("name") == "APFEL":
-        return PackageUpdateStatus(
-            False,
-            "",  # Note is empty because IT DOES allow for updates outside of PIP.
-        )
 
     if pkg.get("kind") == "system" or not pkg.get("pip"):
         return PackageUpdateStatus(
@@ -1109,17 +1104,6 @@ def setup_shell_routes() -> APIRouter:
                 "category": "LLM",
                 "target": "remote",
             },
-            {
-                "name": "APFEL",
-                "pip": "",
-                "desc": "OpenAI-compatible API for Apple Foundational Models on Apple Silicon",
-                "category": "LLM",
-                "target": "local",
-                "kind": "system",
-                "install_cmd": "brew install apfel",
-                "update_cmd": "brew upgrade apfel",
-                "install_hint": "Requires a native Apple Silicon Mac with Apple Foundational Models support. Installable via Homebrew on supported Macs.",
-            },
             # ── Image ── editor + diffusion model serving
             {
                 "name": "diffusers",
@@ -1312,16 +1296,7 @@ def setup_shell_routes() -> APIRouter:
                     if note:
                         pkg["status_note"] = note
             elif pkg.get("kind") == "system":
-                if pkg["name"] == "APFEL":
-                    pkg["applicable"] = IS_APPLE_SILICON
-                    pkg["installed"] = which_tool("apfel") is not None
-                    pkg["status_note"] = (
-                        "Available on Apple Silicon (arm64) devices; exposed through a local OpenAI-compatible API."
-                        if IS_APPLE_SILICON
-                        else "Requires a native Apple Silicon Mac with Apple Foundational Models support."
-                    )
-                else:
-                    pkg["installed"] = shutil.which(pkg["name"]) is not None
+                pkg["installed"] = shutil.which(pkg["name"]) is not None
             elif pkg["name"] == "llama_cpp" and shutil.which("llama-server"):
                 pkg["installed"] = True
                 pkg["status_note"] = (

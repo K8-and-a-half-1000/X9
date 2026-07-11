@@ -75,7 +75,7 @@ function _loadState() {
 
 function _startObserver() {
   if (_observer) return;
-  // Observe chat-history, compare panes, and split panes for new messages
+  // Observe chat-history and split panes for new messages
   _observer = new MutationObserver((mutations) => {
     if (!_enabled) return;
     for (const mutation of mutations) {

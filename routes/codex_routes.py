@@ -28,8 +28,6 @@ TODO_READ_SCOPES = {"todos:read", "todos:write"}
 TODO_WRITE_SCOPES = {"todos:write"}
 MEMORY_READ_SCOPES = {"memory:read", "memory:write"}
 MEMORY_WRITE_SCOPES = {"memory:write"}
-CALENDAR_READ_SCOPES = {"calendar:read", "calendar:write"}
-CALENDAR_WRITE_SCOPES = {"calendar:write"}
 DOCS_READ_SCOPES = {"documents:read", "documents:write"}
 DOCS_WRITE_SCOPES = {"documents:write"}
 WRITE_ACTIONS = {"add", "create", "new", "save", "remind", "update", "delete", "toggle_item", "remove", "remove_item"}
@@ -144,14 +142,11 @@ def _clamp_pagination(offset: Any, limit: Any, *, default_limit: int = 50, max_l
 
 def setup_codex_routes(
     memory_router: APIRouter | None = None,
-    calendar_router: APIRouter | None = None,
     document_router: APIRouter | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/codex", tags=["codex"])
     memory_list_endpoint = _find_endpoint(memory_router, "GET", "/api/memory")
     memory_add_endpoint = _find_endpoint(memory_router, "POST", "/api/memory/add")
-    calendar_list_events = _find_endpoint(calendar_router, "GET", "/api/calendar/events")
-    calendar_create_event = _find_endpoint(calendar_router, "POST", "/api/calendar/events")
     documents_library_endpoint = _find_endpoint(document_router, "GET", "/api/documents/library")
     documents_get_endpoint = _find_endpoint(document_router, "GET", "/api/document/{doc_id}")
     documents_create_endpoint = _find_endpoint(document_router, "POST", "/api/document")
@@ -176,12 +171,6 @@ def setup_codex_routes(
                     "write": scoped(MEMORY_WRITE_SCOPES),
                     "actions": ["list", "add", "delete"],
                     "available": memory_list_endpoint is not None,
-                },
-                "calendar": {
-                    "read": scoped(CALENDAR_READ_SCOPES),
-                    "write": scoped(CALENDAR_WRITE_SCOPES),
-                    "actions": ["list_events", "create_event", "delete_event"],
-                    "available": calendar_list_events is not None,
                 },
                 "documents": {
                     "read": scoped(DOCS_READ_SCOPES),
@@ -262,28 +251,6 @@ def setup_codex_routes(
             raise HTTPException(400, "Empty memory text")
         return await _as_owner(request, owner, memory_add_endpoint, request, memory_data)
 
-    # ── Calendar ──────────────────────────────────────────────────────────
-
-    @router.get("/calendar/events")
-    async def codex_calendar_list(request: Request, start: str, end: str, calendar: str = ""):
-        owner = _scope_owner(request, CALENDAR_READ_SCOPES)
-        if calendar_list_events is None:
-            raise HTTPException(503, "Calendar integration is not available")
-        return await _as_owner(request, owner, calendar_list_events, request, start, end, calendar)
-
-    @router.post("/calendar/events")
-    async def codex_calendar_create(request: Request, body: dict[str, Any] = Body(default_factory=dict)):
-        owner = _scope_owner(request, CALENDAR_WRITE_SCOPES)
-        if calendar_create_event is None:
-            raise HTTPException(503, "Calendar integration is not available")
-        from routes.calendar_routes import EventCreate
-
-        try:
-            data = EventCreate(**body)
-        except Exception as exc:
-            raise HTTPException(400, f"Invalid event payload: {exc}")
-        return await _as_owner(request, owner, calendar_create_event, request, data)
-
     # ── Documents ─────────────────────────────────────────────────────────
 
     @router.get("/documents")
@@ -322,7 +289,6 @@ def setup_codex_routes(
     # ── DELETE endpoints so agents can clean up after themselves ──────────
 
     memory_delete_endpoint = _find_endpoint(memory_router, "DELETE", "/api/memory/{memory_id}")
-    calendar_delete_event = _find_endpoint(calendar_router, "DELETE", "/api/calendar/events/{uid}")
     documents_delete_endpoint = _find_endpoint(document_router, "DELETE", "/api/document/{doc_id}")
 
     @router.delete("/memory/{memory_id}")
@@ -331,13 +297,6 @@ def setup_codex_routes(
         if memory_delete_endpoint is None:
             raise HTTPException(503, "Memory delete not available")
         return await _as_owner(request, owner, memory_delete_endpoint, request, memory_id)
-
-    @router.delete("/calendar/events/{uid}")
-    async def codex_calendar_delete(request: Request, uid: str):
-        owner = _scope_owner(request, CALENDAR_WRITE_SCOPES)
-        if calendar_delete_event is None:
-            raise HTTPException(503, "Calendar delete not available")
-        return await _as_owner(request, owner, calendar_delete_event, request, uid)
 
     @router.delete("/documents/{doc_id}")
     async def codex_documents_delete(request: Request, doc_id: str):

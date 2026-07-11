@@ -930,7 +930,7 @@ if ('ontouchstart' in window) {
     // to interpret it as a swipe-to-dismiss gesture. Skip the swipe init
     // entirely when the touch starts inside the editor area.
     if (e.target.closest('.gallery-editor, .gallery-editor-container')) return;
-    // Internal vertical drag handles (e.g. the calendar's cal-splitter that
+    // Internal vertical drag handles (e.g. splitters that
     // resizes the day-detail pane) consume vertical touches themselves. If
     // we don't bail here, the swipe-dismiss path also tracks the touch and
     // slides the whole modal down as the user drags the handle. The
@@ -1065,7 +1065,7 @@ if ('ontouchstart' in window) {
         const modal = el.closest('.modal');
         if (modal) {
           modal.classList.add('hidden');
-          // Some modals (calendar, email library) toggle visibility via
+          // Some modals (email library) toggle visibility via
           // inline display style which would override .hidden — clear it
           // so the modal is actually dismissed.
           modal.style.display = '';
@@ -1196,7 +1196,7 @@ if (!window._odyEscExpandGuard) {
   // Auto-promote any modal that becomes visible to the top of the z-stack.
   // Every modal shares `z-index: 250` from the base `.modal` rule, so visual
   // stacking falls back to DOM order — which is unpredictable (cookbook is
-  // a static HTML node, calendar gets appended once and stays, compare and
+  // a static HTML node; some panes are appended once and stay, others
   // research get re-appended on each open). Result: opening compare AFTER
   // cookbook can render compare UNDER it. Bumping the z-index on every
   // open guarantees most-recently-opened wins both visually AND for ESC.

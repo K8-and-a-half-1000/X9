@@ -199,20 +199,12 @@ def _recover_empty_session_model(sess, session_id: str, owner: str | None = None
     Covers the window between endpoint setup and the first chat send: the
     picker showed a model in the dropdown but the session record never got
     written (Issue #587 — UI uses the cached endpoint list, not s.model).
-    For ChatGPT Subscription, also repairs stale OpenAI API model names such as
-    ``gpt-5`` that are not accepted by the Codex-backed ChatGPT account route.
     """
     current_model = (getattr(sess, "model", "") or "").strip()
-    endpoint_url = (getattr(sess, "endpoint_url", "") or "").strip()
-    is_chatgpt_subscription = False
+    # A session that already has a model is authoritative; only empty sessions
+    # get recovered from the endpoint's cached list.
     if current_model:
-        try:
-            from src.chatgpt_subscription import is_chatgpt_subscription_base
-            is_chatgpt_subscription = is_chatgpt_subscription_base(endpoint_url)
-            if not is_chatgpt_subscription:
-                return False
-        except Exception:
-            return False
+        return False
     db = SessionLocal()
     try:
         # Prefer the endpoint whose base URL matches the session — we know the
@@ -231,12 +223,6 @@ def _recover_empty_session_model(sess, session_id: str, owner: str | None = None
                     break
         if not ep:
             return False
-        if not is_chatgpt_subscription:
-            try:
-                from src.chatgpt_subscription import is_chatgpt_subscription_base
-                is_chatgpt_subscription = is_chatgpt_subscription_base(getattr(ep, "base_url", "") or endpoint_url)
-            except Exception:
-                is_chatgpt_subscription = False
         try:
             cached = json.loads(ep.cached_models) if isinstance(ep.cached_models, str) else (ep.cached_models or [])
         except Exception as e:
@@ -249,34 +235,6 @@ def _recover_empty_session_model(sess, session_id: str, owner: str | None = None
                 visible = _visible_models(cached, getattr(ep, "hidden_models", None))
             except Exception:
                 visible = cached
-        if current_model and current_model in {str(item).strip() for item in visible}:
-            return False
-        if is_chatgpt_subscription:
-            live_models = []
-            if getattr(ep, "provider_auth_id", None):
-                try:
-                    from src.chatgpt_subscription import fetch_available_models
-                    from src.endpoint_resolver import resolve_endpoint_runtime
-                    _base, api_key = resolve_endpoint_runtime(ep, owner=owner)
-                    if api_key:
-                        live_models = fetch_available_models(api_key)
-                        if live_models:
-                            ep.cached_models = json.dumps(live_models)
-                            db.commit()
-                except Exception:
-                    live_models = []
-            # ChatGPT Subscription recovery must use the live Codex catalog.
-            # Cached rows are only trusted above to avoid revalidating a model
-            # that is already present in the visible picker list.
-            cached = live_models
-            if not cached:
-                return False
-            try:
-                visible = _visible_models(cached, getattr(ep, "hidden_models", None))
-            except Exception:
-                visible = cached
-            if current_model and current_model in {str(item).strip() for item in visible}:
-                return False
         if not visible:
             return False
         model = visible[0]
@@ -484,8 +442,6 @@ def setup_chat_routes(
         allow_bash = form_data.get("allow_bash") or (body or {}).get("allow_bash")
         allow_web_search = form_data.get("allow_web_search") or (body or {}).get("allow_web_search")
         use_rag = form_data.get("use_rag")
-        search_context = form_data.get("search_context")  # pre-fetched web search results (compare mode)
-        compare_mode = str(form_data.get("compare_mode", "")).lower() == "true"
         incognito = str(form_data.get("incognito", "")).lower() == "true"
         # Plan mode is not part of the merge-ready UI. Ignore stale clients or
         # manual form posts that still send plan_mode=true.
@@ -508,11 +464,11 @@ def setup_chat_routes(
             approved_plan = (form_data.get("approved_plan") or "").strip()[:8192]
         # Did the USER explicitly pick agent mode? (vs. us auto-escalating
         # below). Skill extraction should only learn from real agent sessions,
-        # not chats we quietly promoted for a notes/calendar intent.
+        # not chats we quietly promoted for a notes intent.
         user_requested_agent = (chat_mode == "agent")
         # Intent auto-escalation: if the user is clearly asking the assistant
-        # to create a todo, reminder, or calendar event, promote chat → agent
-        # for this turn so the LLM has access to manage_notes / manage_calendar.
+        # to create a todo or reminder, promote chat → agent
+        # for this turn so the LLM has access to manage_notes.
         # This is a LIGHT promotion — see the disabled_tools block below, which
         # withholds shell/code/file tools so the model doesn't try to `bash`
         # its way through a plain chat request (and fail, especially with the
@@ -611,8 +567,6 @@ def setup_chat_routes(
             time_filter=time_filter,
             incognito=incognito,
             no_memory=no_memory,
-            search_context=search_context,
-            compare_mode=compare_mode,
             webhook_manager=webhook_manager,
             use_enhanced_message=True,
             # Skills index only ships when the model can actually call
@@ -762,7 +716,7 @@ def setup_chat_routes(
                 disabled_tools.update(_global_disabled)
 
         # Light auto-escalation: the user is in chat mode and just expressed a
-        # notes/calendar/email intent. Grant the relevant managers but withhold
+        # notes intent. Grant the relevant managers but withhold
         # the heavy "do things on the computer" tools — otherwise the model
         # tries to shell out for a request that never needed it, then fails
         # (and looks broken when the shell is disabled).
@@ -770,24 +724,6 @@ def setup_chat_routes(
             disabled_tools.update({
                 "bash", "python", "read_file", "write_file", "builtin_browser",
             })
-
-        # Disable document tools in compare sessions — they break the pane UI
-        if sess.name and sess.name.startswith("[CMP]"):
-            disabled_tools.update({"create_document", "edit_document", "update_document"})
-
-        # Compare mode: disable tools based on compare type
-        if compare_mode:
-            _compare_strip = {
-                "create_document", "edit_document", "update_document",
-                "chat_with_model", "create_session", "list_sessions",
-                "send_to_session",
-                "pipeline", "manage_session", "manage_memory", "list_models",
-                "generate_image", "ui_control",
-            }
-            disabled_tools.update(_compare_strip)
-            # In chat mode compare, disable ALL agent tools (no bash, python, file ops)
-            if chat_mode == 'chat':
-                disabled_tools.update({"bash", "python", "read_file", "write_file", "web_search", "web_fetch", "search_chats", "manage_tasks"})
 
         # Plan mode: investigate read-only, propose a plan, don't mutate. Block
         # every tool not on the read-only allowlist. (stream_agent_loop enforces
@@ -859,12 +795,9 @@ def setup_chat_routes(
                 logger.info(f"Research endpoint resolved: model={_r_model}, endpoint={redact_url(_r_ep)}, auth_keys={_auth_keys}, sess_headers_keys={list(sess.headers.keys()) if isinstance(sess.headers, dict) else type(sess.headers)}")
 
                 # Clarification round: only for very short/vague queries on first research message.
-                # Skip in compare mode — each pane is a fresh session, so every one would
-                # ask clarifying questions and the user would have to answer each pane
-                # separately, breaking the parallel comparison.
                 _prior_json = research_handler._get_session_json(session)
                 _history_len = len(sess.history) if hasattr(sess, 'history') else 0
-                _is_first_research = not _prior_json and _history_len <= 2 and not compare_mode
+                _is_first_research = not _prior_json and _history_len <= 2
 
                 if _is_first_research:
                     logger.info(f"First research message — asking clarifying questions for: {message[:60]}")
@@ -1054,8 +987,7 @@ def setup_chat_routes(
                         # Respect the preset; 0/unset = let the server decide (no
                         # cap), matching agent mode. The old hard 4096 fallback
                         # truncated reasoning models mid-<think> — they'd burn the
-                        # whole budget thinking and never emit the answer (seen in
-                        # Compare on heavy generation prompts).
+                        # whole budget thinking and never emit the answer.
                         max_tokens=ctx.preset.max_tokens,
                         prompt_type=preset_id,
                         tools=None,
@@ -1146,7 +1078,7 @@ def setup_chat_routes(
                                 run_post_response_tasks(
                                     sess, session_manager, session, message, full_response,
                                     last_metrics, ctx.uprefs, memory_manager, memory_vector, webhook_manager,
-                                    incognito=incognito, compare_mode=compare_mode,
+                                    incognito=incognito,
                                     character_name=ctx.preset.character_name,
                                     owner=_user,
                                     allow_background_extraction=not tool_policy.block_all_tool_calls,
@@ -1290,7 +1222,7 @@ def setup_chat_routes(
                                 run_post_response_tasks(
                                     sess, session_manager, session, message, _response_to_save,
                                     last_metrics, ctx.uprefs, memory_manager, memory_vector, webhook_manager,
-                                    incognito=incognito, compare_mode=compare_mode,
+                                    incognito=incognito,
                                     character_name=ctx.preset.character_name,
                                                             agent_rounds=_agent_rounds,
                                     agent_tool_calls=_agent_tool_calls,
@@ -1337,29 +1269,11 @@ def setup_chat_routes(
             finally:
                 _active_streams.pop(session, None)
 
-        # Compare panes are short-lived, single-shot generations whose sessions
-        # exist only to drive that one pane — there's nothing to "resume" and
-        # the user expects the pane's Stop button (which aborts the fetch,
-        # closing this SSE) to promptly cancel the upstream LLM call. Detaching
-        # them would keep burning upstream tokens/compute after the pane is
-        # stopped or the comparison is abandoned, and would surface a stale
-        # "still streaming" /resume target for a session nobody will revisit.
-        #
-        # So: stream them directly (no agent_runs wrapping). Starlette cancels
-        # the underlying async generator (raising CancelledError/GeneratorExit
-        # inside it) as soon as it notices the client disconnected — which the
-        # mode-specific except blocks above already handle by saving the
-        # partial response exactly once. This stops the upstream call promptly
-        # without waiting on the next streamed chunk.
-        #
-        # Normal chat/agent streams keep the DETACHED behavior below: they
-        # survive the client closing the tab / navigating away. The SSE response just subscribes (replay
+        # Chat/agent streams are DETACHED: they survive the client closing the
+        # tab / navigating away. The SSE response just subscribes (replay
         # buffered output + live); dropping the SSE only removes a subscriber —
         # the run keeps going and saves the assistant message on completion
         # regardless. Reconnect via /api/chat/resume.
-        if compare_mode:
-            return StreamingResponse(_safe_stream(), media_type="text/event-stream")
-
         agent_runs.start(session, _safe_stream())
         return StreamingResponse(agent_runs.subscribe(session), media_type="text/event-stream")
 

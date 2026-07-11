@@ -587,14 +587,6 @@ app.include_router(setup_embedding_routes())
 from routes.model_routes import setup_model_routes
 app.include_router(setup_model_routes(model_discovery))
 
-# GitHub Copilot device-flow login
-from routes.copilot_routes import setup_copilot_routes
-app.include_router(setup_copilot_routes())
-
-# ChatGPT Subscription device-flow login
-from routes.chatgpt_subscription_routes import setup_chatgpt_subscription_routes
-app.include_router(setup_chatgpt_subscription_routes())
-
 # TTS
 from routes.tts_routes import setup_tts_routes
 app.include_router(setup_tts_routes(tts_service))
@@ -634,10 +626,6 @@ app.include_router(setup_task_routes(task_scheduler))
 from routes.assistant_routes import setup_assistant_routes
 app.include_router(setup_assistant_routes(task_scheduler))
 
-# Calendar (CalDAV)
-from routes.calendar_routes import setup_calendar_routes
-calendar_router = setup_calendar_routes()
-app.include_router(calendar_router)
 
 # Shell (user-facing command execution)
 from routes.shell_routes import setup_shell_routes
@@ -653,10 +641,6 @@ app.include_router(setup_workspace_routes())
 # Hardware model fitting (cookbook "What Fits?" tab)
 from routes.hwfit_routes import setup_hwfit_routes
 app.include_router(setup_hwfit_routes())
-
-# Model A/B Comparison
-from routes.compare_routes import setup_compare_routes
-app.include_router(setup_compare_routes(session_manager))
 
 # User Preferences
 from routes.prefs_routes import setup_prefs_routes
@@ -707,7 +691,6 @@ app.include_router(setup_note_routes(task_scheduler))
 from routes.codex_routes import setup_codex_routes, setup_claude_routes
 app.include_router(setup_codex_routes(
     memory_router=memory_router,
-    calendar_router=calendar_router,
     document_router=document_router,
 ))
 app.include_router(setup_claude_routes())
@@ -738,10 +721,6 @@ async def serve_index(request: Request):
 
 @app.get("/notes")
 async def serve_notes(request: Request):
-    return await serve_index(request)
-
-@app.get("/calendar")
-async def serve_calendar(request: Request):
     return await serve_index(request)
 
 # Per-tool deep-link routes — all serve the same SPA, the JS auto-opens

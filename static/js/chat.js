@@ -498,12 +498,6 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
     
     const submitBtn = document.querySelector('.send-btn');
     
-    // If compare is active, stop all compare streams
-    if (window.compareModule && window.compareModule.isActive()) {
-      window.compareModule.handleCompareSubmit();
-      return;
-    }
-
     // If currently streaming, a non-empty composer means "queue this next".
     // Empty composer keeps the existing Stop behavior.
     if (isStreaming) {
@@ -2522,14 +2516,6 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 if (json.tool === 'manage_session' && sessionModule) {
                   if (window._manageSessionTimer) clearTimeout(window._manageSessionTimer);
                   window._manageSessionTimer = setTimeout(() => sessionModule.loadSessions(), 1000);
-                }
-                // --- Live-refresh the calendar after manage_calendar (add/edit/delete) ---
-                // so a new event shows without the user hard-refreshing. Debounced
-                // so a batch of event creates only triggers one refetch.
-                if (json.tool === 'manage_calendar') {
-                  if (window._manageCalTimer) clearTimeout(window._manageCalTimer);
-                  window._manageCalTimer = setTimeout(
-                    () => window.dispatchEvent(new CustomEvent('calendar-refresh')), 600);
                 }
                 // --- Live-refresh Memories after manage_memory changes ---
                 if (json.tool === 'manage_memory') {
@@ -5167,7 +5153,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
 
   // Single delegated handler for tool-call fold/expand. One listener on
   // document.body covers every .agent-thread-node — running, completed,
-  // streaming, history-rendered, compare-mode, all of them. Re-attaching
+  // streaming, history-rendered, all of them. Re-attaching
   // per-node listeners on every innerHTML rewrite was the source of the
   // "needs many clicks" bug.
   if (!window.__odysseus_thread_click_bound) {

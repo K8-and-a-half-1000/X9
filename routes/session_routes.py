@@ -22,22 +22,6 @@ def _sanitize_export_filename(name: str) -> str:
     return name[:128]
 
 
-# Blind-compare helper sessions are created with this name prefix. Their real
-# model must never surface in the session list / sidebar — otherwise a blind
-# comparison can be de-anonymized before the user votes (issue #1285).
-COMPARE_SESSION_PREFIX = "[CMP] "
-
-
-def _public_model(name: str, model: str) -> str:
-    """Blank out the real model of blind-compare helper sessions so the
-    session list can't be used to map a neutral pane label ("Model A") back
-    to its model. The Compare UI tracks models client-side, so hiding it here
-    costs the sidebar nothing. See issue #1285."""
-    if (name or "").startswith(COMPARE_SESSION_PREFIX):
-        return ""
-    return model
-
-
 def _content_to_text(content) -> str:
     """Flatten a message's content to plain text for text-based exports.
 
@@ -305,7 +289,7 @@ def setup_session_routes(session_manager: SessionManager, config: dict, webhook_
         finally:
             db.close()
 
-        sessions = [{"id": s.id, "name": s.name, "model": _public_model(s.name, s.model),
+        sessions = [{"id": s.id, "name": s.name, "model": s.model,
                      "endpoint_url": s.endpoint_url, "rag": s.rag,
                      "archived": s.archived, "folder": folder_map.get(s.id),
                      "total_tokens": token_map.get(s.id, 0),
@@ -553,35 +537,6 @@ def setup_session_routes(session_manager: SessionManager, config: dict, webhook_
     def delete_session_beacon(request: Request, sid: str):
         """Delete session via POST (for navigator.sendBeacon on page close)."""
         return delete_session(request, sid)
-
-    @router.post("/sessions/bulk-delete")
-    async def bulk_delete_sessions(request: Request):
-        """Delete multiple sessions (for compare cleanup via sendBeacon)."""
-        from core.database import ChatMessage as _CM
-        try:
-            body = await request.json()
-            ids = body.get("ids", [])
-        except Exception:
-            ids = []
-        deleted_count = 0
-        for sid in ids:
-            try:
-                _verify_session_owner(request, sid, session_manager)
-                
-                # Enforce "starred" protection consistent with single-session delete
-                db = SessionLocal()
-                try:
-                    db_sess = db.query(DbSession).filter(DbSession.id == sid).first()
-                    if db_sess and db_sess.is_important:
-                        continue
-                finally:
-                    db.close()
-
-                if session_manager.delete_session(sid):
-                    deleted_count += 1
-            except Exception:
-                pass
-        return {"deleted": deleted_count}
 
     @router.delete("/session/{sid}")
     def delete_session(request: Request, sid: str):

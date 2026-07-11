@@ -545,16 +545,13 @@ _APP_API_BLOCKLIST_METHOD_PATH = (
     ("POST",   "/api/notes"),
     ("PUT",    "/api/notes"),
     ("DELETE", "/api/notes"),
-    ("POST",   "/api/calendar/events"),
-    ("PUT",    "/api/calendar/events"),
-    ("DELETE", "/api/calendar/events"),
 )
 
 
 async def do_app_api(content: str, owner: Optional[str] = None) -> Dict:
     """Generic loopback to allowed internal Odysseus API endpoints. Lets the
     agent reach the full UI-button surface (cookbook, email, notes,
-    calendar, skills, sessions, gallery, research, etc.) without us
+    skills, sessions, gallery, research, etc.) without us
     landing a named tool wrapper for every one.
 
     Args (JSON):
@@ -654,15 +651,13 @@ async def do_app_api(content: str, owner: Optional[str] = None) -> Dict:
         if "/api/research/start" in path:
             return {"error": "Don't POST /api/research/start directly — use the `trigger_research` tool (it surfaces the session in the Deep Research sidebar).", "exit_code": 1}
         if "/api/notes" in path:
-            return {"error": "Don't hit /api/notes via app_api — use the `manage_notes` tool. It accepts natural-language due_date ('11pm today', 'tomorrow at 9am'), fires reminders from the due_date itself (no separate calendar event), and uses the caller's timezone. The raw endpoint requires ISO-UTC + a separate calendar event, both of which the agent tends to get wrong.", "exit_code": 1}
-        if "/api/calendar/events" in path:
-            return {"error": "Don't hit /api/calendar/events via app_api — use the `manage_calendar` tool. It handles tz-aware natural-language datetimes and reminder_minutes correctly. If the user wants a note + reminder, prefer `manage_notes` with due_date — it bundles both.", "exit_code": 1}
+            return {"error": "Don't hit /api/notes via app_api — use the `manage_notes` tool. It accepts natural-language due_date ('11pm today', 'tomorrow at 9am'), fires reminders from the due_date itself, and uses the caller's timezone. The raw endpoint requires ISO-UTC, which the agent tends to get wrong.", "exit_code": 1}
         return {"error": f"{method} {path} is blocked — it overwrites the whole cookbook state file. Use list_serve_presets / serve_preset / serve_model instead.", "exit_code": 1}
 
     body = args.get("body")
     query = args.get("query") or None
     # Pass owner so the backend impersonates the user — without this,
-    # POSTs (notes, calendar, todos, ...) get owner="internal-tool"
+    # POSTs (notes, todos, ...) get owner="internal-tool"
     # and the user that asked for them can't see the result.
     headers = {**_internal_headers(owner=owner), "Content-Type": "application/json"}
 

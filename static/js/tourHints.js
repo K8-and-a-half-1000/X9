@@ -8,14 +8,13 @@ const HINT_SEEN_KEY = 'odysseus-hint-drag-to-snap-seen';
 
 // Allow-list of modals where the snap/fullscreen hint makes sense.
 // These are the full-window "tool" modals where users commonly want to
-// reposition or fullscreen the pane (email, calendar, cookbook, gallery,
+// reposition or fullscreen the pane (email, cookbook, gallery,
 // library, brain memories, tasks, theme, compare). Transient modals
 // like settings, prompts, rename dialogs, custom-preset picker, etc.
 // are excluded — opening those is task-focused and the snap tip would
 // be noise.
 const SHOW_MODALS = new Set([
   'email-lib-modal',
-  'calendar-modal',
   'compare-modal',     // not currently a real id, defensive
   'cookbook-modal',
   'gallery-modal',

@@ -5,7 +5,11 @@ import uiModule from './ui.js';
 import settingsModule from './settings.js';
 import { providerLogo, providerLogoFromUrl } from './providers.js';
 import { sortModelObjects } from './modelSort.js';
-import { PROVIDER_DEVICE_FLOWS, formatDeviceFlowError, runProviderDeviceFlow } from './providerDeviceFlow.js';
+// Cloud provider device-auth (Copilot / ChatGPT Subscription) removed — X9 is
+// local-only. Empty registry keeps the (now-unreachable) device-auth branches inert.
+const PROVIDER_DEVICE_FLOWS = {};
+const formatDeviceFlowError = (e) => (e && e.message) ? e.message : String(e || 'error');
+const runProviderDeviceFlow = async () => ({ status: 'failed', error: 'unsupported' });
 
 let initialized = false;
 let modalEl = null;
@@ -1372,7 +1376,7 @@ function initEndpointForm() {
 const _GOOGLE_OAUTH_HELP = `To get Google OAuth credentials:
 1. Go to console.cloud.google.com
 2. Click the project dropdown (top left) > New Project > name it > Create
-3. APIs & Services > Library > enable the API you need (Gmail, Calendar, Drive, etc.)
+3. APIs & Services > Library > enable the API you need (Gmail, Drive, etc.)
 4. APIs & Services > OAuth consent screen > configure (External, app name + email)
 5. Under Audience, click Add Users > add your Google email as a test user
 6. APIs & Services > Credentials > + Create Credentials > OAuth Client ID > Desktop App
@@ -1381,16 +1385,6 @@ const _GOOGLE_OAUTH_HELP = `To get Google OAuth credentials:
 9. If accessing remotely: sign in, then copy the URL from the error page and paste it back`;
 
 const MCP_PRESETS = [
-  { name: "CalDAV (Radicale/Nextcloud)", command: "npx", args: ["-y", "caldav-mcp"],                     env: { CALDAV_BASE_URL: "http://localhost:5232", CALDAV_USERNAME: "", CALDAV_PASSWORD: "" },
-    help: "Works with any CalDAV server (Radicale, Nextcloud, etc.).\n1. Enter your CalDAV server URL (e.g. http://localhost:5232)\n2. Enter your username and password\n3. Click Add Server" },
-  { name: "Google Calendar", command: "npx", args: ["-y", "@cocal/google-calendar-mcp"],                 env: { GOOGLE_OAUTH_CREDENTIALS: "" },
-    help: `Setup:
-1. Go to console.cloud.google.com > create/select a project
-2. APIs & Services > Library > enable Google Calendar API
-3. APIs & Services > Credentials > + Create Credentials > OAuth Client ID
-4. Application type: Desktop App > Create
-5. Click "Download JSON" on the credential you just created
-6. Set Google Oauth Credentials to the full path of the downloaded JSON file` },
   { name: "Google Drive",    command: "npx", args: ["-y", "@modelcontextprotocol/server-gdrive"],        env: {},
     help: "Google Drive uses browser-based OAuth on first run. No env vars needed — just click Add and authorize when prompted." },
   { name: "GitHub",          command: "npx", args: ["-y", "@modelcontextprotocol/server-github"],        env: { GITHUB_PERSONAL_ACCESS_TOKEN: "" },
@@ -2029,8 +2023,6 @@ const _TOKEN_SCOPES = [
   { key: 'todos:write',       label: 'Todos write',       detail: 'Create, update, delete, and toggle todo items' },
   { key: 'documents:read',    label: 'Documents read',    detail: 'Read documents when a document API is enabled' },
   { key: 'documents:write',   label: 'Documents write',   detail: 'Create and update draft documents' },
-  { key: 'calendar:read',     label: 'Calendar read',     detail: 'Read calendar events when enabled' },
-  { key: 'calendar:write',    label: 'Calendar write',    detail: 'Create and update calendar events' },
   { key: 'memory:read',       label: 'Memory read',       detail: 'Read memory when enabled' },
   { key: 'memory:write',      label: 'Memory write',      detail: 'Write memory when enabled' },
   { key: 'cookbook:read',     label: 'Cookbook read',     detail: 'List cookbook tasks + tail their tmux output' },
@@ -2287,57 +2279,6 @@ async function loadFeatures() {
   } catch (e) { container.innerHTML = '<div class="admin-error">Failed to load features</div>'; }
 }
 
-/* ── CalDAV Config ── */
-function initCalDAV() {
-  const urlIn = el('caldav-url');
-  const userIn = el('caldav-user');
-  const passIn = el('caldav-pass');
-  const saveBtn = el('caldav-save-btn');
-  const testBtn = el('caldav-test-btn');
-  const status = el('caldav-status');
-  if (!urlIn || !saveBtn) return;
-
-  // Load current config
-  fetch(`${API_BASE}/api/calendar/config`, { credentials: 'same-origin' })
-    .then(r => r.json()).then(d => {
-      urlIn.value = d.caldav_url || '';
-      userIn.value = d.caldav_username || '';
-      passIn.value = d.caldav_password || '';
-    }).catch(() => {});
-
-  saveBtn.addEventListener('click', async () => {
-    status.textContent = 'Saving...';
-    try {
-      const res = await fetch(`${API_BASE}/api/calendar/config`, {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caldav_url: urlIn.value, caldav_username: userIn.value, caldav_password: passIn.value }),
-      });
-      const d = await res.json();
-      status.textContent = d.ok ? 'Saved' : 'Error';
-      status.style.color = d.ok ? 'var(--green)' : 'var(--red)';
-    } catch (e) { status.textContent = 'Error'; status.style.color = 'var(--red)'; }
-    setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 3000);
-  });
-
-  testBtn.addEventListener('click', async () => {
-    status.textContent = 'Testing...';
-    try {
-      // Save first
-      await fetch(`${API_BASE}/api/calendar/config`, {
-        method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ caldav_url: urlIn.value, caldav_username: userIn.value, caldav_password: passIn.value }),
-      });
-      const res = await fetch(`${API_BASE}/api/calendar/test`, { method: 'POST', credentials: 'same-origin' });
-      const d = await res.json();
-      status.textContent = d.ok ? `Connected (${d.calendars} calendars)` : `Failed: ${d.error}`;
-      status.style.color = d.ok ? 'var(--green)' : 'var(--red)';
-    } catch (e) { status.textContent = 'Error'; status.style.color = 'var(--red)'; }
-    setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 5000);
-  });
-}
-
 /* ── Data Backup (export/import) ── */
 function initBackup() {
   el('adm-exportDataBtn').addEventListener('click', async () => {
@@ -2404,7 +2345,7 @@ function initDangerZone() {
   const _LABELS = {
     chats: 'chats', memory: 'memory entries', skills: 'skills',
     notes: 'notes', tasks: 'tasks', documents: 'documents',
-    gallery: 'gallery images', calendar: 'calendar items',
+    gallery: 'gallery images',
   };
   const _wipeMsg = el('adm-wipeMsg');
   modalEl.querySelectorAll('[data-wipe-kind]').forEach(btn => {
@@ -2659,7 +2600,7 @@ function initAll() {
   modalEl = el('settings-modal');
   const inits = [
     initEndpointForm, initMcpForm,
-    initCalDAV, initBackup, initDangerZone, initTokenForm, initLogsView,
+    initBackup, initDangerZone, initTokenForm, initLogsView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {

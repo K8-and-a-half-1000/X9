@@ -14,7 +14,7 @@
 // Option key sets AltGraph exactly like a Mac's, so they need the same carve-out
 // — narrowing to macOS-only would re-break them. The name and the
 // /Mac|iPhone|iPad/ test deliberately mirror the existing isMac checks in
-// calendar.js and sessions.js; this is their single shared source of truth.
+// sessions.js and friends; this is their single shared source of truth.
 export const IS_MAC =
   /Mac|iPhone|iPad/.test((typeof navigator !== 'undefined' && navigator.platform) || '') ||
   /Mac/.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');

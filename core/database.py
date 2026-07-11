@@ -1229,7 +1229,7 @@ def _migrate_assign_legacy_owner():
         tables = [
             "sessions", "memories", "gallery_images", "user_tools",
             "comparisons", "documents", "signatures", "notes",
-            "calendars", "calendar_events", "integrations",
+            "integrations",
             "scheduled_tasks", "task_runs", "crew_members",
             "gallery_albums", "gallery_people", "user_tool_data",
             "api_tokens", "webhooks",
@@ -1530,8 +1530,6 @@ def _migrate_add_assistant_columns():
 
 
 
-
-
 class Note(TimestampMixin, Base):
     """A Google Keep-style note or checklist."""
     __tablename__ = "notes"
@@ -1562,71 +1560,6 @@ class Note(TimestampMixin, Base):
     agent_session_id  = Column(String, nullable=True)
 
 
-class CalendarCal(TimestampMixin, Base):
-    """A calendar (e.g. 'Personal', 'TimeTree')."""
-    __tablename__ = "calendars"
-
-    id    = Column(String, primary_key=True, index=True)
-    owner = Column(String, nullable=True, index=True)
-    name  = Column(String, nullable=False)
-    color = Column(String, default="#5b8abf")
-    source = Column(String, default="local")  # "local" or "caldav"
-    # UUID of the CalDAV account in user prefs that owns this calendar.
-    # NULL for local calendars and for CalDAV calendars created before
-    # multi-account support was added (treated as "use any configured account").
-    account_id = Column(String, nullable=True, index=True)
-    caldav_base_url = Column(String, nullable=True)
-
-    events = relationship("CalendarEvent", back_populates="calendar", cascade="all, delete-orphan")
-
-
-class CalendarEvent(TimestampMixin, Base):
-    """A calendar event."""
-    __tablename__ = "calendar_events"
-
-    uid         = Column(String, primary_key=True, index=True)
-    calendar_id = Column(String, ForeignKey("calendars.id"), nullable=False, index=True)
-    summary     = Column(String, nullable=False, default="")
-    description = Column(Text, default="")
-    location    = Column(String, default="")
-    dtstart     = Column(DateTime, nullable=False, index=True)
-    dtend       = Column(DateTime, nullable=False)
-    all_day     = Column(Boolean, default=False)
-    # True when dtstart/dtend are stored as UTC instants (set on import paths
-    # that preserve the source TZID). False = legacy naive-local. Drives the
-    # `Z`-suffix on serialization so the frontend interprets correctly.
-    is_utc      = Column(Boolean, default=False, nullable=False)
-    rrule       = Column(String, default="")
-    recurrence_exdates = Column(Text, default="")  # JSON list of skipped occurrence starts
-    color       = Column(String, nullable=True)  # per-event color override
-    status      = Column(String, default="confirmed")  # confirmed, cancelled
-    importance  = Column(String, default="normal")    # low | normal | high | critical
-    event_type  = Column(String, nullable=True)        # work | personal | health | travel | meal | social | admin | other
-    last_pinged = Column(DateTime, nullable=True)      # last time the assistant pinged about this event
-    # "caldav" = pulled from a CalDAV server (so the sync may prune it when it
-    # vanishes upstream). NULL/local = created locally (agent, email triage, or
-    # a UI event whose write-back failed) and must NOT be pruned by the sync.
-    origin      = Column(String, nullable=True, index=True)
-    remote_href = Column(String, nullable=True)        # CalDAV object URL for updates/deletes
-    remote_etag = Column(String, nullable=True)        # Last seen CalDAV ETag, when available
-    caldav_sync_pending = Column(String, nullable=True) # create | update | delete retry marker
-
-    calendar = relationship("CalendarCal", back_populates="events")
-
-
-class CalendarDeletedEvent(TimestampMixin, Base):
-    """Hidden CalDAV delete tombstone retained until remote delete succeeds."""
-    __tablename__ = "caldav_deleted_events"
-
-    uid = Column(String, primary_key=True, index=True)
-    owner = Column(String, nullable=True, index=True)
-    calendar_id = Column(String, nullable=True, index=True)
-    remote_href = Column(String, nullable=True)
-    remote_etag = Column(String, nullable=True)
-    caldav_base_url = Column(String, nullable=True)
-    summary = Column(String, nullable=True)
-    last_error = Column(Text, nullable=True)
-
 
 class Integration(TimestampMixin, Base):
     """An external service connection (email, RSS, webhook, etc.)."""
@@ -1638,8 +1571,6 @@ class Integration(TimestampMixin, Base):
     type   = Column(String, nullable=False)  # "email", "rss", "webhook"
     config = Column(JSON, nullable=True)     # type-specific config
     enabled = Column(Boolean, default=True)
-
-
 
 
 
@@ -1685,12 +1616,6 @@ def init_db():
     _migrate_drop_ping_notes_tasks()
     _migrate_add_crew_member_id()
     _migrate_add_assistant_columns()
-    _migrate_add_calendar_metadata()
-    _migrate_add_calendar_is_utc()
-    _migrate_add_calendar_origin()
-    _migrate_add_calendar_account_id()
-    _migrate_add_caldav_sync_columns()
-    _migrate_add_calendar_recurrence_exdates()
     _migrate_chat_messages_fts()
     _migrate_encrypt_signatures()
     _migrate_encrypt_endpoint_keys()
@@ -1846,157 +1771,6 @@ def _migrate_encrypt_signatures():
         logger.warning(f"Signature encryption migration skipped: {e}")
 
 
-def _migrate_add_calendar_is_utc():
-    """Add is_utc column to calendar_events so imported events can preserve
-    their original UTC timestamps (Z-suffix on the wire) without touching
-    legacy naive-local rows."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(calendar_events)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "is_utc" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN is_utc BOOLEAN DEFAULT 0 NOT NULL")
-            conn.commit()
-            logging.getLogger(__name__).info("Migrated: added 'is_utc' column to calendar_events")
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"is_utc migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-def _migrate_add_calendar_origin():
-    """Add `origin` to calendar_events so the CalDAV sync can tell server-pulled
-    rows (prunable when they vanish upstream) from locally-created ones (agent /
-    email triage / failed write-back), which must never be pruned. Idempotent."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(calendar_events)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "origin" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN origin TEXT")
-            conn.execute("CREATE INDEX IF NOT EXISTS ix_calendar_events_origin ON calendar_events(origin)")
-            conn.commit()
-            logging.getLogger(__name__).info("Migrated: added 'origin' column to calendar_events")
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"calendar_events.origin migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-def _migrate_add_calendar_account_id():
-    """Add `account_id` to calendars so each CalDAV-backed calendar knows which
-    credential set (from caldav_accounts in user prefs) owns it. Idempotent."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(calendars)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "account_id" not in columns:
-            conn.execute("ALTER TABLE calendars ADD COLUMN account_id TEXT")
-            conn.execute("CREATE INDEX IF NOT EXISTS ix_calendars_account_id ON calendars(account_id)")
-            conn.commit()
-            logging.getLogger(__name__).info("Migrated: added 'account_id' column to calendars")
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"calendars.account_id migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-def _migrate_add_caldav_sync_columns():
-    """Add remote CalDAV metadata used for bidirectional sync."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    try:
-        conn = sqlite3.connect(db_path)
-        ev_columns = [row[1] for row in conn.execute("PRAGMA table_info(calendar_events)").fetchall()]
-        if ev_columns and "remote_href" not in ev_columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN remote_href TEXT")
-        if ev_columns and "remote_etag" not in ev_columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN remote_etag TEXT")
-        if ev_columns and "caldav_sync_pending" not in ev_columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN caldav_sync_pending TEXT")
-
-        cal_columns = [row[1] for row in conn.execute("PRAGMA table_info(calendars)").fetchall()]
-        if cal_columns and "caldav_base_url" not in cal_columns:
-            conn.execute("ALTER TABLE calendars ADD COLUMN caldav_base_url TEXT")
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"CalDAV sync metadata migration failed: {e}")
-
-
-def _migrate_add_calendar_metadata():
-    """Add importance/event_type/last_pinged columns to calendar_events table."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(calendar_events)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "importance" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN importance TEXT DEFAULT 'normal'")
-        if columns and "event_type" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN event_type TEXT")
-        if columns and "last_pinged" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN last_pinged DATETIME")
-        conn.commit()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"calendar_events migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-def _migrate_add_calendar_recurrence_exdates():
-    """Add skipped recurrence occurrences for deleting one instance of a series."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        columns = [row[1] for row in conn.execute("PRAGMA table_info(calendar_events)").fetchall()]
-        if columns and "recurrence_exdates" not in columns:
-            conn.execute("ALTER TABLE calendar_events ADD COLUMN recurrence_exdates TEXT DEFAULT ''")
-        conn.commit()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"calendar_events recurrence_exdates migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
 
 def get_db():
     """
@@ -2128,31 +1902,6 @@ def get_session_by_id(session_id: str):
     with get_db_session() as db:
         return db.query(Session).filter(Session.id == session_id).first()
 
-def get_upcoming_events(owner, horizon_days: int = 60, limit: int = 40):
-    """Upcoming, non-cancelled events as {uid, title, start} dicts, soonest first.
-
-    owner=None means NO owner scoping (single-user / legacy). Multi-user callers
-    MUST pass the owning username — otherwise they read every tenant's events.
-    The autonomous email->calendar pass relies on this to avoid disclosing (and
-    acting on) other users' calendars."""
-    from datetime import timedelta
-    now = utcnow_naive()
-    with get_db_session() as db:
-        q = db.query(CalendarEvent).join(CalendarCal).filter(
-            CalendarEvent.dtstart >= now,
-            CalendarEvent.dtstart <= now + timedelta(days=horizon_days),
-            CalendarEvent.status != "cancelled",
-        )
-        if owner is not None:
-            q = q.filter(CalendarCal.owner == owner)
-        return [
-            {
-                "uid": e.uid,
-                "title": e.summary or "",
-                "start": e.dtstart.isoformat() if e.dtstart else "",
-            }
-            for e in q.order_by(CalendarEvent.dtstart).limit(limit).all()
-        ]
 
 def archive_session(session_id: str):
     """Archive a session"""

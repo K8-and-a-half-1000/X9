@@ -25,7 +25,6 @@ _LIMITS = {
     "MEMORY_IMPORT_MAX_BYTES": ("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES", 10 * 1024 * 1024),
     "PERSONAL_UPLOAD_MAX_BYTES": ("ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES", 25 * 1024 * 1024),
     "STT_MAX_AUDIO_BYTES": ("ODYSSEUS_STT_MAX_AUDIO_BYTES", 25 * 1024 * 1024),
-    "ICS_MAX_BYTES": ("ODYSSEUS_ICS_MAX_BYTES", 10 * 1024 * 1024),
 }
 
 
@@ -86,7 +85,6 @@ def test_routes_import_from_upload_limits_not_local_defs():
         "routes/memory/memory_routes.py": ['int(os.getenv("ODYSSEUS_MEMORY_IMPORT_MAX_BYTES"'],
         "routes/personal_routes.py": ['os.getenv("ODYSSEUS_PERSONAL_UPLOAD_MAX_BYTES"'],
         "routes/stt_routes.py": ["STT_MAX_AUDIO_BYTES = 25 * 1024 * 1024"],
-        "routes/calendar_routes.py": ["_ICS_MAX_BYTES = 10 * 1024 * 1024"],
     }
     for path, needles in forbidden.items():
         text = (REPO / path).read_text(encoding="utf-8")
@@ -99,7 +97,6 @@ def test_routes_import_from_upload_limits_not_local_defs():
         "routes/memory/memory_routes.py": "MEMORY_IMPORT_MAX_BYTES",
         "routes/personal_routes.py": "PERSONAL_UPLOAD_MAX_BYTES",
         "routes/stt_routes.py": "STT_MAX_AUDIO_BYTES",
-        "routes/calendar_routes.py": "ICS_MAX_BYTES",
     }
     for path, const in imports.items():
         text = (REPO / path).read_text(encoding="utf-8")

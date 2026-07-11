@@ -120,13 +120,6 @@ try { (function () {
           </svg>
           <span class="hwfit-schedule-title-text">Schedule serve: <strong>${esc(cfg.title)}</strong></span>
           <span class="hwfit-schedule-title-spacer"></span>
-          <label class="hwfit-schedule-mirror-toggle" title="Also create a calendar event on the Cookbook calendar">
-            <span class="hwfit-schedule-mirror-label">Create event in calendar</span>
-            <span class="admin-switch hwfit-schedule-mirror-switch">
-              <input type="checkbox" class="hwfit-sched-calendar-mirror" />
-              <span class="admin-slider"></span>
-            </span>
-          </label>
         </div>
 
         <div class="hwfit-schedule-row hwfit-schedule-when-row">
@@ -195,7 +188,6 @@ try { (function () {
       const startTime = form.querySelector(".hwfit-sched-start").value;
       const endTime = form.querySelector(".hwfit-sched-end").value;
       const days = Array.from(form.querySelectorAll(".hwfit-sched-day-chip.is-on")).map(c => c.dataset.day);
-      const mirrorToCalendar = !!form.querySelector(".hwfit-sched-calendar-mirror")?.checked;
       const errEl = form.querySelector(".hwfit-sched-err");
       errEl.textContent = "";
       errEl.classList.remove("is-visible");
@@ -286,78 +278,6 @@ try { (function () {
           saveBtn.textContent = "Save schedule";
           toast(`Schedule save failed: ${data.error || data.detail || r.status}`);
           return;
-        }
-        if (mirrorToCalendar) {
-          // Mirror onto a dedicated "Cookbook" calendar so the user can
-          // toggle the whole set on/off as a unit in the calendar UI.
-          // Best-effort: if anything here fails, we still consider the
-          // task creation a success (the task itself works regardless).
-          try {
-            const calsRes = await fetch("/api/calendar/calendars", { credentials: "same-origin" });
-            const calsBody = calsRes.ok ? await calsRes.json() : {};
-            let cookbookCal = (calsBody.calendars || []).find(c => (c.name || "").toLowerCase() === "cookbook");
-            if (!cookbookCal) {
-              const mk = await fetch("/api/calendar/calendars?name=Cookbook&color=%233b82f6", {
-                method: "POST", credentials: "same-origin",
-              });
-              if (mk.ok) {
-                const mkData = await mk.json();
-                // The create endpoint returns {ok, id, name, color}; the
-                // list endpoint returns {href, name, color}. The two map
-                // 1:1 (href === id) so we synthesize the same shape.
-                cookbookCal = { href: mkData.id, name: mkData.name, color: mkData.color };
-              }
-            }
-            // The `cookbook_task_id:` marker on its own line lets
-            // calendar.js's event-form code detect that this event was
-            // created from a Cookbook schedule and render an
-            // "Open task" button alongside the description, so the user
-            // can jump straight to the source task from the calendar UI.
-            const evBody = {
-              summary: payload.name,
-              dtstart: new Date().toISOString(),
-              dtend: new Date(Date.now() + dur * 60 * 1000).toISOString(),
-              all_day: false,
-              description: `Auto-mirrored from Cookbook schedule task ${data.id || ""}.\n`
-                + `Edit/delete the task in the Tasks tab — this event will follow.\n`
-                + `cookbook_task_id: ${data.id || ""}`,
-              rrule: weekdaysOnly
-                ? "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-                : (sched.schedule === "weekly" ? `FREQ=WEEKLY;BYDAY=${days.join(",")}`
-                  : (sched.schedule === "daily" ? "FREQ=DAILY" : "FREQ=WEEKLY")),
-              color: "#3b82f6",
-            };
-            if (cookbookCal?.href) evBody.calendar_href = cookbookCal.href;
-            const evRes = await fetch("/api/calendar/events", {
-              method: "POST", credentials: "same-origin",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(evBody),
-            });
-            const evData = evRes.ok ? await evRes.json() : null;
-            // Stash the event uid + calendar href on the task's prompt
-            // JSON so the task-delete hook can cascade the calendar
-            // cleanup. PATCH the task with an updated prompt.
-            if (evData && (evData.uid || evData.id)) {
-              const eventUid = evData.uid || evData.id;
-              try {
-                const updatedPrompt = JSON.stringify({
-                  ...JSON.parse(payload.prompt),
-                  cookbook_event_uid: eventUid,
-                  cookbook_event_calendar: cookbookCal?.href || "",
-                });
-                // /api/tasks/{id} accepts PUT, not PATCH — sending PATCH
-                // here silently failed (no such method on that route), so
-                // the task never got the cookbook_event_uid marker and the
-                // server-side delete-cascade had nothing to follow when the
-                // user later deleted the task.
-                await fetch(`/api/tasks/${encodeURIComponent(data.id)}`, {
-                  method: "PUT", credentials: "same-origin",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ prompt: updatedPrompt }),
-                });
-              } catch (_) {}
-            }
-          } catch (_) {}
         }
         form.remove();
         const newTaskId = data.id || data.task_id || "";
