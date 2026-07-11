@@ -2229,5 +2229,57 @@
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>{rs.forEach(r=>r.unregister());}).catch(()=>{});}
 if(window.caches&&caches.keys){caches.keys().then(ks=>{ks.forEach(k=>caches.delete(k));}).catch(()=>{});}
 </script>
+<script nonce="{{CSP_NONCE}}">
+// iOS 26 standalone-PWA viewport self-heal. WebKit can leave the layout
+// viewport SHORTER than the screen — a phantom "toolbar" gap below fixed
+// bottom-anchored elements — after the keyboard dismisses, and on some cold
+// starts (Safari 26.1 fixed one variant, 158055568; reports persist through
+// 26.3). CSS can't reach outside a mis-sized viewport, so detect the state
+// and force WebKit to rebuild viewport geometry by toggling viewport-fit.
+(function () {
+  var isPhone = /iPhone|iPod/.test(navigator.userAgent);
+  var standalone = navigator.standalone === true ||
+    (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (!isPhone || !standalone) return;
+
+  var lastToggle = 0;
+
+  function expectedHeight() {
+    // screen.* is orientation-fixed on iOS; pick the edge that matches.
+    var portrait = matchMedia('(orientation: portrait)').matches;
+    return portrait ? Math.max(screen.width, screen.height)
+                    : Math.min(screen.width, screen.height);
+  }
+
+  function heal() {
+    var vv = window.visualViewport;
+    // Keyboard still up (visual viewport much shorter than layout) — leave it.
+    if (vv && window.innerHeight - vv.height > 50) return;
+    // Un-pan a page left scrolled by keyboard dismissal.
+    if (window.scrollY || (vv && vv.offsetTop)) window.scrollTo(0, 0);
+    // Phantom bottom gap: layout viewport shorter than the screen.
+    if (expectedHeight() - window.innerHeight > 1 && Date.now() - lastToggle > 1500) {
+      var meta = document.querySelector('meta[name="viewport"]');
+      if (!meta) return;
+      lastToggle = Date.now();
+      var content = meta.getAttribute('content');
+      meta.setAttribute('content', content.replace('viewport-fit=cover', 'viewport-fit=auto'));
+      // setTimeout, not rAF: rAF stalls whenever rendering is paused, which
+      // would strand the meta on viewport-fit=auto (insets all zero).
+      setTimeout(function () { meta.setAttribute('content', content); }, 50);
+    }
+  }
+
+  var t = 0;
+  function schedule() { clearTimeout(t); t = setTimeout(heal, 250); }
+  if (window.visualViewport) visualViewport.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', schedule);
+  window.addEventListener('pageshow', schedule);
+  window.addEventListener('focusout', schedule, true);
+  // Cold start: probe as the app settles (viewport can start mis-sized).
+  setTimeout(heal, 300);
+  setTimeout(heal, 1200);
+})();
+</script>
 </body>
 </html>

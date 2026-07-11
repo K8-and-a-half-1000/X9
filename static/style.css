@@ -108,6 +108,13 @@ body {
   height: 100dvh; /* dynamic viewport height — adapts when mobile keyboard opens */
   overflow: hidden;
 }
+/* iOS PWA (home-screen app): 100dvh can be mis-initialized on cold start —
+   it stays short until the first viewport geometry change (WebKit, seen on
+   iOS 26). Standalone mode has no browser chrome, so plain 100vh is exact
+   there and immune to that bug. Browser tabs keep the dvh rule above. */
+@media all and (display-mode: standalone) {
+  body { height: 100vh; }
+}
 
 /* Self-hosted Fira Code font */
 @font-face { font-family: "Fira Code"; font-weight: 300; font-style: normal; font-display: swap; src: url("/static/fonts/FiraCode-Light.woff2") format("woff2"); }
