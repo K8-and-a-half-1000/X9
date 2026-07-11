@@ -288,10 +288,6 @@ _TOOL_NAME_MAP = {
     "manage_settings": "manage_settings",
     "settings": "manage_settings",
     "preferences": "manage_settings",
-    "manage_notes": "manage_notes",
-    "notes": "manage_notes",
-    "todo": "manage_notes",
-    "todos": "manage_notes",
     "manage_bg_jobs": "manage_bg_jobs",
     "bg_jobs": "manage_bg_jobs",
     "background_jobs": "manage_bg_jobs",
@@ -320,8 +316,8 @@ _RAW_WEB_JSON_ALLOWED_KEYS = {"query", "queries", "time_filter", "freshness", "m
 # be unsafe.
 _PLAIN_UI_OPEN_PANEL_RE = re.compile(
     r"(?im)^\s*(?:`{1,3})?\s*ui_control\s+open_panel\s+"
-    r"(documents?|library|gallery|images?|email|inbox|mail|sessions?|chats?|history|"
-    r"notes?|brain|memor(?:y|ies)|skills?|settings|preferences|cookbook|models?)"
+    r"(documents?|library|gallery|images?|sessions?|chats?|history|"
+    r"brain|memor(?:y|ies)|skills?|settings|preferences|models?)"
     r"\s*(?:`{1,3})?\s*$"
 )
 
@@ -579,7 +575,7 @@ def _parse_tool_call_block(raw: str) -> Optional[ToolBlock]:
 
     tool_name = tool_match.group(1).lower()
     # Fall back to the raw name when it's a real tool but not in the alias
-    # map, so known tools (e.g. manage_notes) aren't silently dropped.
+    # map, so known tools aren't silently dropped.
     mapped = _TOOL_NAME_MAP.get(tool_name) or (tool_name if tool_name in TOOL_TAGS else None)
     if not mapped:
         return None
@@ -642,7 +638,7 @@ def _parse_xml_invoke(name, body) -> Optional[ToolBlock]:
     name in TOOL_TAGS, plus email + MCP tools) and the correct per-tool
     content format are handled in ONE place. The previous version duplicated
     a partial, hand-maintained tool-name map plus a `key: value` serializer:
-    any tool missing from that map (e.g. `manage_notes`) was silently
+    any tool missing from that map was silently
     dropped, and JSON-arg tools got an unparseable `k: v` blob. Both bugs
     made deepseek's DSML `create_event` calls vanish with no execution.
     """
@@ -1133,7 +1129,7 @@ def parse_tool_blocks(text: str, skip_fenced: bool = False) -> List[ToolBlock]:
         if raw_web_json:
             blocks.append(raw_web_json[0])
 
-    # Pattern 7: plain `ui_control open_panel notes` line. This commonly comes
+    # Pattern 7: plain `ui_control open_panel <name>` line. This commonly comes
     # from weaker native-tool models after reading the tool docs but failing to
     # emit the actual structured call.
     if not blocks:

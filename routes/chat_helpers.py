@@ -28,7 +28,7 @@ _CASUAL_OPENING_RE = re.compile(
     re.IGNORECASE,
 )
 _CASUAL_BLOCKLIST_RE = re.compile(
-    r"\b(?:cookbook|serve|serving|launch|start|vllm|sglang|llama\.?cpp|ollama|"
+    r"\b(?:serve|serving|launch|start|vllm|sglang|llama\.?cpp|ollama|"
     r"download|model|document|doc|note|task|search|web|research|"
     r"file|folder|repo|git|settings?|endpoint|api|token|mcp)\b",
     re.IGNORECASE,

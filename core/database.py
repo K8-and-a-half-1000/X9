@@ -326,7 +326,7 @@ class ModelEndpoint(TimestampMixin, Base):
     model_refresh_interval = Column(Integer, nullable=True, default=None)
     model_refresh_timeout = Column(Integer, nullable=True, default=None)
     # Whether models on this endpoint accept OpenAI-style function
-    # schemas + emit `tool_calls`. Auto-detected at Cookbook auto-
+    # schemas + emit `tool_calls`. Auto-detected at endpoint auto-
     # register time from `--enable-auto-tool-choice` in the serve cmd;
     # can be toggled per-endpoint in the UI. NULL = unknown, falls
     # back to the model-name keyword heuristic in agent_loop.py.
@@ -991,37 +991,6 @@ def _migrate_add_pinned_models_column():
         except Exception:
             pass
 
-def _migrate_add_notes_sort_order():
-    """Add sort_order, image_url, repeat columns to notes if they don't exist."""
-    import sqlite3
-    db_path = DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.execute("PRAGMA table_info(notes)")
-        columns = [row[1] for row in cursor.fetchall()]
-        if columns and "sort_order" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0")
-        if columns and "image_url" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN image_url TEXT")
-        if columns and "repeat" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN repeat TEXT DEFAULT 'none'")
-        if columns and "ai_classification" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN ai_classification TEXT")
-        if columns and "ai_content_hash" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN ai_content_hash TEXT")
-        if columns and "agent_session_id" not in columns:
-            conn.execute("ALTER TABLE notes ADD COLUMN agent_session_id TEXT")
-        conn.commit()
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"notes migration failed: {e}")
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
 
 def _migrate_add_mode_column():
     """Add mode column to sessions table if it doesn't exist."""
@@ -1530,37 +1499,6 @@ def _migrate_add_assistant_columns():
 
 
 
-class Note(TimestampMixin, Base):
-    """A Google Keep-style note or checklist."""
-    __tablename__ = "notes"
-
-    id         = Column(String, primary_key=True, index=True)
-    owner      = Column(String, nullable=True, index=True)
-    title      = Column(String, default="")
-    content    = Column(Text, nullable=True)
-    items      = Column(Text, nullable=True)       # JSON string of [{text, done}]
-    note_type  = Column(String, default="note")     # "note" or "checklist"
-    color      = Column(String, nullable=True)
-    label      = Column(String, nullable=True)
-    pinned     = Column(Boolean, default=False)
-    archived   = Column(Boolean, default=False)
-    due_date   = Column(String, nullable=True)
-    source     = Column(String, default="user")     # "user" or "agent"
-    session_id = Column(String, nullable=True)
-    sort_order = Column(Integer, default=0)
-    image_url  = Column(String, nullable=True)      # uploaded image URL (relative path)
-    repeat     = Column(String, default="none")     # none, daily, weekly, monthly, yearly
-    # Auto-AI fields — populated by /api/notes/{id}/classify. The classification
-    # JSON shape is { kind, solvable, confidence, task_prompt, tools, items?: [...] }.
-    # Content hash gates re-classification (avoid LLM spend on every save).
-    ai_classification = Column(Text, nullable=True)
-    ai_content_hash   = Column(String, nullable=True)
-    # Chat session spawned by the note's "Agent" button (solve-this-todo).
-    # The note shows a clickable tag that opens this session for review.
-    agent_session_id  = Column(String, nullable=True)
-
-
-
 class Integration(TimestampMixin, Base):
     """An external service connection (email, RSS, webhook, etc.)."""
     __tablename__ = "integrations"
@@ -1588,7 +1526,6 @@ def init_db():
     _migrate_add_hidden_models_column()
     _migrate_add_cached_models_column()
     _migrate_add_pinned_models_column()
-    _migrate_add_notes_sort_order()
     _migrate_add_model_type_column()
     _migrate_add_model_endpoint_refresh_columns()
     _migrate_add_model_endpoint_owner_column()

@@ -10,9 +10,8 @@ const _defaultKeybinds = {
   cancel: 'escape', tts: 'alt+shift+t',
   incognito: 'ctrl+alt+i', settings: 'ctrl+,', focus_input: 'ctrl+/',
   // Open-tool shortcuts (all unbound by default).
-  open_cookbook: '',
   open_research: '', open_gallery: '', open_library: '', open_memory: '',
-  open_notes: '', open_tasks: '', open_theme: '',
+  open_tasks: '', open_theme: '',
 };
 
 export function _matchesCombo(e, combo, isMac = IS_MAC) {
@@ -64,9 +63,9 @@ export function initKeyboardShortcuts(modules) {
   // Every tool's bulk-select bar has a `*-bulk-cancel` button whose click
   // already runs the correct teardown (clears selection, hides the bar,
   // re-renders). So a single global handler that clicks whichever cancel
-  // button is currently visible covers all of them — notes, skills,
-  // memory, gallery, sessions, doc library (chats/archive/research/docs),
-  // cookbook serve — without each module wiring its own listener.
+  // button is currently visible covers all of them — skills, memory,
+  // gallery, sessions, doc library (chats/archive/research/docs) —
+  // without each module wiring its own listener.
   // Capture phase + stopPropagation so Esc cancels select instead of
   // closing the surrounding modal.
   document.addEventListener('keydown', (e) => {
@@ -98,12 +97,10 @@ export function initKeyboardShortcuts(modules) {
     'settings-modal':         'user-bar-settings',
     'theme-modal':            'tool-theme-btn',
     'tasks-modal':            'tool-tasks-btn',
-    'notes-panel':            'tool-notes-btn',
     'memory-modal':           'tool-memory-btn',
     'doclib-modal':           'tool-library-btn',
     'gallery-modal':          'tool-gallery-btn',
     'research-overlay':       'tool-research-btn',
-    'cookbook-modal':         'tool-cookbook-btn',
   };
   let _lastWindow = 'settings-modal';
 
@@ -258,12 +255,10 @@ export function initKeyboardShortcuts(modules) {
     // Open-tool shortcuts — click the sidebar tool button so each tool's
     // own open/toggle logic runs. Unbound (empty) combos never match.
     const _toolBtns = {
-      open_cookbook: 'tool-cookbook-btn',
       open_research: 'tool-research-btn',
       open_gallery:  'tool-gallery-btn',
       open_library:  'tool-library-btn',
       open_memory:   'tool-memory-btn',
-      open_notes:    'tool-notes-btn',
       open_tasks:    'tool-tasks-btn',
       open_theme:    'tool-theme-btn',
     };

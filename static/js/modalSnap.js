@@ -8,7 +8,7 @@
 //   - body gets `right-dock-active` + `--right-dock-w` so the workspace
 //     underneath reserves room for the fixed side panel
 //   - if the remaining chat width would drop under 380px, the wide
-//     sidebar auto-collapses to the icon rail (mirrors notes-view UX)
+//     sidebar auto-collapses to the icon rail
 //
 // Drag-away from the right edge un-docks back to a centered window —
 // the same restore values the snap-to-top exit path uses.

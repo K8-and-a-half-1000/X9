@@ -83,7 +83,7 @@ async def do_manage_endpoints(content: str, owner: Optional[str] = None) -> Dict
 # MCP server management tool
 # ---------------------------------------------------------------------------
 
-# Parallel to routes/cookbook_helpers._validate_serve_cmd but deliberately the
+# Deliberately the
 # opposite policy: that gate guards an admin-only serve command and allows
 # interpreters (python3/etc) because model-serving needs them, whereas this is
 # the model/prompt-injection-reachable manage_mcp path, so interpreters and
@@ -704,7 +704,6 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
                 "images": ["generate_image"],
                 "image": ["generate_image"],
                 "tasks": ["manage_tasks"],
-                "notes": ["manage_notes"],
                 "research": ["web_search", "web_fetch"],  # research is a per-request flag, not a tool (closest analog)
             }
 
@@ -714,7 +713,7 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
                     "response": (
                         f"Currently disabled: {', '.join(current) if current else '(none)'}.\n"
                         "Common toggles: shell (bash), search (web_search), browser, documents, "
-                        "memory, skills, images, tasks, notes."
+                        "memory, skills, images, tasks."
                     ),
                     "disabled": list(current),
                     "exit_code": 0,

@@ -2,7 +2,7 @@
 
 The frontend ships these in static/js/presets.js (PROMPT_TEMPLATES with
 isCharacter:true). The Reminders → AI Synthesis card writes only the
-persona ID into settings; the synthesis route in note_routes.py needs
+persona ID into settings; the reminder synthesis path needs
 the full prompt text to bias the utility model's voice. Keeping a small
 local mirror avoids having the client send the prompt over the wire on
 every reminder fire.

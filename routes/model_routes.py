@@ -19,7 +19,6 @@ from fastapi.responses import StreamingResponse
 from core.database import SessionLocal, ModelEndpoint, Session as DbSession
 from core.log_safety import redact_url as _redact_url_for_log
 from core.middleware import require_admin
-from src.constants import COOKBOOK_STATE_FILE
 from src.llm_core import _detect_provider, _host_match, ANTHROPIC_MODELS
 from src.tls_overrides import llm_verify
 from src.settings import load_settings as _load_settings, save_settings as _save_settings
@@ -112,66 +111,6 @@ def _clear_endpoint_settings_for_endpoint(settings: dict, ep_id: str, *, include
         cleared.extend(_clear_speech_settings_for_endpoint(settings, ep_id))
     return cleared
 
-
-_COOKBOOK_ACTIVE_SERVE_STATUSES = {
-    "starting", "loading", "ready", "running", "restarting",
-}
-
-
-def _active_cookbook_endpoint_ids() -> set[str]:
-    """Endpoint IDs owned by active Cookbook serve tasks.
-
-    Cookbook auto-registers endpoints with ids like ``local-*``. Those rows are
-    managed lifecycle state, not durable user configuration. If a tmux stream is
-    stopped or an old task lingers, the row must stop participating in model
-    selection and defaults.
-    """
-    try:
-        if not os.path.exists(COOKBOOK_STATE_FILE):
-            return set()
-        with open(COOKBOOK_STATE_FILE, "r", encoding="utf-8") as fh:
-            raw = fh.read()
-        state = json.loads(raw)
-    except Exception:
-        return set()
-    out: set[str] = set()
-    for task in state.get("tasks") or []:
-        if not isinstance(task, dict) or task.get("type") != "serve":
-            continue
-        if str(task.get("status") or "").lower() not in _COOKBOOK_ACTIVE_SERVE_STATUSES:
-            continue
-        ep_id = task.get("_endpointId") or task.get("endpointId") or task.get("endpoint_id")
-        if ep_id:
-            out.add(str(ep_id))
-    return out
-
-
-def _disable_stale_cookbook_local_endpoints(db) -> int:
-    """Disable enabled cookbook endpoints whose serve task is no longer active."""
-    active_ids = _active_cookbook_endpoint_ids()
-    if not active_ids:
-        return 0
-    stale = (
-        db.query(ModelEndpoint)
-        .filter(ModelEndpoint.is_enabled == True)  # noqa: E712
-        .filter(ModelEndpoint.id.like("local-%"))
-        .filter(~ModelEndpoint.id.in_(active_ids))
-        .all()
-    )
-    if not stale:
-        return 0
-    settings = _load_settings()
-    touched_settings = False
-    for ep in stale:
-        ep.is_enabled = False
-        ep.model_refresh_mode = "disabled"
-        if _clear_endpoint_settings_for_endpoint(settings, ep.id):
-            touched_settings = True
-        logger.info("Disabled stale Cookbook endpoint %s (%s @ %s)", ep.id, ep.name, ep.base_url)
-    if touched_settings:
-        _save_settings(settings)
-    db.commit()
-    return len(stale)
 
 
 def _clear_user_pref_endpoint_refs(all_prefs: dict, ep_id: str) -> int:
@@ -684,7 +623,7 @@ def _local_ip_literal(host: str) -> bool:
 def _classify_endpoint(base_url: str, endpoint_kind: str = "auto") -> str:
     """Return 'local' if the endpoint URL points to a private/local address, else 'api'.
     Includes the Tailscale CGNAT range (100.64.0.0/10) so tailnet-hosted
-    servers (e.g. Cookbook serve endpoints) get reachability-probed too."""
+    servers get reachability-probed too."""
     kind = _normalize_endpoint_kind(endpoint_kind)
     if kind == "local":
         return "local"
@@ -1180,8 +1119,6 @@ def setup_model_routes(model_discovery):
                 db = SessionLocal()
                 changed = False
                 try:
-                    if _disable_stale_cookbook_local_endpoints(db):
-                        changed = True
                     endpoints = db.query(ModelEndpoint).filter(ModelEndpoint.is_enabled == True).all()
                     now = _time.time()
                     groups: Dict[str, Dict[str, Any]] = {}
@@ -1255,8 +1192,6 @@ def setup_model_routes(model_discovery):
 
         db = SessionLocal()
         try:
-            if _disable_stale_cookbook_local_endpoints(db):
-                _invalidate_models_cache()
             q = db.query(ModelEndpoint).filter(ModelEndpoint.is_enabled == True)
             if owner and not is_admin:
                 # Regular users see: their own endpoints + null-owner
@@ -1404,8 +1339,6 @@ def setup_model_routes(model_discovery):
         async def _compute_local_probe() -> Dict[str, Any]:
             db = SessionLocal()
             try:
-                if _disable_stale_cookbook_local_endpoints(db):
-                    _invalidate_models_cache()
                 endpoints = db.query(ModelEndpoint).filter(ModelEndpoint.is_enabled == True).all()
                 local_eps = []
                 for ep in endpoints:
@@ -1644,8 +1577,6 @@ def setup_model_routes(model_discovery):
         require_admin(request)
         db = SessionLocal()
         try:
-            if _disable_stale_cookbook_local_endpoints(db):
-                _invalidate_models_cache()
             rows = db.query(ModelEndpoint).order_by(ModelEndpoint.created_at).all()
             results = []
             for r in rows:

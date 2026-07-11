@@ -320,11 +320,6 @@ _ADMIN_TOOLS = {
     "manage_webhooks",
     "manage_tokens",
     "manage_settings",
-    "download_model",
-    "serve_model",
-    "serve_preset",
-    "stop_served_model",
-    "cancel_download",
 }
 
 
@@ -616,12 +611,7 @@ async def _execute_tool_block_impl(
     """
     from src.tool_implementations import (
         do_search_chats, do_manage_tasks,
-        do_manage_skills, do_api_call, do_manage_notes,
-        do_download_model, do_serve_model, do_list_served_models, do_stop_served_model,
-        do_tail_serve_output,
-        do_list_downloads, do_cancel_download, do_search_hf_models, do_list_cached_models,
-        do_list_serve_presets, do_serve_preset, do_adopt_served_model,
-        do_list_cookbook_servers,
+        do_manage_skills, do_api_call,
         do_edit_image, do_trigger_research, do_manage_research, do_resolve_contact,
         do_manage_contact,
         do_vault_search, do_vault_get, do_vault_unlock,
@@ -665,7 +655,7 @@ async def _execute_tool_block_impl(
                         "{\"name\": \"...\"}\n"
                         "```\n"
                         "or\n"
-                        "```manage_notes\n"
+                        "```manage_tasks\n"
                         "{\"action\": \"list\"}\n"
                         "```"
                     ),
@@ -801,51 +791,9 @@ async def _execute_tool_block_impl(
         desc = tool
         result = await _direct_fallback(tool, content, owner=owner) \
             or {"error": f"{tool}: execution failed", "exit_code": 1}
-    elif tool == "manage_notes":
-        desc = "manage_notes"
-        result = await do_manage_notes(content, owner=owner)
-    elif tool == "download_model":
-        desc = "download_model"
-        result = await do_download_model(content, owner=owner)
-    elif tool == "serve_model":
-        desc = "serve_model"
-        result = await do_serve_model(content, owner=owner)
-    elif tool == "list_served_models":
-        desc = "list_served_models"
-        result = await do_list_served_models(content, owner=owner)
-    elif tool == "stop_served_model":
-        desc = "stop_served_model"
-        result = await do_stop_served_model(content, owner=owner)
-    elif tool == "tail_serve_output":
-        desc = "tail_serve_output"
-        result = await do_tail_serve_output(content, owner=owner)
-    elif tool == "list_downloads":
-        desc = "list_downloads"
-        result = await do_list_downloads(content, owner=owner)
-    elif tool == "cancel_download":
-        desc = "cancel_download"
-        result = await do_cancel_download(content, owner=owner)
-    elif tool == "search_hf_models":
-        desc = "search_hf_models"
-        result = await do_search_hf_models(content, owner=owner)
-    elif tool == "list_cached_models":
-        desc = "list_cached_models"
-        result = await do_list_cached_models(content, owner=owner)
     elif tool == "app_api":
         desc = "app_api"
         result = await do_app_api(content, owner=owner)
-    elif tool == "list_serve_presets":
-        desc = "list_serve_presets"
-        result = await do_list_serve_presets(content, owner=owner)
-    elif tool == "serve_preset":
-        desc = "serve_preset"
-        result = await do_serve_preset(content, owner=owner)
-    elif tool == "adopt_served_model":
-        desc = "adopt_served_model"
-        result = await do_adopt_served_model(content, owner=owner)
-    elif tool == "list_cookbook_servers":
-        desc = "list_cookbook_servers"
-        result = await do_list_cookbook_servers(content, owner=owner)
     elif tool == "edit_image":
         desc = "edit_image"
         result = await do_edit_image(content, owner=owner)

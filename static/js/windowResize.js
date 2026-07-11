@@ -1,13 +1,13 @@
 // Shared window-resize helper. Companion to makeWindowDraggable: gives every
-// draggable tool window (Library, Notes, Tasks, Gallery,
-// Cookbook, Memory, Settings, Theme, Research, Sessions) edge- and
+// draggable tool window (Library, Tasks, Gallery,
+// Memory, Settings, Theme, Research, Sessions) edge- and
 // corner-resize, the same way a native desktop window resizes — grab any of
 // the four edges or four corners and drag.
 //
 // Why edge-proximity detection instead of injected handle elements:
-//   The windows differ structurally. `.modal-content` scrolls its own body
-//   (overflow:auto) while `.notes-pane` keeps overflow:hidden and scrolls an
-//   inner element. Absolutely-positioned handle children would scroll away
+//   The windows differ structurally — some scroll their own body
+//   (overflow:auto), others keep overflow:hidden and scroll an inner
+//   element. Absolutely-positioned handle children would scroll away
 //   with the content in the first case. Detecting pointer proximity to the
 //   window's border works uniformly regardless of the overflow model and
 //   matches the user's mental model ("drag the edges or corners").

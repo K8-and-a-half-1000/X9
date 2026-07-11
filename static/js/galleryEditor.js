@@ -3136,57 +3136,33 @@ export async function exportToGallery() {
   }
 }
 
-// Open the Cookbook modal scoped to img2img-capable models so the user
-// can serve one in a few clicks. Falls back to plain Cookbook if the
-// filter hook isn't available.
-// Open Cookbook on its Dependencies tab and highlight a specific
-// package row. Used for "rembg not installed" → install path.
+// Open Settings → Dependencies and highlight a specific package row.
+// Used for "rembg not installed" → install path.
 function _openCookbookForDependency(pkgName) {
-  // Use cookbookModule.open({ tab: 'Dependencies' }) so the intent is
-  // honored after Cookbook's async render. The old path clicked the
-  // sidebar button + polled for the modal, but Cookbook's _renderRecipes
-  // runs AFTER an awaited _syncFromServer, so depsTab.click() often
-  // raced and the user landed on Download.
-  const cookbook = window.cookbookModule;
-  if (!cookbook || typeof cookbook.open !== 'function') {
-    // Fall back to the old click-then-poll path if the module isn't
-    // on window for some reason.
-    const btn = document.getElementById('tool-cookbook-btn');
-    if (btn) btn.click();
-    else if (uiModule) uiModule.showToast(`Open Cookbook to install ${pkgName}`, 6000);
-    return;
-  }
-  cookbook.open({ tab: 'Dependencies' });
-  // Now wait for the Dependencies group to render, switch the server
-  // selector to Local, and highlight the package row.
-  const cb = document.getElementById('cookbook-modal');
-  if (cb) cb.style.zIndex = 260;
-  const tryServer = (attempt = 0) => {
-    const serverSel = document.getElementById('hwfit-deps-server');
-    if (!serverSel) {
-      if (attempt < 25) return setTimeout(() => tryServer(attempt + 1), 80);
+  document.getElementById('user-bar-settings')?.click();
+  const tryTab = (attempt = 0) => {
+    const tab = document.querySelector('[data-settings-tab="dependencies"]');
+    if (!tab) {
+      if (attempt < 25) return setTimeout(() => tryTab(attempt + 1), 80);
       return;
     }
-    if (serverSel.value !== 'local') {
-      serverSel.value = 'local';
-      serverSel.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    tab.click();
+    const tryHighlight = (a2 = 0) => {
+      const rows = document.querySelectorAll('.dep-row[data-pkg-name]');
+      if (!rows.length) {
+        if (a2 < 40) return setTimeout(() => tryHighlight(a2 + 1), 100);
+        return;
+      }
+      const row = Array.from(rows).find(r => (r.dataset.pkgName || '').toLowerCase() === pkgName.toLowerCase());
+      if (row) {
+        row.scrollIntoView({ block: 'center' });
+        row.classList.add('dep-pkg-flash');
+        setTimeout(() => row.classList.remove('dep-pkg-flash'), 2000);
+      }
+    };
+    tryHighlight();
   };
-  tryServer();
-  const tryHighlight = (a2 = 0) => {
-    const rows = document.querySelectorAll('[data-pkg-name]');
-    if (!rows.length) {
-      if (a2 < 40) return setTimeout(() => tryHighlight(a2 + 1), 100);
-      return;
-    }
-    const row = Array.from(rows).find(r => (r.dataset.pkgName || '').toLowerCase() === pkgName.toLowerCase());
-    if (row) {
-      row.scrollIntoView({ block: 'center' });
-      row.classList.add('cookbook-pkg-flash');
-      setTimeout(() => row.classList.remove('cookbook-pkg-flash'), 2000);
-    }
-  };
-  tryHighlight();
+  tryTab();
 }
 
 // Async check whether `rembg` is installed on the X9 server.
@@ -3221,47 +3197,9 @@ async function _checkRembgInstalled() {
 }
 
 function _openCookbookForImg2img() {
-  // Try multiple openers in order — the sidebar button may be hidden on
-  // mobile so we fall back to the rail button, then to modalManager.
-  let opened = false;
-  const btn = document.getElementById('tool-cookbook-btn');
-  const railBtn = document.getElementById('rail-cookbook');
-  if (btn && btn.offsetParent !== null) { btn.click(); opened = true; }
-  else if (railBtn) { railBtn.click(); opened = true; }
-  else { try { modalManager.restore('cookbook-modal'); opened = true; } catch {} }
-  if (opened) {
-    // Two-stage navigation: 1) wait for modal mount, 2) click Serve tab,
-    // 3) after the serve tag chips render, click the "image" one.
-    const tryServe = (attempt = 0) => {
-      const cb = document.getElementById('cookbook-modal');
-      const serveTab = cb ? cb.querySelector('.cookbook-tab[data-backend="Serve"]') : null;
-      // Retry until BOTH the modal mounts AND its tab bar has rendered.
-      // Cookbook builds its body html after the modal opens, so we need
-      // to wait a bit longer than just "modal exists".
-      if (!cb || !serveTab) {
-        if (attempt < 40) return setTimeout(() => tryServe(attempt + 1), 80);
-        return;
-      }
-      cb.style.zIndex = 260;
-      serveTab.click();
-      // Now wait for the serve-tags container to populate (it lazy-loads
-      // after the cached-models fetch resolves) and click the image chip.
-      const tryImageFilter = (a2 = 0) => {
-        const tags = document.getElementById('serve-tags');
-        if (!tags || !tags.querySelector('.memory-cat-chip')) {
-          if (a2 < 20) return setTimeout(() => tryImageFilter(a2 + 1), 100);
-          return;
-        }
-        const imgChip = Array.from(tags.querySelectorAll('.memory-cat-chip'))
-          .find(c => /^image$/i.test(c.dataset.serveTag || '') || /image/i.test(c.textContent || ''));
-        if (imgChip) imgChip.click();
-      };
-      tryImageFilter();
-    };
-    tryServe();
-    return;
-  }
-  if (uiModule) uiModule.showToast('Open Cookbook from the sidebar to serve an img2img model', 6000);
+  // Model serving was removed from X9 — point the user at endpoint setup.
+  if (uiModule) uiModule.showToast('No image model endpoint — add one in Settings \u2192 Services.', 8000);
+  document.getElementById('user-bar-settings')?.click();
 }
 
 export function downloadPNG() {
@@ -3271,10 +3209,6 @@ export function downloadPNG() {
   a.download = 'edited-image.png';
   a.click();
 }
-
-// Save the entire layered editor state as a JSON project file. Each
-// layer is encoded as a base64 PNG so transparency / partial alpha
-// survives the round-trip. Use Load Project to restore.
 function _saveProject() {
   if (!state.layers.length) {
     if (uiModule) uiModule.showToast('Nothing to save');

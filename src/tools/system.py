@@ -645,14 +645,14 @@ async def do_app_api(content: str, owner: Optional[str] = None) -> Dict:
         if "/api/cookbook/kill-pid" in path:
             return {"error": "Don't POST /api/cookbook/kill-pid via app_api — process signalling is host control. Use the dedicated Cookbook stop/diagnostic flow instead.", "exit_code": 1}
         if "/api/model/download" in path:
-            return {"error": "Don't POST /api/model/download directly — use the `download_model` tool (it resolves the server name, sets the venv env_prefix, and registers the task so it shows in the UI).", "exit_code": 1}
+            return {"error": "/api/model/download is blocked — model downloads were removed from X9.", "exit_code": 1}
         if "/api/model/serve" in path:
-            return {"error": "Don't POST /api/model/serve directly — use the `serve_model` or `serve_preset` tool (handles host resolution, env_prefix, and cookbook tracking).", "exit_code": 1}
+            return {"error": "/api/model/serve is blocked — model serving was removed from X9.", "exit_code": 1}
         if "/api/research/start" in path:
             return {"error": "Don't POST /api/research/start directly — use the `trigger_research` tool (it surfaces the session in the Deep Research sidebar).", "exit_code": 1}
         if "/api/notes" in path:
-            return {"error": "Don't hit /api/notes via app_api — use the `manage_notes` tool. It accepts natural-language due_date ('11pm today', 'tomorrow at 9am'), fires reminders from the due_date itself, and uses the caller's timezone. The raw endpoint requires ISO-UTC, which the agent tends to get wrong.", "exit_code": 1}
-        return {"error": f"{method} {path} is blocked — it overwrites the whole cookbook state file. Use list_serve_presets / serve_preset / serve_model instead.", "exit_code": 1}
+            return {"error": "/api/notes is blocked — the notes feature was removed from X9.", "exit_code": 1}
+        return {"error": f"{method} {path} is blocked.", "exit_code": 1}
 
     body = args.get("body")
     query = args.get("query") or None

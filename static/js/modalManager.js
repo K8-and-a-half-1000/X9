@@ -59,7 +59,7 @@ function _applyRememberedDock(id) {
 
 // Monotonic stacking counter so the most-recently-surfaced tool window always
 // sits on top. Tool modals otherwise carry fixed CSS z-indexes (base .modal
-// = 250, cookbook/theme = 260, …), so restoring one from the dock could leave
+// = 250, theme = 260, …), so restoring one from the dock could leave
 // it BEHIND an already-open tool with a higher static z-index. Start above
 // those statics and bump on every bring-to-front.
 let _modalTopZ = 300;
@@ -114,7 +114,6 @@ function _setBadge(btnIds, on) {
 // ── Bottom dock — visible chip per minimized modal ──
 
 const _LABELS = {
-  'cookbook-modal':    { label: 'Cookbook',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>' },
   'gallery-modal':     { label: 'Gallery',   icon: 'M3 3h18v18H3zM8.5 8.5l3 3M21 15l-5-5L5 21' },
   'tasks-modal':       { label: 'Tasks',     icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
   'doclib-modal':      { label: 'Library',   icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2zM9 7h6M9 11h4' },
@@ -122,7 +121,6 @@ const _LABELS = {
   // three sub-paths, which the dock renderer supports when the icon string
   // contains '<'.
   'memory-modal':      { label: 'Brain',     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg>' },
-  'notes-panel':       { label: 'Notes',     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v5h5"/><path d="M8 17.5 15.5 10l2.5 2.5L10.5 20H8z"/></svg>' },
   // The Prompt window (characters / inject / group). Syringe = "prompt" icon,
   // matching its title bar. Full SVG markup (multi-path) per the dock renderer.
   'custom-preset-modal': { label: 'Prompt',  icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 2 4 4"/><path d="m17 7 3-3"/><path d="M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5"/><path d="m9 11 4 4"/><path d="m5 19-3 3"/><path d="m14 4 6 6"/></svg>' },
@@ -1299,7 +1297,7 @@ export function close(id) {
   if (shouldRememberDock) _rememberDock(id, suspendedDockSide);
   else _forgetDock(id);
   try { s.closeFn(); } catch (e) { console.error('closeFn:', e); }
-  // Some tools (cookbook) animate their close over ~250ms before adding
+  // Some tools animate their close over ~250ms before adding
   // .hidden. If the user re-opens the tool before that finishes, open()
   // sees the modal as "still visible" and takes its no-op early-return
   // path — making the tool feel unresponsive. Force the modal into a
@@ -1355,7 +1353,7 @@ export function injectMinimizeButton(modal, modalId) {
   btn.title = 'Minimize';
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="18" x2="19" y2="18"/></svg>';
   // Anchor the _/X pair to the right edge regardless of the header's
-  // justify-content. Some headers (cookbook) use `space-between`, which
+  // justify-content. Some headers use `space-between`, which
   // would otherwise distribute three children as left/center/right and
   // strand the `_` in the middle. `margin-left:auto` eats the free space
   // to the left so `_` + close sit snug at the right.
@@ -1384,12 +1382,10 @@ export function injectMinimizeButton(modal, modalId) {
 // clicking the same button restores it. Tools that need rebuild-on-restore
 // can still register explicitly with custom restoreFn/closeFn.
 const _AUTO_WIRE = {
-  'cookbook-modal':       { rail: 'rail-cookbook',  sidebar: 'tool-cookbook-btn' },
   'gallery-modal':        { rail: 'rail-gallery',   sidebar: 'tool-gallery-btn' },
   'tasks-modal':          { rail: 'rail-tasks',     sidebar: 'tool-tasks-btn' },
   'doclib-modal':         { rail: 'rail-archive',   sidebar: 'tool-library-btn' },
   'memory-modal':         { rail: null,             sidebar: 'tool-memory-btn' },
-  'notes-panel':          { rail: 'rail-notes',     sidebar: 'tool-notes-btn' },
   'research-overlay':     { rail: 'rail-research',  sidebar: 'tool-research-btn' },
   'theme-modal':          { rail: null,             sidebar: 'tool-theme-btn' },
   'settings-modal':       { rail: null,             sidebar: 'tool-settings-btn' },
@@ -1446,9 +1442,7 @@ if (document.readyState !== 'loading') {
 
 // Tools that survive a swipe-down as a dock chip. Anything else falls
 // through to the legacy close handler and goes away entirely.
-const _SWIPE_DOWN_MINIMIZES = new Set([
-  'cookbook-modal',
-]);
+const _SWIPE_DOWN_MINIMIZES = new Set([]);
 
 // Re-route swipe-dismiss to minimize-rather-than-close — but only for the
 // allowlisted tools above. For every other modal, return early so the
@@ -1456,15 +1450,6 @@ const _SWIPE_DOWN_MINIMIZES = new Set([
 // Close any open body-mounted popups (kebab dropdowns, split-button menus,
 // etc.) when the cookbook modal is swiped away. Otherwise the dropdowns
 // stay floating in the middle of the page with no anchor.
-window.addEventListener('modal-dismissed', (e) => {
-  const id = e.detail?.id;
-  if (id === 'cookbook-modal') {
-    document.querySelectorAll(
-      '.cookbook-task-dropdown, .cookbook-gpu-split-menu, .hwfit-cached-dropdown, .cookbook-saved-menu, .cookbook-dep-menu'
-    ).forEach(dismissOrRemove);
-  }
-});
-
 window.addEventListener('modal-dismissed', (e) => {
   const id = e.detail?.id;
   if (!id) return;

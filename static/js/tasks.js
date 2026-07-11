@@ -482,13 +482,8 @@ const _CATEGORY_MAP = {
   ssh_command:          'System',
   run_script:           'System',
   run_local:            'System',
-  cookbook_serve:       'Cookbook',
 };
-// Cookbook serves listed FIRST so a just-saved schedule shows at the
-// top instead of scrolling off the bottom of the list. The remaining
-// order is preserved for backwards-compatibility with users who've
-// learned where things are.
-const _CATEGORY_ORDER = ['Cookbook', 'Other', 'Chats', 'Documents', 'Memory', 'Research', 'Skills', 'Assistant', 'System'];
+const _CATEGORY_ORDER = ['Other', 'Chats', 'Documents', 'Memory', 'Research', 'Skills', 'Assistant', 'System'];
 const _CATEGORY_ICONS = {
   Chats:     '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   Documents: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
@@ -497,8 +492,6 @@ const _CATEGORY_ICONS = {
   Skills:    '<path d="M9 11l3 3L22 4"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5z"/>',
   Assistant: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 18a5 5 0 0 1 10 0"/>',
   System:    '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
-  // Cookbook icon — matches the recipe-book glyph used on the sidebar.
-  Cookbook:  '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
   Other:     '<circle cx="12" cy="12" r="3"/>',
 };
 
@@ -2071,7 +2064,7 @@ async function _openResultInChat(entry) {
       const match = items.find(it => !it.offline && (it.models || []).includes(entry.model));
       if (match) { url = match.url; model = entry.model; epId = match.endpoint_id || ''; }
       else if (entry.endpointUrl) {
-        // Endpoint known but not in the live list (e.g. cookbook model
+        // Endpoint known but not in the live list (e.g. a model
         // not currently served) — try it anyway with skip_validation.
         url = entry.endpointUrl; model = entry.model;
       }
@@ -2145,7 +2138,6 @@ function _classifyResult(text) {
 // the same color from one run to the next.
 const _CATEGORY_HUES = [
   { hue: 280, kw: /\b(research|web ?search|deep[-_ ]research|sources?|investigate)\b/i },// purple — research
-  { hue:  35, kw: /\b(cookbook|model[-_ ]?(serve|download)|hf|huggingface|vllm|llama|ollama)\b/i }, // amber — cookbook
   { hue: 330, kw: /\b(reminder|note|notify|alert)\b/i },                                 // pink   — reminders
   { hue:  10, kw: /\b(check[-_ ]?in|morning|evening|daily|standup)\b/i },                // red    — check-ins
   { hue: 190, kw: /\b(memory|memories|remember|recall)\b/i },                            // teal   — memory
@@ -2170,7 +2162,6 @@ function _categoryHue(taskName, kind) {
 // hue keyword groups so the chip color matches the row stripe.
 const _CATEGORY_LABELS = [
   { label: 'research',  kw: /\b(research|web ?search|deep[-_ ]research|sources?|investigate)\b/i },
-  { label: 'cookbook',  kw: /\b(cookbook|model[-_ ]?(serve|download)|hf|huggingface|vllm|llama|ollama)\b/i },
   { label: 'reminders', kw: /\b(reminder|note|notify|alert)\b/i },
   { label: 'check-in',  kw: /\b(check[-_ ]?in|morning|evening|daily|standup)\b/i },
   { label: 'memory',    kw: /\b(memory|memories|remember|recall)\b/i },

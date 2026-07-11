@@ -2,7 +2,7 @@
 
 Background tasks are allowed to run only after normal UI/API traffic has
 settled. This keeps scheduled jobs and email pollers from competing with the
-user opening X9, Cookbook, email, documents, notes, or other panels.
+user opening X9, documents, or other panels.
 """
 
 from __future__ import annotations

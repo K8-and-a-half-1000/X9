@@ -14,18 +14,13 @@ MAX_NAME_LEN = 100
 DEFAULT_SCOPES = "chat"
 ALLOWED_SCOPES = {
     "chat",
-    "todos:read",
-    "todos:write",
     "documents:read",
     "documents:write",
     "memory:read",
     "memory:write",
-    "cookbook:read",
-    "cookbook:launch",
 }
 TOKEN_PROFILES = {
     "chat": ["chat"],
-    "codex_todos": ["todos:read", "todos:write"],
     "codex_documents": ["documents:read", "documents:write"],
 }
 
@@ -57,10 +52,8 @@ def _normalize_scopes(scopes: str | list[str] | None = None, profile: str | None
         idx = normalized.index(write_scope)
         normalized.insert(idx, read_scope)
 
-    ensure_before("todos:write", "todos:read")
     ensure_before("documents:write", "documents:read")
     ensure_before("memory:write", "memory:read")
-    ensure_before("cookbook:launch", "cookbook:read")
 
     return normalized or [DEFAULT_SCOPES]
 

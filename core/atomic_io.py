@@ -4,7 +4,7 @@ Use this everywhere a JSON config file is persisted. A plain `open("w") +
 json.dump` truncates the file on first write and only fills it with new
 content afterwards — a kill -9 / power loss / OOM in between produces a
 truncated or empty file. For password DBs (`auth.json`) and live state
-(`sessions.json`, `settings.json`, `integrations.json`, `cookbook_state.json`),
+(`sessions.json`, `settings.json`, `integrations.json`),
 that's a data-loss event.
 
 `atomic_write_json` writes to a sibling tmp file, fsyncs, then `os.replace`s

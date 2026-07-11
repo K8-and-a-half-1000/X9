@@ -2,7 +2,7 @@
 //
 // Several primary controls in X9 are authored as click-only <div>s
 // (most notably the whole sidebar navigation: New Chat, Search, Brain,
-// Cookbook, Deep Research, Gallery, Library, Notes,
+// Deep Research, Gallery, Library,
 // Tasks, Theme, plus the account row). <div>s are not in the tab order and
 // are not announced as buttons, so keyboard and screen-reader users cannot
 // reach or operate them.
@@ -64,14 +64,12 @@
   var titleSeq = 0;
   // Each modal "kind" is a container selector plus where to find its title
   // heading. Standard modals use .modal-content/.modal-header; the docked
-  // Notes pane uses its own markup.
   var MODAL_KINDS = [
     {
       sel: '.modal-content',
       heading: '.modal-header h1, .modal-header h2, .modal-header h3, ' +
                '.modal-header h4, .modal-header h5, .modal-header h6'
     },
-    { sel: '.notes-pane', heading: '.notes-pane-title' }
   ];
   var MODAL_SEL = MODAL_KINDS.map(function (k) { return k.sel; }).join(',');
 
@@ -139,7 +137,7 @@
       }).observe(sidebar, { childList: true, subtree: true });
     }
 
-    // Some modals (Notes, Tasks, …) are injected at runtime, usually as
+    // Some modals (Tasks, …) are injected at runtime, usually as
     // direct children of <body>. Catch those without paying for a deep
     // subtree observer over the whole document.
     if ('MutationObserver' in window) {

@@ -201,15 +201,7 @@ function _initModelPickerDropdown() {
   function _openPickerShortcut(kind) {
     _close();
     try {
-      if (kind === 'cookbook') {
-        if (window.cookbookModule && typeof window.cookbookModule.open === 'function') {
-          window.cookbookModule.open();
-        } else {
-          const btn = document.getElementById('tool-cookbook-btn') || document.getElementById('rail-cookbook');
-          if (btn) btn.click();
-          else location.hash = '#cookbook';
-        }
-      } else if (kind === 'settings') {
+      if (kind === 'settings') {
         if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open();
       } else if (window.adminModule && typeof window.adminModule.open === 'function') {
         window.adminModule.open('services');
@@ -375,7 +367,7 @@ function _initModelPickerDropdown() {
       if (m.stale) {
         row.classList.add('model-switch-stale');
         row.style.opacity = '0.45';
-        row.title = `Local server appears offline: ${m.staleReason}. Click to try anyway, or relaunch in Cookbook.`;
+        row.title = `Local server appears offline: ${m.staleReason}. Click to try anyway.`;
       }
       const _mlogo = providerLogo(m.mid);
       if (_mlogo) {

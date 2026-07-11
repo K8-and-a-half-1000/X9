@@ -494,10 +494,9 @@ function _initChatSwipeToOpenSidebar() {
     if (window._chipDragging) return;
     const sb = document.getElementById('sidebar');
     if (sb && !sb.classList.contains('hidden')) return; // already open
-    // Only in the chat / empty-chat view. Not when a document or PDF is open
-    // (body.doc-view), notes is open (body.notes-view), or a tool modal is up.
-    if (document.body.classList.contains('doc-view') ||
-        document.body.classList.contains('notes-view')) return;
+    // Only in the chat / empty-chat view. Not when a document or PDF is
+    // open (body.doc-view), or a tool modal is up.
+    if (document.body.classList.contains('doc-view')) return;
     const anyModalOpen = [...document.querySelectorAll('.modal')].some(
       m => !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none');
     if (anyModalOpen) return;

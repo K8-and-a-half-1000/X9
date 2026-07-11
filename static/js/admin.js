@@ -2019,14 +2019,11 @@ function initRag() {
 // Catalog mirrors the one in settings.js integration form. Keep keys in
 // sync with the backend scope allowlist.
 const _TOKEN_SCOPES = [
-  { key: 'todos:read',        label: 'Todos read',        detail: 'Read notes and checklists' },
   { key: 'todos:write',       label: 'Todos write',       detail: 'Create, update, delete, and toggle todo items' },
   { key: 'documents:read',    label: 'Documents read',    detail: 'Read documents when a document API is enabled' },
   { key: 'documents:write',   label: 'Documents write',   detail: 'Create and update draft documents' },
   { key: 'memory:read',       label: 'Memory read',       detail: 'Read memory when enabled' },
   { key: 'memory:write',      label: 'Memory write',      detail: 'Write memory when enabled' },
-  { key: 'cookbook:read',     label: 'Cookbook read',     detail: 'List cookbook tasks + tail their tmux output' },
-  { key: 'cookbook:launch',   label: 'Cookbook launch',   detail: 'Launch and stop cookbook serve tasks' },
 ];
 
 function _renderTokenScopeRows(t) {
@@ -2344,7 +2341,7 @@ function initDangerZone() {
   // POSTs to /api/admin/wipe/{kind}, and writes the result.
   const _LABELS = {
     chats: 'chats', memory: 'memory entries', skills: 'skills',
-    notes: 'notes', tasks: 'tasks', documents: 'documents',
+    tasks: 'tasks', documents: 'documents',
     gallery: 'gallery images',
   };
   const _wipeMsg = el('adm-wipeMsg');

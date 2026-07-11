@@ -258,7 +258,7 @@ def searxng_health(settings: Dict[str, Any],
 # ── ntfy ──
 
 def _ntfy_integration(integrations: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """First enabled ntfy integration with a base_url (matches note_routes)."""
+    """First enabled ntfy integration with a base_url."""
     for i in integrations or []:
         if (i.get("preset") == "ntfy" and i.get("enabled", True)
                 and i.get("base_url")):

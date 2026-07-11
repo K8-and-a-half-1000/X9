@@ -22,7 +22,6 @@ import voiceRecorderModule from './js/voiceRecorder.js';
 import censorModule from './js/censor.js';
 import galleryModule from './js/gallery.js';
 import tasksModule from './js/tasks.js?v=20260630tasksactivity';
-import notesModule from './js/notes.js';
 import adminModule from './js/admin.js';
 import settingsModule from './js/settings.js';
 // Eagerly bind unified minimize/restore behavior across all tool modals.
@@ -30,12 +29,7 @@ import './js/modalManager.js';
 // Desktop window tiling — drag a modal near an edge/corner to snap.
 import './js/tileManager.js';
 import themeModule from './js/theme.js';
-// IMPORTANT: import cookbook.js with NO ?v= query — the same plain specifier
-// every other importer (cookbook-hwfit.js / cookbook-diagnosis.js) uses. A query
-// mismatch makes the browser load cookbook.js twice as separate modules (two
-// _envState objects), which broke server selection. Keep all cookbook imports
-// unversioned so this can't recur.
-import cookbookModule from './js/cookbook.js';
+
 import groupModule from './js/group.js';
 import * as researchPanelModule from './js/research/panel.js?v=20260630researchthumb';
 import ttsModule from './js/tts-ai.js';
@@ -49,7 +43,6 @@ window.themeModule = themeModule;
 window.sessionModule = sessionModule;
 window.uiModule = uiModule;
 window.adminModule = adminModule;
-window.cookbookModule = cookbookModule;
 
 function initForegroundActivityHeartbeat() {
   let lastSent = 0;
@@ -92,12 +85,10 @@ function initRailHoverLabels() {
     'rail-delete-session': 'Delete',
     'rail-chats': 'Chat',
     'rail-documents': 'Docs',
-    'rail-cookbook': 'Cookbook',
     'rail-research': 'Research',
     'rail-gallery': 'Gallery',
     'rail-archive': 'Library',
     'rail-memory': 'Brain',
-    'rail-notes': 'Notes',
     'rail-tasks': 'Tasks',
     'rail-theme': 'Theme',
     'rail-settings': 'Settings',
@@ -276,7 +267,7 @@ function initializeEventListeners() {
       '.export-dropdown-menu.open, .overflow-menu.open, .model-picker-menu.open, .doc-overflow-menu.open'
     ).forEach(m => { if (m !== except) m.classList.remove('open'); });
     document.querySelectorAll(
-      '.skill-kebab-menu, .note-reminder-menu, .task-dropdown, .doclib-card-dropdown, .msg-overflow-menu'
+      '.skill-kebab-menu, .task-dropdown, .doclib-card-dropdown, .msg-overflow-menu'
     ).forEach(m => { if (m !== except) m.remove(); });
   };
   // Window-opening / nav controls (rail buttons, sidebar tool rows + session
@@ -572,7 +563,6 @@ function initializeEventListeners() {
       // Close one modal at a time (last in DOM = topmost)
       // Map modal id → sidebar list-item id to clear active state
       const modalItemMap = {
-        'cookbook-modal': null,
         'rename-session-modal': null,
         'rename-ai-modal': null,
         'custom-preset-modal': null,
@@ -830,20 +820,6 @@ function initializeEventListeners() {
     });
   }
 
-  // ── Cookbook modal toggle ──
-  const toolCookbookBtn = el('tool-cookbook-btn');
-  if (toolCookbookBtn) {
-    toolCookbookBtn.addEventListener('click', async () => {
-      if (!cookbookModule) return;
-      // Try minimized→restore or open→minimize via the manager first
-      const Modals = await import('./js/modalManager.js');
-      if (!Modals.toggle('cookbook-modal')) {
-        // Not registered yet → fresh open
-        cookbookModule.open();
-      }
-    });
-  }
-
   // Document library tool button
   const toolDoclibBtn = el('tool-doclib-btn');
   if (toolDoclibBtn) {
@@ -874,12 +850,6 @@ function initializeEventListeners() {
   // Tasks tool button
   const toolTasksBtn = el('tool-tasks-btn');
   if (toolTasksBtn) {
-  // Agents buttons (sidebar + rail)
-  const agentsBtns = [el("rail-agents"), el("tool-agents-btn")].filter(Boolean);
-  agentsBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-    });
-  });
     toolTasksBtn.addEventListener('click', () => {
       if (tasksModule) {
         tasksModule.isTasksOpen() ? tasksModule.closeTasks() : tasksModule.openTasks();
@@ -887,22 +857,7 @@ function initializeEventListeners() {
     });
   }
 
-  // Notes tool button
-  const toolNotesBtn = el('tool-notes-btn');
-  if (toolNotesBtn) {
-    toolNotesBtn.addEventListener('click', () => {
-      if (notesModule) {
-        notesModule.togglePanel();
-      }
-    });
-  }
-  // Refresh notes due-reminder badge on load and every 5 minutes
-  if (notesModule && notesModule.refreshDueBadge) {
-    notesModule.refreshDueBadge();
-    setInterval(() => notesModule.refreshDueBadge(), 5 * 60 * 1000);
-  }
-
-  // URL-based panel routing — bookmark /notes, /cookbook etc
+  // URL-based panel routing — bookmark /memory, /tasks etc
   // and the matching tool opens automatically on page load.
   const urlPath = window.location.pathname;
   // Current width of the always-visible icon rail. The rail is resizable
@@ -917,11 +872,9 @@ function initializeEventListeners() {
   };
   // Collapse the wide sidebar so the icon rail (48px mini sidebar) shows
   // in its place. The two are mutually exclusive — sidebar-layout.js:57
-  // only displays the rail when `.sidebar.hidden` is set. Used by the
-  // /notes route opener so the fullscreen view keeps the rail visible as
-  // the user's navigation strip. Records the prior state on body so a
-  // paired close-handler can restore it without overriding a manual
-  // toggle the user did in between.
+  // only displays the rail when `.sidebar.hidden` is set. Records the
+  // prior state on body so a paired close-handler can restore it without
+  // overriding a manual toggle the user did in between.
   const _collapseSidebarToRail = () => {
     const sb = document.getElementById('sidebar');
     const rail = document.getElementById('icon-rail');
@@ -948,8 +901,7 @@ function initializeEventListeners() {
     sb.classList.remove('hidden');
     try { window.syncRailSide && window.syncRailSide(); } catch (_) {}
   };
-  // Expose so the notes close handler can call this without needing to
-  // import app.js directly.
+  // Exposed for close handlers that need it without importing app.js.
   window._restoreSidebarIfRouteCollapsed = _restoreSidebarIfRouteCollapsed;
   // Clear the marker the moment the sidebar becomes visible again (user
   // hamburger click, or our own _restoreSidebarIfRouteCollapsed call —
@@ -965,28 +917,6 @@ function initializeEventListeners() {
     }
   }
   const _routeOpen = {
-    '/notes':    () => {
-      if (!notesModule) return;
-      _collapseSidebarToRail();
-      notesModule.openPanel();
-      // Promote to fullscreen-with-rail-visible. The pane wires up its own
-      // fullscreen toggle (#notes-fullscreen-toggle); piggyback on that
-      // path so the button icon flips and overflow:hidden gets applied
-      // alongside. Retry on rAF in case the panel mounts a tick later.
-      const _go = () => {
-        const btn = document.getElementById('notes-fullscreen-toggle');
-        const pane = document.querySelector('.notes-pane');
-        if (!pane) return false;
-        if (!pane.classList.contains('notes-pane-fullscreen') && btn) btn.click();
-        return true;
-      };
-      if (!_go()) {
-        requestAnimationFrame(_go);
-        setTimeout(_go, 50);
-        setTimeout(_go, 200);
-      }
-    },
-    '/cookbook': () => document.getElementById('tool-cookbook-btn')?.click(),
     '/memory':   () => document.getElementById('tool-memory-btn')?.click(),
     '/gallery':  () => document.getElementById('tool-gallery-btn')?.click(),
     '/tasks':    () => document.getElementById('tool-tasks-btn')?.click(),
@@ -2288,12 +2218,10 @@ function initializeEventListeners() {
     'tools-section':       '#tools-section',
     // Per-tool visibility — fine-grained control over which entries show
     // inside the Tools section in the sidebar.
-    'tool-cookbook':       '#tool-cookbook-btn',
     'tool-research':       '#tool-research-btn',
     'tool-gallery':        '#tool-gallery-btn',
     'tool-library':        '#tool-library-btn',
     'tool-memory':         '#tool-memory-btn',
-    'tool-notes':          '#tool-notes-btn',
     'tool-tasks':          '#tool-tasks-btn',
     'tool-theme':          '#tool-theme-btn',
     'sidebar-settings-btn':'#user-bar-settings',
@@ -2834,7 +2762,7 @@ function initializeEventListeners() {
       ['.admin-tabs', '.admin-tab'],
     ];
     const _IGNORE = 'input, textarea, select, [contenteditable="true"], .preset-range, ' +
-      '.note-cl-row, .minimized-dock-chip, canvas';
+      '.minimized-dock-chip, canvas';
     let sx = 0, sy = 0, tracking = false;
 
     document.addEventListener('touchstart', (e) => {
@@ -2856,7 +2784,7 @@ function initializeEventListeners() {
         if (!bar || bar.offsetParent === null) continue;  // not the visible window
         // Only act if the swipe happened inside this bar's window (not some
         // other on-screen element).
-        const host = bar.closest('.modal, #notes-pane, .preset-modal-content, .admin-card') || bar.parentElement;
+        const host = bar.closest('.modal, .preset-modal-content, .admin-card') || bar.parentElement;
         const startEl = document.elementFromPoint(sx, sy);
         if (host && startEl && !host.contains(startEl)) continue;
         const tabs = [...bar.querySelectorAll(tabSel)];
@@ -3304,11 +3232,9 @@ function startX9App() {
   // Rail tool buttons — delegate to sidebar tool buttons
   const _railToolMap = {
     'rail-research':  'tool-research-btn',
-    'rail-cookbook':   'tool-cookbook-btn',
     'rail-archive':   'tool-library-btn',
     'rail-gallery':   'tool-gallery-btn',
     'rail-tasks':     'tool-tasks-btn',
-    'rail-notes':     'tool-notes-btn',
     'rail-memory':    'tool-memory-btn',
     'rail-theme':     'tool-theme-btn',
   };
@@ -3369,8 +3295,8 @@ function startX9App() {
     });
   }
 
-  // Sync the contextual rail icons. Tool launchers (cookbook/research/
-  // gallery/tasks/archive/memory/notes/theme) are always-visible
+  // Sync the contextual rail icons. Tool launchers (research/
+  // gallery/tasks/archive/memory/theme) are always-visible
   // launchers, so only the doc + background-chat indicators are
   // shown/hidden dynamically here.
   function _syncRailDynamic() {

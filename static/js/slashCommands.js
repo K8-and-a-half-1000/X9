@@ -19,7 +19,6 @@ import themeModule from './theme.js';
 import documentModule from './document.js';
 import workspaceModule from './workspace.js';
 import settingsModule from './settings.js';
-import cookbookModule from './cookbook.js';
 
 // ── Module state ──────────────────────────────────────────────────────
 
@@ -1258,7 +1257,7 @@ async function _cmdToggleSidebar(args, ctx) {
 async function _cmdOpen(args, ctx) {
   const target = (args[0] || '').trim().toLowerCase();
   if (!target) {
-    slashReply('Open what? Try /open Cookbook, /open Settings, /open Gallery, /open Notes, /open Tasks, /open Library, or /open Research.');
+    slashReply('Open what? Try /open Settings, /open Gallery, /open Tasks, /open Library, or /open Research.');
     return true;
   }
   const clickFirst = (...ids) => {
@@ -1269,11 +1268,6 @@ async function _cmdOpen(args, ctx) {
     return false;
   };
   try {
-    if (target === 'cookbook' || target === 'cook') {
-      if (cookbookModule && typeof cookbookModule.open === 'function') await cookbookModule.open({ tab: 'Download' });
-      else clickFirst('tool-cookbook-btn', 'rail-cookbook');
-      return true;
-    }
     if (target === 'settings' || target === 'setting' || target === 'config') {
       if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open();
       else clickFirst('user-bar-settings', 'rail-settings');
@@ -1281,7 +1275,6 @@ async function _cmdOpen(args, ctx) {
     }
     const targets = {
       gallery: ['tool-gallery-btn', 'rail-gallery'],
-      notes: ['tool-notes-btn', 'rail-notes'],
       tasks: ['tool-tasks-btn', 'rail-tasks'],
       library: ['tool-library-btn', 'rail-archive'],
       documents: ['tool-library-btn', 'rail-archive'],
@@ -1305,36 +1298,6 @@ async function _cmdOpen(args, ctx) {
 async function _cmdToolPanel(tool, args, ctx) {
   const target = String(tool || '').toLowerCase();
   const rest = (args || []).join(' ').trim();
-  if (target === 'cookbook') {
-    const sub = (args[0] || '').toLowerCase();
-    if (sub === 'serve') {
-      const query = args.slice(1).join(' ').trim();
-      try {
-        if (cookbookModule && typeof cookbookModule.open === 'function') {
-          await cookbookModule.open({ tab: 'Serve', serveSearch: query });
-          if (query) {
-            try {
-              const mod = await import('./cookbookServe.js');
-              if (mod && typeof mod.openServePanelForRepo === 'function') {
-                setTimeout(() => { mod.openServePanelForRepo(query).catch(() => {}); }, 80);
-              }
-            } catch (_) {}
-          }
-        } else {
-          document.getElementById('tool-cookbook-btn')?.click();
-        }
-      } catch (e) {
-        slashReply(`Could not open Cookbook Serve${e?.message ? `: ${ctx.esc(e.message)}` : ''}`);
-      }
-      return true;
-    }
-    if (sub === 'download' || sub === 'scan') {
-      await cookbookModule?.open?.({ tab: 'Download', usecase: args.slice(1).join(' ').trim() || undefined });
-      return true;
-    }
-    await cookbookModule?.open?.({ tab: 'Download', usecase: rest || undefined });
-    return true;
-  }
   if (target === 'settings') {
     if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open(rest || undefined);
     else document.getElementById('user-bar-settings')?.click();
@@ -1614,126 +1577,6 @@ async function _cmdReloadSkills(args, ctx) {
   return true;
 }
 
-// ── Note (quick Notes shortcut) ──
-
-async function _cmdNote(args, ctx) {
-  const text = args.join(' ');
-  if (!text) { slashReply('Usage: /note Your note here'); return true; }
-  const res = await fetch(`${API_BASE}/api/notes`, {
-    method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: text, content: '', note_type: 'note', source: 'slash' })
-  });
-  if (res.ok) await typewriterReply(`Note added: ${ctx.esc(text)}`);
-  else slashReply('Failed to save note');
-  return true;
-}
-
-// ── Todo / Remind ───────────────────────────────────────────────────────
-// Quick deterministic wrappers over /api/notes.
-// They never involve the LLM — they parse the string locally and hit the
-// API directly, so they work instantly regardless of chat/agent mode.
-
-function _pad2(n) { return String(n).padStart(2, '0'); }
-
-/** Local-time ISO-8601 string (no Z, no offset). */
-function _toLocalIso(d) {
-  return `${d.getFullYear()}-${_pad2(d.getMonth()+1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:00`;
-}
-
-/**
- * Parse a natural-language time spec from the *start* of the string.
- * Returns { date: Date, rest: string } or null if nothing matched.
- * Supported:
- *   "in 30m" / "in 2h" / "in 1d"
- *   "today 14:00" / "tomorrow 9am"
- *   "HH:MM" / "9am" / "9pm"   (today, or tomorrow if already past)
- *   "YYYY-MM-DD HH:MM"
- * Swallows common stop words: "me", "at", "on", "to".
- */
-function _parseTimeSpec(input) {
-  let s = (input || '').trim().replace(/^(me\s+)/i, '').trim();
-  const now = new Date();
-
-  // "in 30m" / "in 2h" / "in 1d"
-  let m = s.match(/^in\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours|d|day|days)\b\s*(?:to\s+)?(.*)$/i);
-  if (m) {
-    const n = parseInt(m[1], 10);
-    const unit = m[2].toLowerCase();
-    const d = new Date(now);
-    if (unit.startsWith('m')) d.setMinutes(d.getMinutes() + n);
-    else if (unit.startsWith('h')) d.setHours(d.getHours() + n);
-    else d.setDate(d.getDate() + n);
-    return { date: d, rest: m[3].trim() };
-  }
-
-  // "YYYY-MM-DD HH:MM"
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s]+(\d{1,2}):(\d{2})\s*(?:to\s+)?(.*)$/i);
-  if (m) {
-    const d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
-    return { date: d, rest: m[6].trim() };
-  }
-
-  // "today HH:MM" / "tomorrow HH:MM" / "today 9am" / "tomorrow 9pm"
-  m = s.match(/^(today|tomorrow)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to\s+)?(.*)$/i);
-  if (m) {
-    const d = new Date(now);
-    if (m[1].toLowerCase() === 'tomorrow') d.setDate(d.getDate() + 1);
-    let hh = parseInt(m[2], 10);
-    const mm = m[3] ? parseInt(m[3], 10) : 0;
-    const mer = (m[4] || '').toLowerCase();
-    if (mer === 'pm' && hh < 12) hh += 12;
-    if (mer === 'am' && hh === 12) hh = 0;
-    if (hh > 23 || mm > 59) return null;
-    d.setHours(hh, mm, 0, 0);
-    return { date: d, rest: m[5].trim() };
-  }
-
-  // bare "HH:MM" / "9am" / "9pm" / "at HH:MM" — today, or tomorrow if past
-  m = s.match(/^(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b\s*(?:to\s+)?(.*)$/i);
-  if (m) {
-    const d = new Date(now);
-    let hh = parseInt(m[1], 10);
-    const mm = m[2] ? parseInt(m[2], 10) : 0;
-    const mer = (m[3] || '').toLowerCase();
-    if (mer === 'pm' && hh < 12) hh += 12;
-    if (mer === 'am' && hh === 12) hh = 0;
-    // Require a valid hour/minute and either a minute field or am/pm to
-    // avoid eating plain numbers like "3 apples".
-    if (hh > 23 || mm > 59) return null;
-    if (m[2] == null && !mer) return null;
-    d.setHours(hh, mm, 0, 0);
-    if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
-    return { date: d, rest: m[4].trim() };
-  }
-
-  return null;
-}
-
-async function _cmdTodo(args, ctx) {
-  const sub = (args[0] || '').toLowerCase();
-  if (sub === 'list' || sub === 'ls') {
-    const res = await fetch(`${API_BASE}/api/notes?note_type=note`, { credentials: 'same-origin' });
-    if (!res.ok) { slashReply('Failed to load todos'); return true; }
-    const data = await res.json();
-    const items = (data.notes || data || []).filter(n => !n.archived).slice(0, 30);
-    if (!items.length) { slashReply('No todos'); return true; }
-    const lines = items.map(n => `• ${ctx.esc(n.title || n.content || '').slice(0, 80)}`);
-    slashReply(`<pre>${lines.join('\n')}</pre>`);
-    return true;
-  }
-  // Treat everything after /todo (or after /todo add) as the todo text
-  const rest = (sub === 'add' ? args.slice(1) : args).join(' ').trim();
-  if (!rest) { slashReply('Usage: /todo Your task here  ·  /todo list'); return true; }
-  const res = await fetch(`${API_BASE}/api/notes`, {
-    method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: rest, note_type: 'note', source: 'slash', label: 'todo' }),
-  });
-  if (res.ok) await typewriterReply(`Todo added: ${ctx.esc(rest)}`);
-  else slashReply('Failed to add todo');
-  return true;
-}
 
 // ── Shell (user command execution) ──
 
@@ -2425,232 +2268,6 @@ async function _cmdDemo(args, ctx) {
   return true;
 }
 
-// ── Cookbook tour ──
-async function _cmdTourCookbook(args, ctx) {
-  // Clear the chat input so "/tour-cookbook" doesn't linger.
-  const _msgEl = document.getElementById('message');
-  if (_msgEl) {
-    _msgEl.value = '';
-    _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  // Idempotent tour-styles injection (shared with /tour).
-  if (!document.getElementById('tour-styles')) {
-    const s = document.createElement('style');
-    s.id = 'tour-styles';
-    s.textContent =
-      '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
-      'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
-      'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
-      'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
-      '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
-      '#tour-tooltip .tour-text{margin-bottom:8px;opacity:0.8}' +
-      '.tour-nav{display:flex;align-items:center;justify-content:space-between}' +
-      '.tour-nav button{background:none;border:1px solid var(--border);color:var(--fg);' +
-      'cursor:pointer;font-family:inherit;border-radius:4px;transition:all .1s}' +
-      '.tour-nav button:hover{background:color-mix(in srgb,var(--fg) 8%,transparent)}' +
-      '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
-      '.tour-btn-arrow:hover{opacity:1}' +
-      '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
-      '.tour-btn-skip:hover{opacity:0.6}';
-    document.head.appendChild(s);
-  }
-
-  // Open the cookbook modal if it's not already up.
-  let modal = document.getElementById('cookbook-modal');
-  if (!modal || modal.classList.contains('hidden')) {
-    const opener = document.getElementById('tool-cookbook-btn') || document.getElementById('rail-cookbook');
-    if (opener) opener.click();
-    for (let i = 0; i < 25; i++) {
-      await new Promise(r => setTimeout(r, 80));
-      modal = document.getElementById('cookbook-modal');
-      if (modal && !modal.classList.contains('hidden')) break;
-    }
-  }
-  if (!modal || modal.classList.contains('hidden')) {
-    slashReply('Could not open Cookbook. Try clicking the Cookbook tool first.');
-    return true;
-  }
-
-  document.body.classList.add('tour-active');
-  const tooltip = document.createElement('div');
-  tooltip.id = 'tour-tooltip';
-  document.body.appendChild(tooltip);
-
-  let _halos = [];
-  function _makeHalo(target) {
-    const halo = document.createElement('div');
-    halo.className = 'tour-halo';
-    document.body.appendChild(halo);
-    const update = () => {
-      const r = target.getBoundingClientRect();
-      halo.style.top    = (r.top - 4) + 'px';
-      halo.style.left   = (r.left - 4) + 'px';
-      halo.style.width  = (r.width + 8) + 'px';
-      halo.style.height = (r.height + 8) + 'px';
-    };
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    requestAnimationFrame(() => halo.classList.add('tour-fade-in'));
-    return { destroy() {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
-      halo.remove();
-    } };
-  }
-  function _clearHalos() {
-    _halos.forEach(h => h.destroy());
-    _halos = [];
-    document.querySelectorAll('.tour-halo').forEach(e => e.remove());
-  }
-  const _clear = () => {
-    document.querySelectorAll('.odysseus-highlight').forEach(e => e.classList.remove('odysseus-highlight'));
-    _clearHalos();
-    tooltip.remove();
-    document.body.classList.remove('tour-active');
-  };
-
-  function _positionTooltip(target, placement) {
-    tooltip.style.visibility = 'hidden';
-    tooltip.style.display = '';
-    const tw = tooltip.offsetWidth || 260;
-    const th = tooltip.offsetHeight || 100;
-    if (placement === 'center-above') {
-      // Centered horizontally, sitting in the upper third of the viewport.
-      const top = Math.max(10, window.innerHeight * 0.32 - th / 2);
-      const left = Math.max(10, window.innerWidth / 2 - tw / 2);
-      tooltip.style.top = top + 'px';
-      tooltip.style.left = left + 'px';
-      tooltip.style.visibility = '';
-      return;
-    }
-    const r = target.getBoundingClientRect();
-    const gap = 12;
-    let top, left;
-    if (r.bottom + gap + th < window.innerHeight - 10) {
-      top = r.bottom + gap;
-      left = r.left + r.width / 2 - tw / 2;
-    } else if (r.top - gap - th > 10) {
-      top = r.top - gap - th;
-      left = r.left + r.width / 2 - tw / 2;
-    } else {
-      top = r.top + r.height / 2 - th / 2;
-      left = r.right + gap;
-      if (left + tw > window.innerWidth - 10) left = r.left - tw - gap;
-    }
-    if (left + tw > window.innerWidth - 10) left = window.innerWidth - tw - 10;
-    if (left < 10) left = 10;
-    if (top < 10) top = 10;
-    tooltip.style.top = top + 'px';
-    tooltip.style.left = left + 'px';
-    tooltip.style.visibility = '';
-  }
-
-  function _showStep(sel, text, opts) {
-    opts = opts || {};
-    const isFirst = !!opts.isFirst;
-    const isLast = !!opts.isLast;
-    const before = opts.before;
-    const placement = opts.placement;
-    return new Promise(resolve => {
-      _clearHalos();
-      if (before) { try { before(); } catch (_) {} }
-      const target = document.querySelector(sel);
-      if (!target) return resolve('skip');
-      _halos.push(_makeHalo(target));
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      tooltip.classList.remove('tour-fade-in');
-      tooltip.innerHTML =
-        '<div class="tour-text">' + text + '</div>' +
-        '<div class="tour-nav">' +
-          '<button class="tour-btn-arrow' + (isFirst ? ' disabled' : '') + '" data-act="back">←</button>' +
-          '<button class="tour-btn-skip" data-act="skip">' + (isLast ? 'done' : 'skip tour') + '</button>' +
-          '<button class="tour-btn-arrow" data-act="next">' + (isLast ? '✓' : '→') + '</button>' +
-        '</div>';
-      requestAnimationFrame(() => {
-        _positionTooltip(target, placement);
-        tooltip.classList.add('tour-fade-in');
-      });
-
-      const onClick = (e) => {
-        const hit = e.target.closest && e.target.closest('[data-act]');
-        const act = hit && hit.dataset.act;
-        if (!act) return;
-        tooltip.removeEventListener('click', onClick);
-        resolve(act);
-      };
-      tooltip.addEventListener('click', onClick);
-    });
-  }
-
-  function _clickTab(name) {
-    const tab = modal.querySelector('.cookbook-tab[data-backend="' + name + '"]');
-    if (tab) tab.click();
-  }
-
-  // ── Steps ──
-  // Tabs auto-switch via `before()` so the user sees the relevant section
-  // without having to navigate manually. Keep copy tight — no walls of text.
-  const steps = [
-    { sel: '#cookbook-modal .modal-content',
-      text: '<b>Welcome to Cookbook!</b> Download / Cook / Serve models here!',
-      placement: 'center-above' },
-    { sel: '#cookbook-modal .cookbook-tab[data-backend="Settings"]',
-      text: 'Hosting on another machine? Configure it under <b>Settings</b>.' },
-    { sel: '#cookbook-dl-repo',
-      text: 'Paste a HuggingFace URL or <code>org/model-name</code> to download. Quantizations like <code>org/model:Q4_K_M</code> work too.',
-      before: () => _clickTab('Search') },
-    { sel: '#cookbook-modal .admin-card:has(> #hwfit-list)',
-      text: '<b>Scan / Download</b> — reads your hardware and lists every model that\'ll run on it.',
-      before: () => _clickTab('Search') },
-    { sel: '#hwfit-hw-manual-btn',
-      text: 'Your detected hardware appears here. You can also manually edit it to see what would fit on other setups.',
-      before: () => _clickTab('Search') },
-    { sel: '#cookbook-hf-latest-toggle',
-      text: 'Check <b>latest trending models</b> here.',
-      before: () => _clickTab('Search') },
-    { sel: '#cookbook-modal .cookbook-tab[data-backend="Serve"]',
-      text: '<b>Serve</b> — fire up downloaded models with vLLM, Ollama, llama.cpp, and diffusion models too.',
-      before: () => _clickTab('Serve') },
-    { sel: '#cookbook-modal .cookbook-tab[data-backend="Dependencies"]',
-      text: '<b>Dependencies</b> — install missing Python packages or check GPU drivers.',
-      before: () => _clickTab('Dependencies') },
-  ];
-
-  // Running tab is only present when there are active tasks. If it exists,
-  // tack it on as the final stop.
-  const runTab = modal.querySelector('.cookbook-tab[data-backend="Running"]');
-  if (runTab) {
-    steps.push({
-      sel: '#cookbook-modal .cookbook-tab[data-backend="Running"]',
-      text: '<b>Running</b> — live status, tail logs, downloads, kill.',
-      before: () => _clickTab('Running'),
-    });
-  }
-
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    const res = await _showStep(step.sel, step.text, {
-      isFirst: i === 0,
-      isLast: i === steps.length - 1,
-      before: step.before,
-      placement: step.placement,
-    });
-    if (res === 'skip') { _clear(); return true; }
-    if (res === 'back') { if (i > 0) i -= 2; continue; }
-  }
-
-  // Leave Cookbook on the Download tab so the user can start downloading immediately.
-  _clickTab('Search');
-  _clear();
-  await typewriterReply('That’s Cookbook. Pick a model that catches your eye and let it cook.');
-  return true;
-}
-
 // ── Theme tour ──
 async function _cmdTourTheme(args, ctx) {
   // Clear the chat input so "/tour-theme" doesn't linger.
@@ -3103,7 +2720,7 @@ async function _cmdTourSettings(args, ctx) {
       text: '<b>Appearance</b> — too many tools you don\'t need? Adjust them here! Toggle sidebar buttons, tool icons, and section visibility.',
       before: () => _clickNav('appearance') },
     { sel: '#settings-modal .settings-nav-item[data-settings-tab="reminders"]',
-      text: '<b>Reminders</b> — quiet hours and how the app nudges you about due notes.',
+      text: '<b>Reminders</b> — quiet hours and how the app nudges you.',
       before: () => _clickNav('reminders') },
   ];
 
@@ -3134,8 +2751,6 @@ async function _cmdTourGallery(args, ctx) {
     _msgEl.value = '';
     _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  try { localStorage.setItem('odysseus-notes-first-open-hint-v1', '1'); } catch (_) {}
-  document.getElementById('notes-first-open-hint')?.remove();
 
   if (!document.getElementById('tour-styles')) {
     const s = document.createElement('style');
@@ -3341,208 +2956,6 @@ async function _cmdTourGallery(args, ctx) {
   return true;
 }
 
-// ── Notes tour ──
-async function _cmdTourNotes(args, ctx) {
-  // Clear the chat input so "/tour-notes" doesn't linger.
-  const _msgEl = document.getElementById('message');
-  if (_msgEl) {
-    _msgEl.value = '';
-    _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  if (!document.getElementById('tour-styles')) {
-    const s = document.createElement('style');
-    s.id = 'tour-styles';
-    s.textContent =
-      '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
-      'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
-      'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
-      'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
-      '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
-      '#tour-tooltip .tour-text{margin-bottom:8px;opacity:0.8}' +
-      '.tour-nav{display:flex;align-items:center;justify-content:space-between}' +
-      '.tour-nav button{background:none;border:1px solid var(--border);color:var(--fg);' +
-      'cursor:pointer;font-family:inherit;border-radius:4px;transition:all .1s}' +
-      '.tour-nav button:hover{background:color-mix(in srgb,var(--fg) 8%,transparent)}' +
-      '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
-      '.tour-btn-arrow:hover{opacity:1}' +
-      '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
-      '.tour-btn-skip:hover{opacity:0.6}';
-    document.head.appendChild(s);
-  }
-
-  // Open the notes pane (it's a side sheet, not a .modal).
-  let pane = document.getElementById('notes-pane');
-  if (!pane) {
-    const opener = document.getElementById('tool-notes-btn')
-      || document.getElementById('rail-notes');
-    if (opener) opener.click();
-    for (let i = 0; i < 25; i++) {
-      await new Promise(r => setTimeout(r, 80));
-      pane = document.getElementById('notes-pane');
-      if (pane) break;
-    }
-  }
-  if (!pane) {
-    slashReply('Could not open Notes. Try clicking the Notes tool first.');
-    return true;
-  }
-
-  document.body.classList.add('tour-active');
-  const tooltip = document.createElement('div');
-  tooltip.id = 'tour-tooltip';
-  document.body.appendChild(tooltip);
-
-  let _halos = [];
-  function _makeHalo(target) {
-    const halo = document.createElement('div');
-    halo.className = 'tour-halo';
-    document.body.appendChild(halo);
-    const update = () => {
-      const r = target.getBoundingClientRect();
-      halo.style.top    = (r.top - 4) + 'px';
-      halo.style.left   = (r.left - 4) + 'px';
-      halo.style.width  = (r.width + 8) + 'px';
-      halo.style.height = (r.height + 8) + 'px';
-    };
-    update();
-    const _tStart = performance.now();
-    let _rafId = 0;
-    const tick = () => {
-      update();
-      if (performance.now() - _tStart < 500) _rafId = requestAnimationFrame(tick);
-    };
-    _rafId = requestAnimationFrame(tick);
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    requestAnimationFrame(() => halo.classList.add('tour-fade-in'));
-    return { destroy() {
-      if (_rafId) cancelAnimationFrame(_rafId);
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
-      halo.remove();
-    } };
-  }
-  function _clearHalos() {
-    _halos.forEach(h => h.destroy());
-    _halos = [];
-    document.querySelectorAll('.tour-halo').forEach(e => e.remove());
-  }
-  const _clear = () => {
-    _clearHalos();
-    tooltip.remove();
-    document.body.classList.remove('tour-active');
-  };
-
-  function _positionTooltip(target, placement) {
-    tooltip.style.visibility = 'hidden';
-    tooltip.style.display = '';
-    const tw = tooltip.offsetWidth || 260;
-    const th = tooltip.offsetHeight || 100;
-    if (placement === 'center-above') {
-      const top = Math.max(10, window.innerHeight * 0.32 - th / 2);
-      const left = Math.max(10, window.innerWidth / 2 - tw / 2);
-      tooltip.style.top = top + 'px';
-      tooltip.style.left = left + 'px';
-      tooltip.style.visibility = '';
-      return;
-    }
-    const r = target.getBoundingClientRect();
-    const gap = 12;
-    let top, left;
-    if (r.bottom + gap + th < window.innerHeight - 10) {
-      top = r.bottom + gap;
-      left = r.left + r.width / 2 - tw / 2;
-    } else if (r.top - gap - th > 10) {
-      top = r.top - gap - th;
-      left = r.left + r.width / 2 - tw / 2;
-    } else {
-      top = r.top + r.height / 2 - th / 2;
-      left = r.right + gap;
-      if (left + tw > window.innerWidth - 10) left = r.left - tw - gap;
-    }
-    if (left + tw > window.innerWidth - 10) left = window.innerWidth - tw - 10;
-    if (left < 10) left = 10;
-    if (top < 10) top = 10;
-    tooltip.style.top = top + 'px';
-    tooltip.style.left = left + 'px';
-    tooltip.style.visibility = '';
-  }
-
-  function _showStep(sel, text, opts) {
-    opts = opts || {};
-    const isFirst = !!opts.isFirst;
-    const isLast = !!opts.isLast;
-    const before = opts.before;
-    const placement = opts.placement;
-    return new Promise(resolve => {
-      _clearHalos();
-      if (before) { try { before(); } catch (_) {} }
-      setTimeout(() => {
-        const target = document.querySelector(sel);
-        if (!target) return resolve('skip');
-        _halos.push(_makeHalo(target));
-        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        tooltip.classList.remove('tour-fade-in');
-        tooltip.innerHTML =
-          '<div class="tour-text">' + text + '</div>' +
-          '<div class="tour-nav">' +
-            '<button class="tour-btn-arrow' + (isFirst ? ' disabled' : '') + '" data-act="back">←</button>' +
-            '<button class="tour-btn-skip" data-act="skip">' + (isLast ? 'done' : 'skip tour') + '</button>' +
-            '<button class="tour-btn-arrow" data-act="next">' + (isLast ? '✓' : '→') + '</button>' +
-          '</div>';
-        requestAnimationFrame(() => {
-          _positionTooltip(target, placement);
-          tooltip.classList.add('tour-fade-in');
-        });
-
-        const onClick = (e) => {
-          const hit = e.target.closest && e.target.closest('[data-act]');
-          const act = hit && hit.dataset.act;
-          if (!act) return;
-          tooltip.removeEventListener('click', onClick);
-          resolve(act);
-        };
-        tooltip.addEventListener('click', onClick);
-      }, before ? 160 : 0);
-    });
-  }
-
-  const steps = [
-    { sel: '#notes-pane',
-      text: '<b>Notes</b> is your basic todo list, and also where reminders are managed.',
-      placement: 'center-above' },
-    { sel: '#notes-pane .notes-pane-body',
-      text: 'Your notes show up here. You can also <b>ask X9 in chat</b> to take a note for you.' },
-    { sel: '#notes-search',
-      text: '<b>Search</b> across every note — title, body, tags, the works.' },
-    { sel: '#notes-view-toggle',
-      text: 'Switch between <b>grid</b> and <b>list</b> views — pick whichever fits your brain.' },
-    { sel: '#notes-archive-toggle',
-      text: '<b>Archive</b> stashes old notes you don\'t want cluttering the active view but still want to keep.' },
-    { sel: '#notes-select-btn',
-      text: '<b>Select</b> drops you into multi-select mode for bulk archive or delete.' },
-  ];
-
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
-    const res = await _showStep(step.sel, step.text, {
-      isFirst: i === 0,
-      isLast: i === steps.length - 1,
-      before: step.before,
-      placement: step.placement,
-    });
-    if (res === 'skip') { _clear(); return true; }
-    if (res === 'back') { if (i > 0) i -= 2; continue; }
-  }
-
-  _clear();
-  await typewriterReply('That\'s Notes. Write down whatever you want to remember.');
-  return true;
-}
 
 // ── Tour: Brain ──
 async function _cmdTourBrain(args, ctx) {
@@ -3995,7 +3408,7 @@ async function _cmdTourResearch(args, ctx) {
     _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // Shared tour-styles injection (same block as /tour, /tour-cookbook).
+  // Shared tour-styles injection (same block as /tour).
   if (!document.getElementById('tour-styles')) {
     const s = document.createElement('style');
     s.id = 'tour-styles';
@@ -5381,14 +4794,6 @@ const COMMANDS = {
       'remove': { handler: _cmdRagRemove, alias: ['rm'],       help: 'Remove directory',      usage: '/rag remove /path' }
     }
   },
-  todo: {
-    alias: ['td'],
-    category: 'Productivity',
-    help: 'Add or list todos',
-    handler: _cmdTodo,
-    noUserBubble: true,
-    usage: '/todo Your task  ·  /todo list',
-  },
   setup: {
     alias: ['su', 'seutp'],
     category: 'Getting started',
@@ -5427,13 +4832,6 @@ const COMMANDS = {
     help: 'Full guided product tour',
     handler: _cmdDemo,
     usage: '/demo'
-  },
-  'tour-cookbook': {
-    alias: ['cookbook-tour'],
-    category: 'Tours',
-    help: 'Cookbook tour: hardware, downloads, serving',
-    handler: _cmdTourCookbook,
-    usage: '/tour-cookbook'
   },
   'tour-research': {
     alias: ['research-tour'],
@@ -5518,21 +4916,7 @@ const COMMANDS = {
     hidden: true,
     help: 'Open a tool panel',
     handler: _cmdOpen,
-    usage: '/open Cookbook'
-  },
-  cookbook: {
-    alias: ['cook'],
-    category: 'Tools',
-    help: 'Open Cookbook; use "serve" to jump to model serving',
-    handler: (args, ctx) => _cmdToolPanel('cookbook', args, ctx),
-    usage: '/cookbook  ·  /cookbook serve qwen'
-  },
-  notes: {
-    alias: [],
-    category: 'Tools',
-    help: 'Open Notes',
-    handler: (args, ctx) => _cmdToolPanel('notes', args, ctx),
-    usage: '/notes'
+    usage: '/open Gallery'
   },
   tasks: {
     alias: [],
@@ -5652,13 +5036,6 @@ const COMMANDS = {
     help: 'This help',
     handler: _cmdHelp,
     usage: '/help'
-  },
-  note: {
-    alias: ['n'],
-    category: 'Memory',
-    help: 'Quick-save a note',
-    handler: _cmdNote,
-    usage: '/note text'
   },
   // ── Easter eggs (hidden from /help) ──
   flip:    { alias: ['coin'],       hidden: true, handler: _cmdFlip,    usage: '/flip' },

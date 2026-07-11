@@ -464,11 +464,11 @@ def setup_chat_routes(
             approved_plan = (form_data.get("approved_plan") or "").strip()[:8192]
         # Did the USER explicitly pick agent mode? (vs. us auto-escalating
         # below). Skill extraction should only learn from real agent sessions,
-        # not chats we quietly promoted for a notes intent.
+        # not chats we quietly promoted for a tool intent.
         user_requested_agent = (chat_mode == "agent")
         # Intent auto-escalation: if the user is clearly asking the assistant
-        # to create a todo or reminder, promote chat → agent
-        # for this turn so the LLM has access to manage_notes.
+        # to act on the app, promote chat → agent
+        # for this turn so the LLM has access to the manage tools.
         # This is a LIGHT promotion — see the disabled_tools block below, which
         # withholds shell/code/file tools so the model doesn't try to `bash`
         # its way through a plain chat request (and fail, especially with the

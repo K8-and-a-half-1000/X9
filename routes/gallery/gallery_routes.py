@@ -1105,7 +1105,7 @@ def setup_gallery_routes() -> APIRouter:
             try:
                 ep = _first_visible_image_endpoint(db, user)
                 if not ep:
-                    raise HTTPException(400, "No image generation endpoint configured. Serve a diffusion model via Cookbook first.")
+                    raise HTTPException(400, "No image generation endpoint configured. Add a diffusion endpoint in Settings first.")
                 base = ep.base_url.rstrip("/")
                 api_key = ep.api_key
             finally:
@@ -1355,7 +1355,7 @@ def setup_gallery_routes() -> APIRouter:
             raise HTTPException(400,
                 "Harmonize needs a diffusion server that supports img2img "
                 "(SD WebUI / Forge / Comfy). OpenAI's API doesn't expose "
-                "one. Cookbook → Models can serve an SD-compatible model "
+                "one. Add an SD-compatible endpoint in Settings "
                 "locally in a few clicks.")
 
         # Try img2img-shaped routes in order. Most self-hosted servers
@@ -1490,7 +1490,7 @@ def setup_gallery_routes() -> APIRouter:
     # ---- POST /api/image/denoise ----
     # AI denoise via Real-ESRGAN with the realesr-general-x4v3 weights at
     # outscale=1 + denoise_strength. Falls back to a "package missing"
-    # error so the client can prompt the user to install via Cookbook.
+    # error so the client can prompt the user to install the package.
     @router.post("/api/image/denoise")
     async def denoise_image(request: Request):
         require_privilege(request, "can_generate_images")
@@ -1516,7 +1516,7 @@ def setup_gallery_routes() -> APIRouter:
             patch_realesrgan_torchvision_compat()
             from realesrgan import RealESRGANer
         except ImportError:
-            return {"error": "realesrgan not installed. Install it from Cookbook → Dependencies (search 'realesrgan')."}
+            return {"error": "realesrgan not installed. Install it from Settings → Dependencies."}
         try:
             # General-purpose lightweight model with denoise control.
             from realesrgan.archs.srvgg_arch import SRVGGNetCompact
@@ -1567,7 +1567,7 @@ def setup_gallery_routes() -> APIRouter:
             from basicsr.archs.rrdbnet_arch import RRDBNet
             from realesrgan import RealESRGANer
         except ImportError:
-            return {"error": "realesrgan not installed. Install it from Cookbook → Dependencies (search 'realesrgan')."}
+            return {"error": "realesrgan not installed. Install it from Settings → Dependencies."}
         try:
             model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64,
                             num_block=23, num_grow_ch=32, scale=4)

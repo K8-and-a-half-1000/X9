@@ -5,7 +5,7 @@ Process" blocks, and the soft "reasoning prose" heuristic that catches
 chain-of-thought leaks from models that don't tag their reasoning.
 
 Before this module, six different files (`email_routes.py`,
-`chat_helpers.py`, `note_routes.py`, `builtin_actions.py`, `research_utils.py`,
+`chat_helpers.py`, `builtin_actions.py`, `research_utils.py`,
 `agent_loop.py`) each had their own variant of the same regex. They all
 broke in slightly different ways on the edges (unclosed `<think>`, nested
 tags, model emitting `<thinking>` instead of `<think>`).

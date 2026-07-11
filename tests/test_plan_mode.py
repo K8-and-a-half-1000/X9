@@ -32,8 +32,7 @@ def test_plan_mode_blocks_mutating_tools():
     # A representative spread of mutating/external tools must be blocked.
     for name in (
         "write_file", "manage_memory",
-        "manage_settings", "create_document", "edit_document", "download_model",
-        "generate_image", "trigger_research",
+        "manage_settings", "create_document", "edit_document",        "generate_image", "trigger_research",
     ):
         assert name in disabled, f"{name} must be blocked in plan mode"
 

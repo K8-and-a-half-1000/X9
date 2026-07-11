@@ -255,6 +255,10 @@ RETIRED_HOUSEKEEPING_ACTIONS = frozenset({
     "extract_email_events",
     "check_email_urgency",
     "learn_sender_signatures",
+    # Notes + cookbook features removed from X9 — retire their tasks too.
+    "ping_notes",
+    "daily_brief",
+    "cookbook_serve",
 })
 
 
@@ -500,11 +504,6 @@ class TaskScheduler:
 
         self._running = True
         self._task = asyncio.create_task(self._loop())
-        # Internal background scanner that isn't a user-facing "task" — pure
-        # infra (no LLM), shouldn't clutter the Tasks UI, fires on its own
-        # cadence inside the scheduler process. The Notes scanner is the
-        # single reminder dispatch path.
-        self._note_pings_task = asyncio.create_task(self._note_pings_loop())
         logger.info(f"Task scheduler started (concurrency cap: {self._concurrency_cap})")
         # Audit clusters: show any minute-of-day where >1 active scheduled
         # tasks land. Helps spot "all my tasks fire at 9am" patterns the user
@@ -541,54 +540,15 @@ class TaskScheduler:
                 await self._task
             except asyncio.CancelledError:
                 pass
-        t = getattr(self, "_note_pings_task", None)
-        if t:
-            t.cancel()
-            try: await t
-            except asyncio.CancelledError: pass
         logger.info("Task scheduler stopped")
 
-    async def _note_pings_loop(self):
-        """Built-in note-due scanner — ticks every 60s inside the scheduler.
-        Pure infra (no LLM), doesn't surface in the Tasks UI. Iterates
-        per-owner so cache pruning in `action_ping_notes` (which removes
-        cache entries for notes not in the current scan's seen_ids) doesn't
-        cross-delete other users' entries (review C4).
-        """
-        await asyncio.sleep(30)
-        from src.builtin_actions import action_ping_notes, TaskNoop
-        while self._running:
-            owners = self._known_task_owners()
-            for ow in (owners or [""]):
-                try:
-                    await action_ping_notes(owner=ow)
-                except TaskNoop:
-                    pass
-                except Exception as e:
-                    logger.warning(f"ping_notes background scanner errored for owner={ow!r}: {e}")
-            await asyncio.sleep(60)  # 1 min
-
     def _known_task_owners(self) -> list:
-        """Distinct non-empty owners that background scanners should visit.
-
-        Scheduled tasks used to be the only owner source. Reminders are
-        stored as Notes, though, so an account with due notes but no task
-        rows could get the browser reminder while the backend ntfy scanner
-        never ran for that owner.
-        """
-        from core.database import SessionLocal, ScheduledTask, Note
+        """Distinct non-empty owners that background scanners should visit."""
+        from core.database import SessionLocal, ScheduledTask
         db = SessionLocal()
         try:
             owners = set()
             for r in db.query(ScheduledTask.owner).distinct().all():
-                if r[0]:
-                    owners.add(r[0])
-            note_q = db.query(Note.owner).filter(
-                Note.due_date.isnot(None),
-                Note.due_date != "",
-                Note.archived == False,  # noqa: E712
-            ).distinct()
-            for r in note_q.all():
                 if r[0]:
                     owners.add(r[0])
             return sorted(owners)
@@ -1151,10 +1111,6 @@ class TaskScheduler:
                 kwargs["prompt"] = task.prompt
             if task.action in ("run_script", "run_local", "ssh_command") and task.prompt:
                 kwargs["script" if task.action in ("run_script", "run_local") else "command"] = task.prompt
-            # cookbook_serve carries its JSON config in task.prompt — feed it
-            # through as `command` so action_cookbook_serve can json.loads it.
-            elif task.action == "cookbook_serve" and task.prompt:
-                kwargs["command"] = task.prompt
             result, success = await action_fn(**kwargs)
             return result, success
         except TaskNoop:
@@ -1183,7 +1139,6 @@ class TaskScheduler:
     async def _execute_checkin(self, task, crew, db, session_id: str,
                                endpoint_url: str, model: str) -> str:
         """Gather raw data from all integrations, hand it to the LLM to write the check-in."""
-        from src.tool_implementations import do_manage_notes
         from src.tool_utils import get_mcp_manager
 
         tz_name = _resolve_task_timezone(db, task)
@@ -1202,13 +1157,6 @@ class TaskScheduler:
             time_str = now.strftime("%H:%M UTC")
 
         raw = {}
-
-        # Notes/Tasks
-        try:
-            r = await do_manage_notes(json.dumps({"action": "list"}), owner=task.owner)
-            raw["notes_tasks"] = r.get("results") or r.get("response") or "No notes"
-        except Exception as e:
-            raw["notes_tasks"] = f"Error: {e}"
 
         # Auto-discover API integrations (Miniflux RSS, etc.).
         try:
@@ -2289,12 +2237,11 @@ class TaskScheduler:
                 endpoint_url=endpoint_url,
                 greeting=None,
                 enabled_tools=json.dumps([
-                    "manage_notes", "manage_tasks", "manage_memory",
+                    "manage_tasks", "manage_memory",
                     "resolve_contact",
                     "search_chats", "web_search", "web_fetch", "read_file",
                     "create_document", "update_document", "edit_document",
                     "generate_image", "trigger_research",
-                    "download_model", "serve_model", "list_served_models", "stop_served_model",
                     "edit_image",
                 ]),
                 session_id=session_id,

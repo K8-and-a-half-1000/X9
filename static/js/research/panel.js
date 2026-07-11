@@ -99,7 +99,7 @@ function _clearBadge() {
   if (dot) dot.remove();
 }
 
-// Live sidebar/rail feedback — mirrors the cookbook pattern. While
+// Live sidebar/rail feedback. While
 // research jobs are running, the rail button pulses; errors flag red;
 // nothing running clears it. Panel-independent so it works with the
 // modal closed. Called from _renderJobs on every job-state change.
@@ -130,7 +130,7 @@ function _syncResearchRail() {
     toolBtn.classList.toggle('research-notif-active', active);
     toolBtn.style.opacity = active ? '1' : '';
     // Sidebar feedback while running — a small pulsing dot + round text,
-    // same style as Cookbook's running indicator (no glow).
+    // subtle running indicator (no glow).
     let wrap = toolBtn.querySelector('.research-sb-running');
     if (running > 0) {
       if (!wrap) {
@@ -415,7 +415,7 @@ function _buildPanelHTML() {
   `;
 }
 
-/** Fade/slide a card out, then run the removal — matches cookbook's smooth exit. */
+/** Fade/slide a card out, then run the removal. */
 function _animateOutThenRemove(el, removeFn) {
   if (!el || !el.style) { removeFn(); return; }
   el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
@@ -770,7 +770,7 @@ function _renderJobs() {
     } else {
       dotColor = 'var(--color-success)';
     }
-    // Both sections carry a "Clear all" button in the header (cookbook-running
+    // Both sections carry a "Clear all" button in the header (running-list
     // section style); it clears all research and must not toggle the fold.
     const clearAllHtml = '<button class="research-section-clear" title="Clear all research">' + _cancelIcon + ' Clear all</button>';
     header.innerHTML =

@@ -26,7 +26,7 @@ def test_readme_opens_with_wordmark_title():
     # The README must still open with a recognizable X9 title: now the
     # centered wordmark image rather than an H1 / ASCII banner.
     head = "\n".join(README.read_text(encoding="utf-8").splitlines()[:15])
-    assert 'alt="X9"' in head, "README must open with the X9 wordmark image"
+    assert "<h1 align=\"center\">X9</h1>" in head, "README must open with the X9 title"
 
 
 def test_reintroduced_ascii_banner_stays_fenced():

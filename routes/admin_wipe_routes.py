@@ -21,7 +21,6 @@ from core.database import (
     Session as DbSession,
     ChatMessage as DbChatMessage,
     Memory,
-    Note,
     ScheduledTask,
     TaskRun,
     Document,
@@ -119,12 +118,6 @@ def setup_admin_wipe_routes(session_manager):
                         os.remove(legacy)
                     except OSError:
                         pass
-                return {"status": "deleted", "kind": kind, "count": count}
-
-            if kind == "notes":
-                count = db.query(Note).count()
-                db.query(Note).delete()
-                db.commit()
                 return {"status": "deleted", "kind": kind, "count": count}
 
             if kind == "tasks":

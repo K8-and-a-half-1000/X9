@@ -39,12 +39,6 @@ NON_ADMIN_BLOCKED_TOOLS = {
     "vault_search",
     "vault_get",
     "vault_unlock",
-    "download_model",
-    "serve_model",
-    "serve_preset",
-    "stop_served_model",
-    "cancel_download",
-    "adopt_served_model",
 }
 
 
@@ -69,12 +63,6 @@ PLAN_MODE_READONLY_TOOLS = {
     "search_chats",
     "list_models",
     "list_sessions",
-    "list_served_models",
-    "list_downloads",
-    "list_cached_models",
-    "search_hf_models",
-    "list_serve_presets",
-    "list_cookbook_servers",
     "resolve_contact",
     "chat_with_model",
     "ask_teacher",
@@ -87,7 +75,7 @@ PLAN_MODE_READONLY_TOOLS = {
 # returns the inverse: every known tool name minus the allowlist.
 #
 # Known tool names come from FUNCTION_TOOL_SCHEMAS, but that source is imperfect:
-# some tools are only XML-invocable (e.g. manage_notes, generate_image) and never
+# some tools are only XML-invocable (e.g. generate_image) and never
 # appear there, and the import can fail outright. Either gap would drop a mutating
 # tool from the subtraction and silently leave it enabled. This set is the static
 # backstop for both: union it in so known mutators are always subtracted, and so a
@@ -98,12 +86,10 @@ _PLAN_MODE_KNOWN_MUTATORS = {
     "write_file", "create_document", "edit_document", "update_document",
     "suggest_document", "manage_documents", "create_session", "manage_session",
     "send_to_session", "pipeline", "manage_memory", "manage_skills",
-    "manage_tasks", "manage_notes", "manage_endpoints", "manage_mcp",
+    "manage_tasks", "manage_endpoints", "manage_mcp",
     "manage_webhooks", "manage_tokens", "manage_settings", "manage_contact",
     "api_call", "app_api", "ui_control",
-    "download_model", "serve_model",
-    "stop_served_model", "cancel_download", "adopt_served_model", "serve_preset",
-    "generate_image", "edit_image", "trigger_research", "manage_research",
+       "generate_image", "edit_image", "trigger_research", "manage_research",
     # Shell is never read-only-safe; block it explicitly so it stays out of plan
     # mode even if the schema list fails to load.
     "bash", "python",

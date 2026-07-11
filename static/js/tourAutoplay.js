@@ -14,7 +14,6 @@ import { handleSlashCommand } from './slashCommands.js';
 // map when a new feature picks up a `tour-*` command.
 const TOUR_FOR_MODAL = {
   'doclib-modal':           'tour-library',
-  'cookbook-modal':         'tour-cookbook',
   'research-overlay':       'tour-research',
   'theme-modal':            'tour-theme',
   'settings-modal':         'tour-settings',

@@ -38,7 +38,6 @@ const SPACE_CARD_SELECTOR = [
   '#tasks-modal .task-card',
   '#tasks-modal .task-log-row',
   '#research-overlay [data-job-id]',
-  '#cookbook-modal .doclib-card',
 ].join(', ');
 
 const SPACE_BLOCKED_SELECTOR = [
@@ -899,9 +898,9 @@ if ('ontouchstart' in window) {
   // the page after the sheet slides away.
   function _closeFloatingDropdownsForSwipe() {
     document.querySelectorAll(
-      '.hwfit-cached-dropdown, .cookbook-saved-menu, .cookbook-dep-menu'
+      '.doclib-card-dropdown'
     ).forEach(d => {
-      if (d._anchor) d._anchor.classList.remove('cookbook-menu-active', 'reader-more-active');
+      if (d._anchor) d._anchor.classList.remove('reader-more-active');
       // Registered menus tear down through their own dismiss (releasing the
       // Escape-stack entry); unregistered ones (dep) just get removed.
       dismissOrRemove(d);
@@ -1002,7 +1001,7 @@ if ('ontouchstart' in window) {
         _swipeTarget.style.willChange = 'transform';
         // A swipe is starting — close any floating menus/dropdowns so they
         // don't orphan over the page once the sheet slides away. Covers the
-        // cookbook serve kebab + saved-configs, and anything else hanging
+        // anything hanging
         // off body via _anchor.
         _closeFloatingDropdownsForSwipe();
       } else {
@@ -1060,7 +1059,7 @@ if ('ontouchstart' in window) {
           // Notify modules so they can sync internal open-state flags
           window.dispatchEvent(new CustomEvent('modal-dismissed', { detail: { id: modal.id } }));
           // Swiping a tool away to reveal a new/empty chat replays the welcome
-          // "splash" reveal — the same nice effect notes gives on dismiss.
+          // "splash" reveal.
           // Only when the welcome screen is already the active state (new chat),
           // so we never cover a chat that has messages.
           const ws = document.getElementById('welcome-screen');
@@ -1182,11 +1181,11 @@ if (!window._odyEscExpandGuard) {
 
   // Auto-promote any modal that becomes visible to the top of the z-stack.
   // Every modal shares `z-index: 250` from the base `.modal` rule, so visual
-  // stacking falls back to DOM order — which is unpredictable (cookbook is
-  // a static HTML node; some panes are appended once and stay, others like
-  // research get re-appended on each open). Result: a window opened AFTER
-  // cookbook can render UNDER it. Bumping the z-index on every open
-  // guarantees most-recently-opened wins both visually AND for ESC.
+  // stacking falls back to DOM order — which is unpredictable (some panes
+  // are static HTML nodes, others like research get re-appended on each
+  // open). Result: a window opened AFTER another can render UNDER it.
+  // Bumping the z-index on every open guarantees most-recently-opened wins
+  // both visually AND for ESC.
   let _zCounter = 1000;
   const _isVisible = (m) => !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none';
   const _promote = (m) => {

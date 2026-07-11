@@ -228,7 +228,7 @@ def find_bash() -> Optional[str]:
     """Locate a real ``bash`` interpreter, or None.
 
     On Windows this is typically Git Bash / WSL. Repo-shipped scripts
-    (Cookbook, install helpers) are written in bash, so when a bash is present
+    (install helpers) are written in bash, so when a bash is present
     we use it for those and keep full parity with POSIX. Result is cached.
     NB: the agent's interactive ``bash`` tool and ``#!bg`` background jobs do
     NOT use this on Windows — they run PowerShell (see

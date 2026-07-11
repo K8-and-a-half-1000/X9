@@ -1139,7 +1139,6 @@ function resolveDocumentPlaceholderLinks(text, metadata) {
 // Jump-to-entity anchors — the agent emits links like
 //   [New Chat](#session-89effa28)
 //   [Notes](#document-abc123)
-//   [Reminder](#note-42)
 // and the chat-history click delegate turns them into navigation
 // instead of default in-page anchor jumps. Each prefix routes to the
 // matching module via a dynamic import (avoids circular deps —
@@ -1172,10 +1171,8 @@ document.addEventListener('click', function(e) {
       if (open) open(id);
     }).catch(() => {});
   } else if (kind === 'note') {
-    import('./notes.js').then(mod => {
-      const open = mod.openNote || (mod.default && mod.default.openNote);
-      if (open) open(id);
-    }).catch(() => {});
+    // Notes feature removed — old chat histories may still carry
+    // #note-<id> anchors; clicking them is a no-op now.
   } else if (kind === 'image') {
     import('./gallery.js').then(mod => {
       const open = mod.openGalleryImage || (mod.default && mod.default.openGalleryImage);

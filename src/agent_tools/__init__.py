@@ -85,23 +85,10 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "suggest_document",
              "manage_endpoints", "manage_mcp", "manage_webhooks",
              "manage_tokens", "manage_documents", "manage_settings",
-             "manage_notes",
              "resolve_contact", "manage_contact",
-             # Cookbook tools (LLM serving + downloads). Without these
-             # entries, native function calls to e.g. list_served_models
-             # are rejected as "Unknown function call" before reaching
-             # the dispatcher — silent failure for the whole cookbook
-             # surface.
-             "download_model", "serve_model",
-             "list_served_models", "stop_served_model",
-             "list_downloads", "cancel_download",
-             "search_hf_models", "list_cached_models",
-             "list_serve_presets", "serve_preset", "adopt_served_model",
-             "list_cookbook_servers",
-             # Other tools the agent reaches for that were also missing.
              "edit_image", "trigger_research", "manage_research",
-             # Generic loopback to any UI-button endpoint (cookbook,
-             # gallery, etc.) — agent uses this when there's no named
+             # Generic loopback to any UI-button endpoint (gallery,
+             # etc.) — agent uses this when there's no named
              # tool wrapper for the action.
              "app_api"}
 
