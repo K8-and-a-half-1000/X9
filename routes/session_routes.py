@@ -670,9 +670,9 @@ def setup_session_routes(session_manager: SessionManager, config: dict, webhook_
         db = SessionLocal()
         try:
             q = db.query(DbSession).filter(DbSession.archived == True)
-            if not user:
-                raise HTTPException(403, "Authentication required")
-            q = q.filter(DbSession.owner == user)
+            # Scope to the caller's rows — a no-op in single-user mode
+            # (empty user), same as the main /sessions list.
+            q = owner_filter(q, DbSession, user)
             if search:
                 safe_search = search.replace('%', r'\%').replace('_', r'\_')
                 q = q.filter(DbSession.name.ilike(f"%{safe_search}%", escape='\\'))
