@@ -1313,11 +1313,9 @@ function _rerenderCachedModels() {
       panelHtml += `</div>`;
       // (hwfit-serve-runtime-note moved to the top of the panel — see above.)
       if (_ggufChoices.length > 1) {
-        // Show the GGUF File dropdown for BOTH llama.cpp and Ollama — Ollama
-        // also needs to know which exact .gguf to import via the new
-        // `docker exec ollama-test ollama-import` auto-fill (otherwise the
-        // helper falls back to "first sorted gguf", which may not match what
-        // the user picked).
+        // Show the GGUF File dropdown for BOTH llama.cpp and Ollama so the
+        // user can pick the exact .gguf artifact to serve from this cached
+        // model folder.
         panelHtml += `<div class="hwfit-serve-row hwfit-backend-llamacpp hwfit-backend-ollama">`;
         panelHtml += `<label class="hwfit-backend-llamacpp hwfit-backend-ollama">${_l('GGUF File','Choose the exact GGUF artifact to serve from this cached model folder.')}<select class="hwfit-sf hwfit-sf-wide" data-field="gguf_file">${_ggufOptions}</select></label>`;
         panelHtml += `</div>`;
@@ -3655,7 +3653,7 @@ function _renderCachedModelsData(list, data, host) {
 
   if (!allModels.length) {
     if (!host) {
-      list.innerHTML = '<div class="hwfit-loading" style="flex-direction:column;gap:6px;text-align:center;"><div>No cached models found</div><div style="font-size:11px;opacity:0.55;max-width:420px;line-height:1.4;">Docker Local uses Odysseus’s cache in <code>data/huggingface</code>. Download a model here, or copy an existing host HuggingFace cache into that folder once.</div></div>';
+      list.innerHTML = '<div class="hwfit-loading" style="flex-direction:column;gap:6px;text-align:center;"><div>No cached models found</div><div style="font-size:11px;opacity:0.55;max-width:420px;line-height:1.4;">Local serving uses Odysseus’s cache in <code>data/huggingface</code>. Download a model here, or copy an existing HuggingFace cache into that folder once.</div></div>';
     } else {
       list.innerHTML = '<div class="hwfit-loading" style="flex-direction:column;gap:8px;text-align:center;"><div>No cached models found</div><div style="font-size:11px;opacity:0.55;max-width:420px;line-height:1.4;">No complete model folders were found on this server.</div><button type="button" class="hwfit-gpu-btn serve-empty-scan-btn" style="height:26px;padding:3px 10px;">Refresh</button></div>';
       list.querySelector('.serve-empty-scan-btn')?.addEventListener('click', () => {

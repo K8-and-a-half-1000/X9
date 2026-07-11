@@ -37,7 +37,7 @@ def test_plain_names_pass_through():
 
 
 def test_falls_back_to_import_name_when_no_pip_spec():
-    # System rows (tmux/docker) declare no pip spec; fall back to the munged name.
+    # System rows (tmux) declare no pip spec; fall back to the munged name.
     assert _pip_dist_name({"name": "some_mod", "pip": ""}) == "some-mod"
     assert _pip_dist_name({"name": "tmux"}) == "tmux"
 

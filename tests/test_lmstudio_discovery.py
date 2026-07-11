@@ -180,5 +180,5 @@ class TestGetHostsLmStudioUrl:
         )
         discovery = ModelDiscovery(default_host="localhost")
         hosts = discovery._get_hosts()
-        # Only localhost + host.docker.internal expected
+        # Only localhost expected
         assert "my-lm-box" not in hosts

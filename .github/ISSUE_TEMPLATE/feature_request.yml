@@ -42,7 +42,7 @@ body:
         - Search
         - Notes / Editor
         - Auth / Security
-        - Docker / Deployment
+        - Deployment
         - UI / Frontend
         - API / Backend
         - MCP

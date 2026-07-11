@@ -36,7 +36,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # The extension is optional: save_upload builds the id as `{uuid.hex}{ext}`,
-# and a file with no extension (Dockerfile, README, ...) yields a bare 32-hex
+# and a file with no extension (Makefile, README, ...) yields a bare 32-hex
 # id. Requiring `.ext` made those ids fail validation, so the stored file
 # could never be resolved or downloaded again.
 UPLOAD_ID_RE = re.compile(r"^[0-9a-fA-F]{32}(?:\.[A-Za-z0-9]+)?$")

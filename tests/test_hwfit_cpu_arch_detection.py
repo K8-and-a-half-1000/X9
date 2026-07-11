@@ -10,7 +10,6 @@ def _clear_hwfit_cache(monkeypatch):
     hardware._cache_by_host.clear()
     monkeypatch.setattr(hardware, "_remote_host", None)
     monkeypatch.setattr(hardware, "_remote_platform", None)
-    monkeypatch.setattr(hardware, "_is_containerized", lambda: False)
     yield
     hardware._cache_by_host.clear()
 

@@ -26,7 +26,7 @@ def test_incidental_shell_words_stay_plain_chat():
 def test_imperative_shell_commands_still_promote_to_agent():
     assert message_needs_tools("tail the nginx error log")
     assert message_needs_tools("restart the media server")
-    assert message_needs_tools("please install docker on the host")
+    assert message_needs_tools("please install ffmpeg on the host")
     assert message_needs_tools("cat /etc/hosts")
 
 

@@ -1,13 +1,10 @@
-"""Regression for #4875: the official Docker image shipped without python-magic
-(and without the libmagic system lib), so content-based MIME detection in
-src/upload_handler.py was dead and uploads were typed by extension only.
+"""Regression for #4875: content-based MIME detection in src/upload_handler.py
+must sniff the MIME from the bytes when libmagic/python-magic is present, and
+degrade gracefully (extension-based typing) when it is absent.
 
-python-magic resolves libmagic at import time and can block/raise when the lib
-is absent, so it's installed in the Docker image (which always has libmagic1)
-rather than in the shared requirements.txt. These tests pin:
-  1. the Dockerfile installs both libmagic1 (apt) and python-magic (pip);
-  2. when libmagic is actually present, detect_content_type sniffs the MIME
-     from the bytes and overrides a misleading/missing extension.
+python-magic resolves libmagic at import time and can block/raise when the C
+lib is absent, so it is an optional extra install rather than part of the
+shared requirements.txt.
 """
 import io
 import os
@@ -24,15 +21,6 @@ _PNG = (
 )
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def test_dockerfile_installs_libmagic_and_python_magic():
-    with open(os.path.join(_REPO_ROOT, "Dockerfile"), encoding="utf-8") as f:
-        dockerfile = f.read()
-    # The C library python-magic dlopens, installed via apt...
-    assert "libmagic1" in dockerfile
-    # ...and the wrapper itself, installed via pip in the image.
-    assert "python-magic" in dockerfile
 
 
 def test_content_detection_overrides_misleading_extension(tmp_path):

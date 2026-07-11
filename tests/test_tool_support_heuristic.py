@@ -58,9 +58,9 @@ class TestDeepSeekToolSupport:
     def test_deepseek_r1_70b_local_no_tools(self):
         assert _compute_is_api_model("deepseek-r1:70b", "http://127.0.0.1:11434/v1") is False
 
-    def test_deepseek_r1_via_docker_no_tools(self):
+    def test_deepseek_r1_7b_local_no_tools(self):
         assert _compute_is_api_model(
-            "deepseek-r1:7b", "http://host.docker.internal:11434/v1"
+            "deepseek-r1:7b", "http://127.0.0.1:11434/v1"
         ) is False
 
     def test_qwen_local_ollama_defaults_to_fenced_tools(self):
@@ -70,7 +70,7 @@ class TestDeepSeekToolSupport:
 
     def test_gemma_local_ollama_defaults_to_fenced_tools(self):
         assert _compute_is_api_model(
-            "gemma4:e4b", "http://host.docker.internal:11434/v1"
+            "gemma4:e4b", "http://127.0.0.1:11434/v1"
         ) is False
 
     def test_gpt_oss_local_openai_compat_defaults_to_fenced_tools(self):
@@ -161,6 +161,6 @@ class TestEndpointLookupKeys:
         assert "http://localhost:11434/v1/" in keys
 
     def test_native_ollama_chat_url_matches_api_base(self):
-        keys = _endpoint_lookup_keys("http://host.docker.internal:11434/api/chat")
+        keys = _endpoint_lookup_keys("http://gpu-box.local:11434/api/chat")
 
-        assert "http://host.docker.internal:11434/api" in keys
+        assert "http://gpu-box.local:11434/api" in keys

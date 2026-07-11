@@ -32,7 +32,6 @@ body:
       label: Install Method
       options:
         - "-- Please Select --"
-        - Docker (docker compose up)
         - Manual Python install (pip / venv)
         - Windows native (launch-windows.ps1)
         - macOS app (build-macos-app.sh / start-macos.sh)

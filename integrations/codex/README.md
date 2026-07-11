@@ -48,4 +48,4 @@ codex plugin add odysseus@personal
 python3 ~/plugins/odysseus/scripts/odysseus_api.py capabilities
 ```
 
-Codex must use `/api/codex/*` endpoints. SSH, Docker, direct Python imports, database queries, and MCP internals bypass Odysseus Settings and must not be used for user data access.
+Codex must use `/api/codex/*` endpoints. SSH, direct Python imports, database queries, and MCP internals bypass Odysseus Settings and must not be used for user data access.

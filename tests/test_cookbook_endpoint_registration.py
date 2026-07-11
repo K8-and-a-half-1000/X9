@@ -9,11 +9,12 @@ def _source() -> str:
     return COOKBOOK_RUNNING.read_text(encoding="utf-8")
 
 
-def test_cookbook_marks_local_endpoint_registration_as_container_local():
+def test_cookbook_does_not_send_removed_container_scope_field():
+    # The container_local form field died with the Docker strip; the frontend
+    # must not resurrect it (the backend no longer reads it).
     src = _source()
-    assert "function _appendCookbookEndpointScope" in src
-    assert "fd.append('container_local', 'true')" in src
-    assert src.count("_appendCookbookEndpointScope(fd,") >= 3
+    assert "container_local" not in src
+    assert "_appendCookbookEndpointScope" not in src
 
 
 def test_cookbook_does_not_use_local_as_endpoint_hostname():

@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-  Odysseus - native Windows launcher (no Docker).
+  Odysseus - native Windows launcher.
 
   One command to: create a virtualenv, install dependencies, run first-time
   setup (prints an admin password on first run), and start the server.

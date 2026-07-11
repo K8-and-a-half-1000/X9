@@ -1,6 +1,6 @@
 """Pin the billing/display classifier `isLocalEndpoint` in chatRenderer.js.
 
-Self-hosted endpoints reached by a bare Docker/Compose service name (e.g.
+Self-hosted endpoints reached by a bare single-label service name (e.g.
 `http://llamaswap:8000`) must classify as LOCAL so they aren't priced at cloud
 rates against the substring-matched MODEL_PRICING table. Cloud FQDNs must stay
 billable.
@@ -39,7 +39,7 @@ def _is_local(url: str) -> bool:
 
 @pytest.mark.skipif(not _HAS_NODE, reason="node binary not on PATH")
 @pytest.mark.parametrize("url", [
-    "http://llamaswap:8000",            # bare Docker/Compose service name
+    "http://llamaswap:8000",            # bare single-label service name
     "http://nim-nano:8000/v1",
     "http://localhost:7000",
     "http://127.0.0.1:11434",

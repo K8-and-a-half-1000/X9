@@ -5,17 +5,15 @@
 // Entries are matched first-hit; put the more specific patterns ABOVE the
 // generic fallback for that backend.
 
-// Recipes carry two variants per entry:
-//   variants.pip    → install into the configured venv via uv/pip
-//   variants.docker → pull the official container image
+// Recipes carry one variant per entry:
+//   variants.pip → install into the configured venv via uv/pip
 //
-// The renderer prepends a `source <venv>/bin/activate` for the pip variant
-// (env_prefix handles activation for Run). The docker variant skips the
-// activate line — `docker pull` doesn't need a venv.
+// The renderer prepends a `source <venv>/bin/activate` line
+// (env_prefix handles activation for Run).
 
 const _RECIPES = [
   // ── vllm ──────────────────────────────────────────────────────────────
-  // MiniMax M2/M2.7 — same as the generic vllm install/image for now;
+  // MiniMax M2/M2.7 — same as the generic vllm install for now;
   // kept as its own entry so future model-specific patches land in one
   // obvious place without touching the catch-all.
   {
@@ -24,7 +22,6 @@ const _RECIPES = [
     match: (m) => /minimax[-_]?m\s?2(\.7)?/i.test(m || ''),
     variants: {
       pip:    { commands: ['uv pip install -U vllm --torch-backend auto'] },
-      docker: { commands: ['docker pull vllm/vllm-openai:latest'] },
     },
   },
   // Generic vllm fallback.
@@ -34,7 +31,6 @@ const _RECIPES = [
     match: () => true,
     variants: {
       pip:    { commands: ['uv pip install -U vllm --torch-backend auto'] },
-      docker: { commands: ['docker pull vllm/vllm-openai:latest'] },
     },
   },
 
@@ -45,7 +41,6 @@ const _RECIPES = [
     match: () => true,
     variants: {
       pip:    { commands: ['uv pip install -U "sglang[all]" --torch-backend auto'] },
-      docker: { commands: ['docker pull lmsysorg/sglang:latest'] },
     },
   },
 
@@ -56,12 +51,11 @@ const _RECIPES = [
     match: () => true,
     variants: {
       pip:    { commands: ['CMAKE_ARGS="-DGGML_CUDA=on" uv pip install -U "llama-cpp-python[server]"'] },
-      docker: { commands: ['docker pull ghcr.io/ggml-org/llama.cpp:server-cuda'] },
     },
   },
 ];
 
-export const RECIPE_VARIANTS = ['pip', 'docker'];
+export const RECIPE_VARIANTS = ['pip'];
 export const RECIPE_DEFAULT_VARIANT = 'pip';
 
 // Get the commands array for a recipe + variant. Falls back to pip when

@@ -58,11 +58,11 @@ class TestBuildersRejectLookalikeHosts:
         assert build_models_url("https://notollama.com") == "https://notollama.com/models"
 
 
-class TestBuildersLocalAndDockerEndpoints:
-    """Local and docker endpoints must keep working after the hostname change:
+class TestBuildersLocalAndLanEndpoints:
+    """Local and LAN endpoints must keep working after the hostname change:
     a local ``/v1`` base stays OpenAI-compatible, and a native Ollama ``/api``
-    path is still detected by path even on a non-ollama.com host such as
-    host.docker.internal.
+    path is still detected by path even on a non-ollama.com host such as a
+    LAN shortname.
     """
 
     @pytest.fixture(autouse=True)
@@ -75,8 +75,8 @@ class TestBuildersLocalAndDockerEndpoints:
     def test_local_v1_models_is_openai_compatible(self):
         assert build_models_url("http://127.0.0.1:1234/v1") == "http://127.0.0.1:1234/v1/models"
 
-    def test_docker_internal_ollama_api_path_is_native_chat(self):
-        assert build_chat_url("http://host.docker.internal:11434/api") == "http://host.docker.internal:11434/api/chat"
+    def test_lan_host_ollama_api_path_is_native_chat(self):
+        assert build_chat_url("http://gpu-box.local:11434/api") == "http://gpu-box.local:11434/api/chat"
 
-    def test_docker_internal_ollama_api_path_is_native_models(self):
-        assert build_models_url("http://host.docker.internal:11434/api") == "http://host.docker.internal:11434/api/tags"
+    def test_lan_host_ollama_api_path_is_native_models(self):
+        assert build_models_url("http://gpu-box.local:11434/api") == "http://gpu-box.local:11434/api/tags"

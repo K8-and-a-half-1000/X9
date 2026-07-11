@@ -113,12 +113,6 @@ def test_secret_storage_key_created_with_safe_mode(tmp_path, monkeypatch):
 
 # ── secure-by-default deployment + integration storage ─────────
 
-def test_docker_compose_binds_web_ui_to_loopback_by_default():
-    compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    assert "${APP_BIND:-127.0.0.1}:${APP_PORT:-7000}:7000" in compose
-    assert '"${APP_PORT:-7000}:7000"' not in compose
-
-
 def test_readme_native_quickstart_uses_loopback():
     # The README refresh (#4306) moved the native quickstart into docs/setup.md,
     # so accept the loopback guidance from either the README or the setup guide.
@@ -458,9 +452,9 @@ def test_require_user_accepts_loopback_when_unconfigured(monkeypatch):
 
 def test_require_user_accepts_anyone_when_auth_disabled(monkeypatch):
     """AUTH_ENABLED=false must let unauthenticated callers through from
-    any host — including the docker bridge / reverse proxy / LAN — so
-    the frontend's global 401 redirect doesn't bounce the user to /login
-    despite the operator turning auth off (issue #622)."""
+    any host — including a reverse proxy / LAN — so the frontend's global
+    401 redirect doesn't bounce the user to /login despite the operator
+    turning auth off (issue #622)."""
     monkeypatch.setenv("AUTH_ENABLED", "false")
     sys.modules.pop("src.auth_helpers", None)
     from src import auth_helpers  # noqa: WPS433
@@ -478,13 +472,13 @@ def test_require_user_accepts_anyone_when_auth_disabled(monkeypatch):
     class _App:
         state = _AppState()
 
-    class _DockerClient:
-        host = "172.18.0.1"  # docker bridge gateway, not loopback
+    class _NonLoopbackClient:
+        host = "172.18.0.1"  # private-network gateway, not loopback
 
     class _Req:
         state = _State()
         app = _App()
-        client = _DockerClient()
+        client = _NonLoopbackClient()
 
     assert auth_helpers.require_user(_Req()) == ""
 

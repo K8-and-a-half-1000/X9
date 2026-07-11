@@ -196,7 +196,7 @@ async def send_to_session(content: str, session_id: Optional[str] = None, owner:
         context = sess.get_context_messages()
         endpoint_url = str(getattr(sess, "endpoint_url", "") or "")
         model = str(getattr(sess, "model", "") or "")
-        if model == "fixture-tool-model" or "host.docker.internal:8003" in endpoint_url:
+        if model == "fixture-tool-model":
             transcript_lines = []
             for msg in context[-12:]:
                 role = msg.get("role", "unknown")

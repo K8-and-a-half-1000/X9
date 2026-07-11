@@ -137,25 +137,26 @@ class TestLlamaCppFingerprint:
 
 
 # ════════════════════════════════════════════════════════════
-# Docker loopback rewrite — host.docker.internal:8080 in scan
+# Scan host list — native-only (no container gateway hosts)
 # ════════════════════════════════════════════════════════════
 
-class TestDockerLoopbackScan:
-    def test_host_docker_internal_in_scan_hosts(self, monkeypatch):
-        """When no LLM_HOSTS env override is set, host.docker.internal must be
-        included in the scan host list so llama-server on the Docker host is
-        discovered from inside the container."""
+class TestScanHosts:
+    def test_no_container_gateway_host_in_scan_hosts(self, monkeypatch):
+        """X9 runs natively: the scan list must not include container-gateway
+        pseudo-hosts like host.docker.internal (regression guard for the
+        Docker feature strip)."""
         monkeypatch.delenv("LLM_HOSTS", raising=False)
         monkeypatch.setattr(
             "src.model_discovery.discover_tailscale_hosts", lambda: [],
         )
         discovery = ModelDiscovery(default_host="localhost")
         hosts = discovery._get_hosts()
-        assert "host.docker.internal" in hosts
+        assert "host.docker.internal" not in hosts
+        assert "localhost" in hosts
 
     def test_discovered_endpoint_url_uses_provided_host(self, monkeypatch):
-        """When host.docker.internal:8080 is probed, the returned base_url
-        contains host.docker.internal — not a rewritten 127.0.0.1."""
+        """When a remote LAN host is probed, the returned base_url contains
+        that host — not a rewritten 127.0.0.1."""
         from src.model_discovery import ModelDiscovery as _MD
 
         discovery = _MD(default_host="localhost")
@@ -172,7 +173,7 @@ class TestDockerLoopbackScan:
             return _FakeResponse({}, ok=False)
 
         monkeypatch.setattr("src.model_discovery.httpx.get", fake_get)
-        result = discovery._check_port("host.docker.internal", 8080)
+        result = discovery._check_port("gpu-box.local", 8080)
         assert result is not None
-        assert "host.docker.internal" in result["url"]
+        assert "gpu-box.local" in result["url"]
         assert "127.0.0.1" not in result["url"]

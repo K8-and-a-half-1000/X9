@@ -30,7 +30,7 @@ If the user says "reminder" + a time, default to TODO with due_date. Only switch
 - All Odysseus data access MUST go through the scoped HTTP API under `/api/codex/*`.
 - Check `/api/codex/capabilities` before using a tool surface.
 - Treat `403` as an intentional Settings restriction. Do not work around it.
-- Do not use SSH, Docker, direct Python imports, SQLite queries, MCP internals, browser cookies, or local files to read/write Odysseus user data.
+- Do not use SSH, direct Python imports, SQLite queries, MCP internals, browser cookies, or local files to read/write Odysseus user data.
 - Do not call helpers like `do_manage_notes`, email MCP internals, or database sessions directly for user data, even if shell access exists.
 - Never send email directly unless the user explicitly asks to send and the token has a send-capable scope.
 - Keep actions scoped to the token owner.

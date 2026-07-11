@@ -54,11 +54,11 @@ MEMORY_VECTORS_DIR = os.path.join(DATA_DIR, "memory_vectors")
 
 # Paths with an intentional dedicated env override, defaulting under DATA_DIR.
 # `or` (not os.getenv's default arg) so a PRESENT-but-EMPTY value falls back to
-# the default. docker-compose.yml injects `FASTEMBED_CACHE_PATH=${FASTEMBED_CACHE_PATH:-}`,
-# which sets the var to "" when the host hasn't defined it. os.getenv(name, default)
-# only returns the default when the var is ABSENT, so the empty string would win →
-# os.makedirs("") raises [Errno 2] No such file or directory: '' → FastEmbed fails to
-# init and all vector features (RAG, semantic memory, tool index) silently degrade.
+# the default: some launchers export `FASTEMBED_CACHE_PATH=` as "" when unset.
+# os.getenv(name, default) only returns the default when the var is ABSENT, so
+# the empty string would win → os.makedirs("") raises [Errno 2] No such file or
+# directory: '' → FastEmbed fails to init and all vector features (RAG,
+# semantic memory, tool index) silently degrade.
 FASTEMBED_CACHE_DIR = os.getenv("FASTEMBED_CACHE_PATH") or os.path.join(DATA_DIR, "fastembed_cache")
 
 # Agent tool output limits (single source of truth — imported by tool_execution.py,
@@ -112,7 +112,7 @@ def internal_api_base() -> str:
     Agent tools and background jobs reach admin-gated routes by calling the
     running server over HTTP. Resolution order:
       1. ODYSSEUS_INTERNAL_BASE  - explicit override (e.g. behind a TLS proxy).
-      2. APP_PORT                - http://127.0.0.1:$APP_PORT (docker-compose).
+      2. APP_PORT                - http://127.0.0.1:$APP_PORT.
       3. Fallback http://127.0.0.1:7000 - legacy default.
 
     127.0.0.1 (not "localhost") avoids IPv6/DNS ambiguity for a strictly-local

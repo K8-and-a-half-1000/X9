@@ -134,7 +134,7 @@ def test_every_facade_import_in_repo_resolves():
     # non-source trees (venvs, caches, data, build artifacts) in-place.
     _SKIP_DIRS = {
         "__pycache__", "venv", "node_modules", "data", "logs",
-        "odysseus.egg-info", "static", "specs", "licenses", "docker",
+        "odysseus.egg-info", "static", "specs", "licenses",
     }
     names = set()
     for root, _dirs, files in os.walk(repo):

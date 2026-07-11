@@ -52,7 +52,7 @@ async def _delete_endpoint_for_task(task: dict) -> None:
     if remote:
         host = remote.split("@")[-1] if "@" in remote else remote
     else:
-        host = "host.docker.internal"
+        host = "localhost"
     port_match = _re.search(r"--port\s+(\d+)", cmd)
     ollama_host_match = _re.search(r"OLLAMA_HOST=[^\s]*?:(\d+)", cmd)
     if port_match:

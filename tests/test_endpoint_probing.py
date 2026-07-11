@@ -52,7 +52,7 @@ with preserve_import_state("core.database", "src.database", "core.session_manage
         _probe_single_model,
         _resolve_probe_key,
         _classify_endpoint,
-        _rewrite_loopback_for_docker,
+        _normalize_bind_host_url,
         _openai_model_ids,
         _ollama_model_names,
         _PROVIDER_CURATED,
@@ -282,44 +282,31 @@ class TestPingEndpoint:
         }
 
 
-# ── Docker loopback rewrite ──
+# ── Bind-address URL normalization ──
 
-class TestDockerLoopbackRewrite:
-    def test_manual_loopback_rewrites_to_docker_host_when_available(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
-        monkeypatch.setattr(model_routes, "_container_loopback_reachable", lambda base_url: False)
+class TestBindHostNormalization:
+    def test_bind_address_becomes_connectable_loopback(self):
         assert (
-            _rewrite_loopback_for_docker("http://localhost:8000/v1")
-            == "http://host.docker.internal:8000/v1"
+            _normalize_bind_host_url("http://0.0.0.0:8000/v1")
+            == "http://127.0.0.1:8000/v1"
         )
 
-    def test_reachable_container_loopback_stays_local_even_without_container_flag(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
-        monkeypatch.setattr(model_routes, "_container_loopback_reachable", lambda base_url: True)
+    def test_ipv6_any_bind_becomes_connectable_loopback(self):
         assert (
-            _rewrite_loopback_for_docker("http://127.0.0.1:8001/v1")
+            _normalize_bind_host_url("http://[::]:8000/v1")
+            == "http://127.0.0.1:8000/v1"
+        )
+
+    def test_loopback_url_stays_unchanged(self):
+        assert (
+            _normalize_bind_host_url("http://127.0.0.1:8001/v1")
             == "http://127.0.0.1:8001/v1"
         )
 
-    def test_cookbook_container_local_loopback_stays_inside_container(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
+    def test_real_hostname_stays_unchanged(self):
         assert (
-            _rewrite_loopback_for_docker("http://localhost:8000/v1", container_local=True)
-            == "http://localhost:8000/v1"
-        )
-
-    def test_bind_address_becomes_connectable_loopback_for_container_local(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
-        assert (
-            _rewrite_loopback_for_docker("http://0.0.0.0:8000/v1", container_local=True)
-            == "http://127.0.0.1:8000/v1"
-        )
-
-    def test_bind_address_becomes_connectable_loopback_on_native_install(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: False)
-        assert (
-            _rewrite_loopback_for_docker("http://0.0.0.0:8000/v1")
-            == "http://127.0.0.1:8000/v1"
+            _normalize_bind_host_url("http://gpu-box.local:8000/v1")
+            == "http://gpu-box.local:8000/v1"
         )
 
 

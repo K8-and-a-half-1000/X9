@@ -90,7 +90,7 @@ def _is_local_host(host: Optional[str]) -> bool:
     host = (host or "").lower()
     if not host:
         return False
-    if host in {"localhost", "host.docker.internal"} or host.endswith(".local"):
+    if host == "localhost" or host.endswith(".local"):
         return True
     try:
         ip = ipaddress.ip_address(host)

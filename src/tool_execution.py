@@ -31,10 +31,8 @@ from src.constants import MAX_OUTPUT_CHARS, MAX_READ_CHARS, MAX_DIFF_LINES, DATA
 from src.tool_utils import _truncate, get_mcp_manager
 
 # Persistent working directory for agent subprocesses.
-# Resolves to <repo_root>/data, which is the bind-mounted volume in Docker
-# (/app/data) and the local data directory for manual installs.
-# Using this as cwd and HOME prevents the agent from silently creating files
-# in ephemeral container layers that are lost on the next rebuild.
+# Resolves to <repo_root>/data, the app's local data directory, so files the
+# agent creates land in persistent, user-visible storage by default.
 _AGENT_WORKDIR = DATA_DIR
 
 

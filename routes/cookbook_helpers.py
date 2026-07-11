@@ -288,7 +288,7 @@ def _venv_safe_local_pip_install_cmd(cmd: str, *, local: bool, in_venv: bool) ->
     `--user` with "User site-packages are not visible in this virtualenv".
 
     Keep remote and non-venv installs unchanged: remotes may intentionally use
-    system Python, and Docker/non-venv installs still need user-site fallback.
+    system Python, and non-venv installs still need user-site fallback.
     """
     if not local or not in_venv:
         return cmd
@@ -466,9 +466,6 @@ def _cached_model_scan_script(model_dirs: list[str] | None = None, add_hf_cache:
         "    hf_home = os.environ.get('HF_HOME')",
         "    if hf_home: add(os.path.join(hf_home, 'hub'))",
         "    add('~/.cache/huggingface/hub')",
-        "    # Docker images mount ./data/huggingface at /app/.cache/huggingface.",
-        "    # When HOME is /root, expanduser() misses that persisted cache.",
-        "    add('/app/.cache/huggingface/hub')",
         f"    add({add_hf_cache!r})" if add_hf_cache else "",
         "    return candidates",
         "def scan_dir(p):",
@@ -522,7 +519,7 @@ def _cached_model_scan_script(model_dirs: list[str] | None = None, add_hf_cache:
         "        seen.add(name)",
         "        models.append({'repo_id':name,'size_bytes':size_bytes,'nb_files':1,'has_incomplete':False,'path':'ollama','backend':'ollama','is_ollama':True})",
         "def scan_ollama_api():",
-        "    urls = ['http://127.0.0.1:11434/api/tags', 'http://localhost:11434/api/tags', 'http://host.docker.internal:11434/api/tags']",
+        "    urls = ['http://127.0.0.1:11434/api/tags', 'http://localhost:11434/api/tags']",
         "    for url in urls:",
         "        try:",
         "            with urllib.request.urlopen(url, timeout=2) as r:",

@@ -1005,16 +1005,12 @@ async function _registerEndpointFromButton(btn) {
       }
     }
 
-    const parsed = new URL(baseUrl, window.location.origin);
     const fd = new FormData();
     fd.append('base_url', baseUrl);
     fd.append('name', _endpointNameFromUrl(baseUrl));
     fd.append('model_type', 'llm');
     fd.append('endpoint_kind', 'auto');
     fd.append('skip_probe', 'true');
-    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(parsed.hostname)) {
-      fd.append('container_local', 'true');
-    }
     const res = await fetch('/api/model-endpoints', {
       method: 'POST',
       credentials: 'same-origin',

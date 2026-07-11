@@ -8,9 +8,8 @@
 # knowing anything about venvs, pip, or uvicorn. Safe to re-run; it skips work
 # that's already done.
 #
-# Why native (not Docker): Cookbook serves models on whatever machine Odysseus
-# runs on, and Docker on macOS is a Linux VM with no access to the Metal GPU.
-# Running natively lets Cookbook detect and use your Mac's GPU.
+# Runs natively so Cookbook can detect and use your Mac's Metal GPU on the
+# same machine Odysseus serves models from.
 set -e
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

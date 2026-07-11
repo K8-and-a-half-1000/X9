@@ -110,7 +110,7 @@ def test_cpu_only_preserves_arm_backends(arm_alias_system):
 
 
 def test_cpu_only_does_not_treat_plain_arm_as_arm64_fallback():
-    """Docker/OCI plain arm is not the ARM64-class fallback used for Apple Silicon."""
+    """A plain 32-bit `arm` machine string is not the ARM64-class fallback used for Apple Silicon."""
     arm32_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", ARM32_SYSTEM)
     x86_tps = _estimate_speed(DENSE_MODEL, QUANT, "cpu_only", CPU_X86_SYSTEM)
 

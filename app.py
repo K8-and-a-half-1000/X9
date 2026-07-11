@@ -800,21 +800,12 @@ async def readiness_check() -> JSONResponse:
 
 @app.get("/api/runtime")
 async def runtime_info() -> Dict[str, object]:
-    in_docker = os.path.exists("/.dockerenv")
-    if not in_docker:
-        try:
-            with open("/proc/1/cgroup", "r", encoding="utf-8", errors="ignore") as fh:
-                cg = fh.read()
-            in_docker = any(marker in cg for marker in ("docker", "containerd", "kubepods"))
-        except Exception:
-            in_docker = False
     ollama_url = (
         os.getenv("OLLAMA_BASE_URL")
         or os.getenv("OLLAMA_URL")
-        or ("http://host.docker.internal:11434/v1" if in_docker else "http://127.0.0.1:11434/v1")
+        or "http://127.0.0.1:11434/v1"
     )
     return {
-        "in_docker": in_docker,
         "ollama_base_url": ollama_url,
     }
 

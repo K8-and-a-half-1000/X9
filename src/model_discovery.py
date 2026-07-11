@@ -126,7 +126,6 @@ class ModelDiscovery:
             # Always include the default host too
             if self.default_host not in hosts:
                 hosts.insert(0, self.default_host)
-            _append_host(hosts, "host.docker.internal")
             _append_env_hosts(hosts)
             return hosts
 
@@ -136,14 +135,10 @@ class ModelDiscovery:
             # Ensure default_host is included
             if self.default_host not in ts_hosts:
                 ts_hosts.insert(0, self.default_host)
-            _append_host(ts_hosts, "host.docker.internal")
             _append_env_hosts(ts_hosts)
             return ts_hosts
 
         hosts = [self.default_host]
-        # Docker desktop/Linux compose maps this to the host machine. That is
-        # the common "I started Ollama normally on this computer" case.
-        _append_host(hosts, "host.docker.internal")
         _append_env_hosts(hosts)
         return hosts
 

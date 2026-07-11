@@ -235,7 +235,7 @@ def build_models_url(base: str) -> Optional[str]:
     # caller's base so look-alike provider hosts stay generic.
     parsed = urlparse(base)
     host = (parsed.hostname or "").lower()
-    is_local = host in {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+    is_local = host in {"localhost", "127.0.0.1", "::1"}
     uses_v1_models_by_default = is_local or host in {"api.deepseek.com", "api.openai.com"}
     if not parsed.path and uses_v1_models_by_default:
         base = _append_endpoint_path(base, "/v1")

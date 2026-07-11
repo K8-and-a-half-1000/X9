@@ -683,58 +683,20 @@ def test_lmstudio_error_for_bare_host_port_probes_v1_models(monkeypatch):
     assert "http://localhost:1234/v1/models" in msg
 
 
-# ── _rewrite_loopback_for_docker (issue #25: LM Studio on host loopback) ──
+# ── _normalize_bind_host_url (bind addresses aren't dialable hosts) ──
 
-class TestDockerLoopbackRewrite:
-    def test_rewrites_loopback_when_in_docker(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
-        assert (model_routes._rewrite_loopback_for_docker("http://localhost:1234/v1")
-                == "http://host.docker.internal:1234/v1")
-        assert (model_routes._rewrite_loopback_for_docker("http://127.0.0.1:1234/v1")
-                == "http://host.docker.internal:1234/v1")
+class TestBindHostNormalization:
+    def test_any_bind_becomes_connectable_loopback(self):
+        assert (model_routes._normalize_bind_host_url("http://0.0.0.0:1234/v1")
+                == "http://127.0.0.1:1234/v1")
 
-    def test_no_rewrite_when_not_in_docker(self, monkeypatch):
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: False)
-        assert (model_routes._rewrite_loopback_for_docker("http://localhost:1234/v1")
+    def test_loopback_and_real_hosts_untouched(self):
+        assert (model_routes._normalize_bind_host_url("http://localhost:1234/v1")
                 == "http://localhost:1234/v1")
-
-    def test_non_loopback_untouched_even_in_docker(self, monkeypatch):
-        # Cloud and LAN hosts must never be rewritten or they would break.
-        monkeypatch.setattr(model_routes, "_docker_host_gateway_reachable", lambda: True)
-        assert (model_routes._rewrite_loopback_for_docker("https://api.openai.com/v1")
+        assert (model_routes._normalize_bind_host_url("https://api.openai.com/v1")
                 == "https://api.openai.com/v1")
-        assert (model_routes._rewrite_loopback_for_docker("http://192.168.1.50:1234/v1")
+        assert (model_routes._normalize_bind_host_url("http://192.168.1.50:1234/v1")
                 == "http://192.168.1.50:1234/v1")
-
-
-class TestDockerHostGatewayReachable:
-    def test_native_host_is_false_and_skips_dns(self, monkeypatch):
-        monkeypatch.setattr(model_routes.os.path, "exists", lambda p: False)
-
-        def _no_cgroup(*a, **k):
-            raise FileNotFoundError
-
-        monkeypatch.setattr("builtins.open", _no_cgroup)
-
-        def _must_not_run(*a, **k):
-            raise AssertionError("getaddrinfo must not run on native hosts")
-
-        monkeypatch.setattr(model_routes.socket, "getaddrinfo", _must_not_run)
-        assert model_routes._docker_host_gateway_reachable() is False
-
-    def test_container_with_host_gateway_is_true(self, monkeypatch):
-        monkeypatch.setattr(model_routes.os.path, "exists", lambda p: p == "/.dockerenv")
-        monkeypatch.setattr(model_routes.socket, "getaddrinfo", lambda *a, **k: [("ok",)])
-        assert model_routes._docker_host_gateway_reachable() is True
-
-    def test_container_without_host_gateway_is_false(self, monkeypatch):
-        monkeypatch.setattr(model_routes.os.path, "exists", lambda p: p == "/.dockerenv")
-
-        def _fail(*a, **k):
-            raise OSError("name or service not known")
-
-        monkeypatch.setattr(model_routes.socket, "getaddrinfo", _fail)
-        assert model_routes._docker_host_gateway_reachable() is False
 
 
 # ── pinned model IDs: normalization helper ──
@@ -1035,7 +997,6 @@ def _create_form_kwargs(**overrides):
         model_refresh_timeout="",
         supports_tools="",
         pinned_models="",
-        container_local="false",
         shared="true",
     )
     kwargs.update(overrides)
@@ -1051,7 +1012,7 @@ def _patch_create_deps(monkeypatch, db, settings=None):
     monkeypatch.setattr(model_routes, "require_admin", lambda request: None)
     monkeypatch.setattr(model_routes, "ModelEndpoint", _RecordingEndpoint)
     monkeypatch.setattr(model_routes, "_normalize_base", lambda b: b)
-    monkeypatch.setattr(model_routes, "_rewrite_loopback_for_docker", lambda b, **k: b)
+    monkeypatch.setattr(model_routes, "_normalize_bind_host_url", lambda b: b)
     monkeypatch.setattr(model_routes, "_load_settings", lambda: settings)
     monkeypatch.setattr(model_routes, "_save_settings", lambda s: settings.update(s))
     monkeypatch.setattr(endpoint_resolver, "resolve_url", lambda u: u)
@@ -1656,7 +1617,6 @@ def test_explicit_proxy_add_fetches_and_caches_models_with_long_timeout(monkeypa
         model_refresh_interval="",
         model_refresh_timeout="",
         supports_tools="",
-        container_local="false",
         shared="true",
     )
 

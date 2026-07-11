@@ -515,13 +515,6 @@ function _refreshModelsAfterEndpointChange() {
   }, 1500);
 }
 
-function _appendCookbookEndpointScope(fd, remoteHost) {
-  const host = String(remoteHost || '').trim();
-  if (!host || host === 'local' || host === 'localhost' || host === '127.0.0.1') {
-    fd.append('container_local', 'true');
-  }
-}
-
 function _connectHostFromRemote(remoteHost, fallback = 'localhost') {
   const host = String(remoteHost || '').trim();
   if (!host || host === 'local') return fallback;
@@ -2407,7 +2400,6 @@ export function _renderRunningTab() {
               fd.append('base_url', baseUrl);
               fd.append('name', task.name);
               fd.append('skip_probe', 'true');
-              _appendCookbookEndpointScope(fd, task.remoteHost || '');
               if (task.payload?._cmd?.includes('diffusion_server')) fd.append('model_type', 'image');
               const res = await fetch('/api/model-endpoints', { method: 'POST', credentials: 'same-origin', body: fd });
               if (res.ok) {
@@ -3373,7 +3365,6 @@ async function _reconnectTask(el, task) {
               fd.append('base_url', baseUrl);
               fd.append('name', task.name);
               fd.append('skip_probe', 'true');
-              _appendCookbookEndpointScope(fd, task.remoteHost || '');
               if (_isDiffusion) fd.append('model_type', 'image');
               return fetch('/api/model-endpoints', { method: 'POST', credentials: 'same-origin', body: fd });
             })
@@ -4003,7 +3994,6 @@ async function _pollBackgroundStatus() {
           fd.append('base_url', baseUrl);
           fd.append('name', t.model);
           fd.append('skip_probe', 'true');
-          _appendCookbookEndpointScope(fd, localTask?.remoteHost || t.remote || '');
           if (_isDiffusion) fd.append('model_type', 'image');
           if (_supportsTools) fd.append('supports_tools', 'true');
           return fetch('/api/model-endpoints', { method: 'POST', credentials: 'same-origin', body: fd });

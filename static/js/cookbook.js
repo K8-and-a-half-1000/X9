@@ -770,34 +770,9 @@ export function _buildServeCmd(f, modelName, backend) {
     }
   } else if (backend === 'ollama') {
     const ollamaPort = f.port || '11434';
-    // GGUF + Ollama: delegate to the iGPU-bound ollama-test container via
-    // its /usr/local/bin/ollama-import helper. Plain `ollama serve` errors
-    // 127 on hosts where ollama isn't on PATH (and even when it is, it
-    // doesn't import the GGUF — it just starts the daemon). Args are all
-    // literal so the cookbook validator (which bans &&/||/;/$() ) is
-    // happy: `docker exec ollama-test ollama-import <repo> <name> <ctx>
-    // <file>`. The helper handles the find/Modelfile/preload dance.
-    if (modelName.includes('/') && (f.gguf_file || /-GGUF$/i.test(modelName))) {
-      // HF-GGUF repo → import + preload + tail
-      const _name = (modelName.split('/').pop() || modelName)
-        .replace(/-GGUF$/i, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9._:-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      const _ctx = f.ctx || '8192';
-      const _file = (f.gguf_file || '').split('/').pop() || '';
-      // Trailing GGUF_FILE is optional; helper picks the first match if empty.
-      cmd = `docker exec ollama-test ollama-import ${modelName} ${_name} ${_ctx}${_file ? ' ' + _file : ''}`;
-    } else if (!modelName.includes('/') && modelName) {
-      // Already-pulled Ollama tag (e.g. `qwen2.5:7b`). On kierkegaard the
-      // runtime is the ROCm Ollama sidecar; this quick command verifies the
-      // tag exists, then the backend auto-registers http://host.docker.internal:11434/v1.
-      cmd = `docker exec ollama-rocm ollama show ${modelName}`;
-    } else {
-      const bindHost = _envState.remoteHost ? '0.0.0.0' : '127.0.0.1';
-      const hostEnv = ollamaPort !== '11434' ? `OLLAMA_HOST=${bindHost}:${ollamaPort} ` : '';
-      cmd = `${hostEnv}ollama serve`;
-    }
+    const bindHost = _envState.remoteHost ? '0.0.0.0' : '127.0.0.1';
+    const hostEnv = ollamaPort !== '11434' ? `OLLAMA_HOST=${bindHost}:${ollamaPort} ` : '';
+    cmd = `${hostEnv}ollama serve`;
   } else if (backend === 'diffusers') {
     const gpuStr = f.gpus?.trim();
     cmd += _gpuEnvPrefix(gpuStr);
@@ -1049,12 +1024,10 @@ async function _fetchDependencies() {
         + recipePanel;
     };
 
-    // Prepend the configured venv's activate line (pip variant only) so
-    // the user sees a paste-ready sequence; Run keeps using env_prefix to
-    // activate the same venv before the pip command. Docker variant skips
-    // the activate line — `docker pull` doesn't need a venv.
+    // Prepend the configured venv's activate line so the user sees a
+    // paste-ready sequence; Run keeps using env_prefix to activate the
+    // same venv before the pip command.
     function _recipeDisplayText(commands, variant) {
-      if (variant === 'docker') return commands.join('\n');
       const envPath = (_envState.envPath || '').replace(/\/+$/, '');
       const activate = envPath
         ? `source ${envPath}${envPath.endsWith('/bin/activate') ? '' : '/bin/activate'}`
@@ -1083,15 +1056,10 @@ async function _fetchDependencies() {
       const initial = pickRecipe(backend, '') || candidates[0];
       const initialVariant = RECIPE_DEFAULT_VARIANT;
       const initialCmds = recipeCommands(initial, initialVariant);
-      const rightActive = initialVariant === 'docker' ? ' mode-right' : '';
       return `<div class="cookbook-dep-recipe-panel" data-dep-recipe-panel="${esc(backend)}" data-dep-recipe-active-variant="${esc(initialVariant)}" style="display:none;margin:-4px 0 8px;padding:8px 12px 10px;background:rgba(0,0,0,0.04);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <span style="font-size:11px;opacity:0.75;flex-shrink:0;">Serving which model?</span>
             <select class="settings-select cookbook-dep-recipe-pick" data-dep-recipe-pick="${esc(backend)}" style="flex:1;font-size:11px;padding:3px 6px;">${opts}</select>
-            <div class="mode-toggle${rightActive}" data-dep-recipe-variants="${esc(backend)}" style="flex-shrink:0;">
-              <button type="button" class="mode-toggle-btn${initialVariant === 'pip' ? ' active' : ''}" data-dep-recipe-variant="${esc(backend)}" data-variant="pip" aria-pressed="${initialVariant === 'pip'}">Pip/uv</button>
-              <button type="button" class="mode-toggle-btn${initialVariant === 'docker' ? ' active' : ''}" data-dep-recipe-variant="${esc(backend)}" data-variant="docker" aria-pressed="${initialVariant === 'docker'}">Docker</button>
-            </div>
           </div>
           <div style="position:relative;">
             <pre class="cookbook-dep-recipe-cmds" data-dep-recipe-cmds="${esc(backend)}" data-dep-recipe-install="${esc(initialCmds.join('\n'))}" style="margin:0;padding:8px 36px 8px 10px;background:rgba(0,0,0,0.08);border-radius:4px;font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre;">${esc(_recipeDisplayText(initialCmds, initialVariant))}</pre>
@@ -1371,9 +1339,8 @@ async function _fetchDependencies() {
         if (caret) caret.style.transform = open ? 'rotate(180deg)' : '';
       });
     });
-    // Re-render the <pre> for a backend using the currently-active variant
-    // (pip / docker) and the currently-picked model. Used by every input
-    // that changes which install sequence we should show.
+    // Re-render the <pre> for a backend using the currently-picked model.
+    // Used by every input that changes which install sequence we should show.
     function _refreshRecipePre(backend) {
       const panel = list.querySelector(`[data-dep-recipe-panel="${CSS.escape(backend)}"]`);
       if (!panel) return;
@@ -1390,27 +1357,6 @@ async function _fetchDependencies() {
     // Model select: pickRecipe matches the model id against the catalog.
     list.querySelectorAll('[data-dep-recipe-pick]').forEach(sel => {
       sel.addEventListener('change', () => _refreshRecipePre(sel.dataset.depRecipePick));
-    });
-    // Variant toggle (Pip/uv vs Docker): mirrors the agent/chat mode-toggle
-    // pattern — buttons get .active, container gets .mode-right when the
-    // right slot is selected so the sliding pill animates over.
-    list.querySelectorAll('[data-dep-recipe-variant]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const backend = btn.dataset.depRecipeVariant;
-        const variant = btn.dataset.variant;
-        const panel = list.querySelector(`[data-dep-recipe-panel="${CSS.escape(backend)}"]`);
-        if (!panel) return;
-        panel.dataset.depRecipeActiveVariant = variant;
-        const container = panel.querySelector('.mode-toggle[data-dep-recipe-variants]');
-        if (container) container.classList.toggle('mode-right', variant === 'docker');
-        panel.querySelectorAll('[data-dep-recipe-variant]').forEach(b => {
-          const on = b.dataset.variant === variant;
-          b.classList.toggle('active', on);
-          b.setAttribute('aria-pressed', on ? 'true' : 'false');
-        });
-        _refreshRecipePre(backend);
-      });
     });
     // Copy: drop the visible command block on the clipboard.
     list.querySelectorAll('[data-dep-recipe-copy]').forEach(btn => {
@@ -2581,7 +2527,7 @@ export function _serverEntryHtml(s, i, defaultServer, forceRemote, isNew) {
     html += `<div style="display:flex;gap:4px;align-items:center;">`;
     html += `<button type="button" class="memory-toolbar-btn cookbook-server-key-gen" style="height:23px;">Generate key</button>`;
     html += `<button type="button" class="memory-toolbar-btn cookbook-server-key-copy" style="height:23px;" disabled>Copy command</button>`;
-    html += `<span style="font-size:10px;opacity:0.55;line-height:1.25;">Docker: run this command in your terminal once.</span>`;
+    html += `<span style="font-size:10px;opacity:0.55;line-height:1.25;">Run this command in your terminal once.</span>`;
     html += `</div>`;
     html += `<textarea class="memory-search-input cookbook-server-key-command" readonly rows="3" style="min-height:58px;resize:vertical;font-family:var(--mono,monospace);font-size:10px;line-height:1.35;">Enter user@host, then generate the key.</textarea>`;
     html += `</div>`;

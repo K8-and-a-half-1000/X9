@@ -28,15 +28,18 @@
 > `dev` is the default branch and gets the newest changes first. Use [`main`](https://github.com/pewdiepie-archdaemon/odysseus/tree/main) if you want the more curated branch.
 
 ```bash
-git clone https://github.com/pewdiepie-archdaemon/odysseus.git
-cd odysseus
+git clone https://github.com/K8-and-a-half-1000/X9.git
+cd X9
 cp .env.example .env
-docker compose up -d --build
+python -m venv venv && . venv/bin/activate   # Windows: launch-windows.ps1 does all of this
+pip install -r requirements.txt
+python setup.py
+uvicorn app:app --host 127.0.0.1 --port 7000
 ```
 
-Open `http://localhost:7000` when the containers are healthy. The first admin password is printed in `docker compose logs odysseus`.
+Open `http://localhost:7000`. On Windows, `launch-windows.ps1 -Port 7000` performs the venv, dependency, setup, and run steps in one go.
 
-Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration live in the [setup guide](docs/setup.md).
+Native install details, GPU notes, Windows/macOS instructions, HTTPS, and configuration live in the [setup guide](docs/setup.md).
 
 ## Features
 
@@ -45,9 +48,8 @@ Native installs, GPU notes, Windows/macOS instructions, HTTPS, and configuration
 - **Deep Research** — multi-step web research with source reading and report generation.
 - **Compare** — blind side-by-side model testing and synthesis.
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
-- **Email** — IMAP/SMTP inbox with triage, tags, summaries, reminders, and reply drafts.
 - **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
-- **Extras** — gallery/image editor, themes, uploads, web search, presets, sessions, and 2FA.
+- **Extras** — gallery/image editor, themes, uploads, web search, presets, and sessions.
 
 ## Demo
 

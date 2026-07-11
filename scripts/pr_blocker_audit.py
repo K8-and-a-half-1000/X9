@@ -51,8 +51,8 @@ AREA_RULES = [
     ("Gallery / visual report", ("gallery", "image", "vision", "preview"), ("gallery", "visual", "image")),
     (
         "CI / repo process",
-        (".github", "docker", "compose", "workflow", "ci", "pytest"),
-        ("ci", "workflow", "docker", "compose"),
+        (".github", "workflow", "ci", "pytest"),
+        ("ci", "workflow"),
     ),
     (
         "Docs / tooling / tests",

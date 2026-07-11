@@ -1388,7 +1388,7 @@ async def action_cookbook_serve(
         except Exception as e:
             logger.warning(f"cookbook_serve: state register/stamp failed: {e}")
     # Don't try to render absolute clock time in the message — the
-    # server runs in UTC (Docker default), the user reads it as local,
+    # server's clock may run in UTC, the user reads it as local,
     # and the offset depends on the user's TZ which the action doesn't
     # have a reliable handle on. The Tasks UI already shows the RUN
     # timestamp in the user's local time right above this message, so

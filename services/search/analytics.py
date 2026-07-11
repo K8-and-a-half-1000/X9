@@ -12,8 +12,7 @@ from .cache import cache_metrics
 
 logger = logging.getLogger(__name__)
 
-# Dedicated error logger — write to the data logs directory (writable on both
-# native runs and Docker, where DATA_DIR resolves to the bind-mounted volume).
+# Dedicated error logger — write to the (always-writable) data logs directory.
 _log_dir = Path(DATA_DIR) / "logs"
 _error_log_path = _log_dir / "search_engine_error.log"
 error_logger = logging.getLogger("search_engine_error")

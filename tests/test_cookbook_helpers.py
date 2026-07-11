@@ -838,7 +838,7 @@ def test_cached_model_scan_does_not_launch_ollama_cli_on_windows(tmp_path):
 
 
 def test_cached_model_scan_uses_huggingface_cache_env(tmp_path):
-    """Docker recreates can leave the persisted HF cache outside HOME.
+    """A relocated HF cache can live outside HOME.
     The Serve scanner should honor the cache env path instead of only ~/.cache.
     """
     hf_cache = tmp_path / "app-cache" / "hub"

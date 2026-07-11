@@ -227,91 +227,24 @@ def _default_endpoint_needs_assignment(
 
 
 # Loopback hosts a user might type for a local model server (LM Studio,
-# llama.cpp, vLLM, …). Inside Docker these point at the *container*, not the
-# host the server actually runs on.
+# llama.cpp, vLLM, …).
 _ANY_BIND_HOSTS = {"0.0.0.0", "::"}
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1", *_ANY_BIND_HOSTS}
 
 
-def _docker_host_gateway_reachable() -> bool:
-    """True when we run inside a container whose host is reachable via
-    ``host.docker.internal`` (compose maps it to ``host-gateway``). Returns
-    False on native installs and on container setups without the mapping, so
-    the loopback rewrite below stays a no-op there."""
-    in_container = os.path.exists("/.dockerenv")
-    if not in_container:
-        try:
-            with open("/proc/1/cgroup", encoding="utf-8") as fh:
-                in_container = any(t in fh.read() for t in ("docker", "containerd", "kubepods"))
-        except OSError:
-            in_container = False
-    if not in_container:
-        return False
-    try:
-        socket.getaddrinfo("host.docker.internal", None)
-        return True
-    except OSError:
-        return False
-
-def _container_loopback_reachable(base_url: str, timeout: float = 0.2) -> bool:
-    """True when the requested loopback host:port is already reachable from
-    inside the current container.
-
-    This distinguishes "a model server running alongside Odysseus in the same
-    container" from "a model server running on the Docker host". Only the
-    latter should be rewritten to host.docker.internal.
-    """
-    try:
-        parsed = urlparse(base_url)
-    except Exception:
-        return False
-    host = (parsed.hostname or "").lower()
-    port = parsed.port
-    if host not in _LOOPBACK_HOSTS or not port:
-        return False
-    probe_host = "::1" if host == "::1" else "127.0.0.1"
-    family = socket.AF_INET6 if probe_host == "::1" else socket.AF_INET
-    try:
-        with socket.socket(family, socket.SOCK_STREAM) as sock:
-            sock.settimeout(timeout)
-            sock.connect((probe_host, port))
-        return True
-    except OSError:
-        return False
-
-
-def _rewrite_loopback_for_docker(base_url: str, *, container_local: bool = False) -> str:
-    """Rewrite a loopback model-endpoint URL to ``host.docker.internal`` when
-    running in Docker. A URL like ``http://localhost:1234/v1`` (the LM Studio
-    default) otherwise targets the Odysseus container itself, so the probe gets
-    a connection error and the endpoint is rejected with a misleading "No
-    models found for that provider/key".
-
-    Cookbook local serves are the opposite case: Odysseus started the model
-    server inside the same container/process environment, so the saved endpoint
-    must remain container-local. In that mode, normalize a bind address such as
-    0.0.0.0 to a connectable loopback host, but do not jump to the Docker host.
-    """
+def _normalize_bind_host_url(base_url: str) -> str:
+    """Normalize a bind-address model-endpoint URL (0.0.0.0 / ::, as printed
+    by servers like llama.cpp) to a connectable loopback host. A bind address
+    is where a server LISTENS, not a host a client can always dial — Windows
+    in particular refuses connections to 0.0.0.0."""
     try:
         parsed = urlparse(base_url)
     except Exception:
         return base_url
     host = (parsed.hostname or "").lower()
-    if host not in _LOOPBACK_HOSTS:
+    if host not in _ANY_BIND_HOSTS:
         return base_url
-    if container_local:
-        if host in _ANY_BIND_HOSTS:
-            netloc = "127.0.0.1" + (f":{parsed.port}" if parsed.port else "")
-            return urlunparse(parsed._replace(netloc=netloc))
-        return base_url
-    if host in _ANY_BIND_HOSTS and not _docker_host_gateway_reachable():
-        netloc = "127.0.0.1" + (f":{parsed.port}" if parsed.port else "")
-        return urlunparse(parsed._replace(netloc=netloc))
-    if _container_loopback_reachable(base_url):
-        return base_url
-    if not _docker_host_gateway_reachable():
-        return base_url
-    netloc = "host.docker.internal" + (f":{parsed.port}" if parsed.port else "")
+    netloc = "127.0.0.1" + (f":{parsed.port}" if parsed.port else "")
     return urlunparse(parsed._replace(netloc=netloc))
 
 
@@ -982,7 +915,7 @@ def _ping_endpoint(base_url: str, api_key: str = None, timeout: float = 1.5) -> 
                 return {
                     "reachable": False,
                     "status_code": r.status_code,
-                    "error": "That is Odysseus, not a model server. Use the Ollama URL, usually http://host.docker.internal:11434/v1 in Docker.",
+                    "error": "That is Odysseus, not a model server. Use the Ollama URL, usually http://localhost:11434/v1.",
                 }
             return {"reachable": False, "status_code": r.status_code, "error": f"HTTP {r.status_code} redirect"}
         if 200 <= r.status_code < 300:
@@ -1084,10 +1017,7 @@ def _model_endpoint_error_message(base_url: str, ping: Dict[str, Any] = None) ->
             "Open LM Studio, load at least one model, and confirm the "
             "Developer Server is running on port 1234."
         )
-        parts.append(
-            "Base URL should be http://localhost:1234/v1 (native) or "
-            "http://host.docker.internal:1234/v1 (Docker)."
-        )
+        parts.append("Base URL should be http://localhost:1234/v1.")
         return " ".join(parts)
 
     if is_ollama:
@@ -1096,8 +1026,7 @@ def _model_endpoint_error_message(base_url: str, ping: Dict[str, Any] = None) ->
         if error:
             parts.append(f"Last probe error: {error}.")
         parts.append("Check that Ollama is running and that the base URL is correct.")
-        parts.append("For native/local installs, use http://localhost:11434/v1.")
-        parts.append("For Docker, use http://host.docker.internal:11434/v1 when Ollama runs on the host.")
+        parts.append("For local installs, use http://localhost:11434/v1.")
         parts.append("Run `ollama list` to confirm at least one model is installed.")
         return " ".join(parts)
 
@@ -1800,7 +1729,6 @@ def setup_model_routes(model_discovery):
         model_refresh_timeout: str = Form(""),
         supports_tools: str = Form(""),  # "true"/"false"/"" (unknown)
         pinned_models: str = Form(""),  # admin-pinned IDs: list/JSON/comma/newline
-        container_local: str = Form("false"),
         # Default `shared=true` → endpoints are visible to all users (the
         # app's historical behaviour). Admins can pass `shared=false` to
         # scope a new endpoint to their own account only.
@@ -1813,10 +1741,9 @@ def setup_model_routes(model_discovery):
         # Resolve hostname via Tailscale if DNS fails
         from src.endpoint_resolver import resolve_url
         base_url = resolve_url(base_url)
-        # In Docker, manually added loopback URLs usually point at a host-local
-        # server. Cookbook local serves are launched inside Odysseus itself, so
-        # keep those container-local when the frontend marks them as such.
-        base_url = _rewrite_loopback_for_docker(base_url, container_local=_truthy(container_local))
+        # Servers often print their bind address (0.0.0.0); normalize it to a
+        # host a client can actually dial.
+        base_url = _normalize_bind_host_url(base_url)
 
         # Auto-generate name from URL if not provided
         if not name.strip():
@@ -2025,7 +1952,7 @@ def setup_model_routes(model_discovery):
             raise HTTPException(400, "Base URL is required")
         from src.endpoint_resolver import resolve_url
         base_url = resolve_url(base_url)
-        base_url = _rewrite_loopback_for_docker(base_url)
+        base_url = _normalize_bind_host_url(base_url)
         requested_kind = _normalize_endpoint_kind(endpoint_kind)
         configured_timeout = _parse_positive_int(model_refresh_timeout, minimum=1, maximum=60)
         probe_timeout = _explicit_model_list_timeout(base_url, requested_kind, configured_timeout)
