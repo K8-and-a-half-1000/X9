@@ -1395,6 +1395,7 @@ const _AUTO_WIRE = {
   'research-overlay':     { rail: 'rail-research',  sidebar: 'tool-research-btn' },
   'theme-modal':          { rail: null,             sidebar: 'tool-theme-btn' },
   'settings-modal':       { rail: 'rail-settings',  sidebar: 'user-bar-settings' },
+  'search-overlay':       { rail: 'rail-search-btn', sidebar: 'sidebar-search-btn' },
   'ge-shortcuts-modal':   { rail: null,             sidebar: null },
   // Prompt window opens from the overflow menu (no rail/sidebar button), but
   // wiring it here makes tab-down use the new .minimized-dock-chip instead of
@@ -1512,7 +1513,7 @@ document.addEventListener('click', (e) => {
    windowDrag.js / windowResize.js. Popups NOT reachable from the sidebar
    (prompt window, confirms, pickers…) are untouched. */
 const _PAGE_IDS = ['memory-modal', 'gallery-modal', 'tasks-modal', 'doclib-modal',
-                   'research-overlay', 'theme-modal', 'settings-modal'];
+                   'research-overlay', 'theme-modal', 'settings-modal', 'search-overlay'];
 
 function _pageVisible(el) {
   return !!el && document.body.contains(el)
@@ -1598,9 +1599,45 @@ new MutationObserver((muts) => {
   if (touched) _syncPageView(openedId);
 }).observe(document.body, { childList: true });
 
-// Sidebar navigation while a page is open: opening a chat (or starting a new
-// one) leaves the page, same as navigating between pages.
+// The mobile sidebar drawer closes on ANY navigation choice — picking a page
+// is navigation, exactly like picking a chat.
+function _closeMobileDrawer() {
+  if (window.innerWidth > 768) return;
+  const sb = document.getElementById('sidebar');
+  if (!sb || sb.classList.contains('hidden')) return;
+  sb.classList.add('hidden');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (backdrop) backdrop.classList.remove('visible');
+  try { if (typeof window.syncRailSide === 'function') window.syncRailSide(); } catch (_) {}
+}
+
+// Sidebar/rail buttons that navigate to a tool page. Clicking the button of
+// the page you're already on is a no-op (stay on the page, close the drawer)
+// instead of the old window-toggle behavior — re-running the tools' open
+// paths on an open window is what made "Settings twice" glitch.
+const _NAV_BTN_TO_PAGE = (() => {
+  const map = {};
+  for (const [pageId, wire] of Object.entries(_AUTO_WIRE)) {
+    if (!_PAGE_IDS.includes(pageId)) continue;
+    if (wire.sidebar) map[wire.sidebar] = pageId;
+    if (wire.rail) map[wire.rail] = pageId;
+  }
+  return map;
+})();
+
 document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[id]');
+  const pageId = btn && _NAV_BTN_TO_PAGE[btn.id];
+  if (pageId) {
+    _closeMobileDrawer();
+    const el = document.getElementById(pageId);
+    if (_pageVisible(el)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+    return;
+  }
+  // Opening a chat (or starting a new one) leaves the current page.
   if (!document.body.classList.contains('tool-page-view')) return;
   if (!e.target.closest('#sidebar-brand-btn, #sidebar-new-chat-btn, #sidebar .list-item[data-session-id]')) return;
   for (const id of _PAGE_IDS) {

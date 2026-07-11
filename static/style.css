@@ -27831,20 +27831,30 @@ body.theme-frosted .modal {
 /* Pinned below the sidebar (400), its backdrop (390) and the raised
    hamburger so navigation always stays reachable. !important beats the
    window manager's inline z-index bumps. */
-.modal.tool-page {
+.modal.tool-page,
+#search-overlay.tool-page {
   z-index: 240 !important;
   align-items: stretch;
+  padding: 0;
   background: none !important;
   backdrop-filter: none !important;
 }
 body.tool-page-view .hamburger-btn {
   z-index: 300;
 }
+/* A page shows ONLY page components: the chat behind it (input bar, model
+   picker, session title — some float above the page's z otherwise) is
+   hidden entirely while a page is open. visibility (not display) keeps the
+   chat's layout and scroll positions intact for the return. */
+body.tool-page-view .chat-container { visibility: hidden; }
+body.tool-page-view .mobile-new-chat-btn,
+body.tool-page-view .incognito-indicator { display: none !important; }
 
 /* The page surface fills its wrapper (already chat-area-sized on desktop,
    full-viewport on mobile). Neutralize every windowing leftover: inline
    drag/resize geometry, size caps, sheet radii, shadows. */
-.modal.tool-page > .modal-content {
+.modal.tool-page > .modal-content,
+#search-overlay.tool-page > .search-popup {
   position: static !important;
   transform: none !important;
   margin: 0 !important;
@@ -27889,8 +27899,19 @@ body.tool-page-view .hamburger-btn {
 
 /* Desktop: a hairline between sidebar and page, like a content pane. */
 @media (min-width: 769px) {
-  .modal.tool-page > .modal-content {
+  .modal.tool-page > .modal-content,
+  #search-overlay.tool-page > .search-popup {
     border-left: 1px solid var(--border) !important;
+  }
+  /* Search wasn't part of the original chat-area offset list (it was a
+     viewport-wide palette) — give it the same page geometry. */
+  #search-overlay.tool-page {
+    left: calc(var(--icon-rail-w, 48px) + var(--sidebar-w, 0px));
+    width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
+    box-sizing: border-box;
+  }
+  body:has(.sidebar.right-side) #search-overlay.tool-page {
+    left: 0;
   }
   /* The chat-area offset rule (see "Tool windows open centered in the CHAT
      AREA") assumes the sidebar is on the LEFT. With a right-side sidebar
@@ -27906,10 +27927,102 @@ body.tool-page-view .hamburger-btn {
     left: 0;
     width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
   }
-  body:has(.sidebar.right-side) .modal.tool-page > .modal-content {
+  body:has(.sidebar.right-side) .modal.tool-page > .modal-content,
+  body:has(.sidebar.right-side) #search-overlay.tool-page > .search-popup {
     border-left: none !important;
     border-right: 1px solid var(--border) !important;
   }
+}
+
+/* ── Settings-page visual language on every tool page ──
+   The Settings page (admin-cards + pill nav + vertical flow) is the model.
+   Memory, Library and Gallery-settings already build from .admin-card;
+   these rules bring their tab strips, Research's sections and the Search
+   page up to the same look. */
+
+/* Tab strips become wrapped pill rows (Settings-nav look). They toggle in
+   place and WRAP instead of scrolling sideways. */
+.tool-page .memory-tabs,
+.tool-page .gallery-tabs,
+.tool-page .lib-tabs {
+  /* Beat the global "tab strips scroll sideways" rules (nowrap/overflow-x
+     !important) — on pages they wrap instead. */
+  flex-wrap: wrap !important;
+  gap: 6px;
+  border-bottom: none;
+  background: none;
+  padding: 8px 2px 4px;
+  margin: 0;
+  overflow: visible !important;
+}
+.tool-page .memory-tab,
+.tool-page .gallery-tab,
+.tool-page .lib-tab {
+  flex-shrink: 0;
+  opacity: 1;
+  color: color-mix(in srgb, var(--fg) 85%, transparent);
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  border: none;
+  border-bottom: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.tool-page .memory-tab.active,
+.tool-page .gallery-tab.active,
+.tool-page .lib-tab.active {
+  opacity: 1;
+  color: var(--accent, var(--red));
+  background: color-mix(in srgb, var(--accent, var(--red)) 12%, transparent);
+  border-bottom: none;
+}
+
+/* Research: the "new job" form and the jobs list read as Settings cards. */
+.tool-page .research-new-job,
+.tool-page .research-jobs-list {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.tool-page .research-jobs-list { margin-top: 10px; }
+.tool-page .research-new-job h2 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+/* Search page: header + one card-style input + vertically scrolling results. */
+#search-overlay.tool-page > .search-popup {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: 10px 12px;
+  font-size: 15px;
+}
+#search-overlay.tool-page #search-input {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  margin-bottom: 8px;
+}
+#search-overlay.tool-page .search-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Two-level vertical settings nav — back row (hidden on wide layouts). */
@@ -27944,7 +28057,8 @@ body.tool-page-view .hamburger-btn {
      pages win: static, full-height, square, whole page scrolls. */
   .modal.tool-page > .modal-content,
   #theme-modal.tool-page > #theme-popup,
-  #research-overlay.tool-page > #research-pane {
+  #research-overlay.tool-page > #research-pane,
+  #search-overlay.tool-page > .search-popup {
     position: static !important;
     width: 100% !important;
     max-width: none !important;
@@ -27958,6 +28072,8 @@ body.tool-page-view .hamburger-btn {
     /* A page is not a sheet: plain fade instead of a slide-up. */
     animation: fadeIn 0.18s ease-out both;
   }
+  /* The search page keeps its column layout so results scroll internally. */
+  #search-overlay.tool-page > .search-popup { overflow-y: hidden !important; }
   /* No bottom-sheet grab pill on a page. */
   .modal.tool-page > .modal-content::before,
   #theme-modal.tool-page > #theme-popup::before { content: none !important; }

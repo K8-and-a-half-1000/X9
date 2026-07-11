@@ -189,6 +189,10 @@ export function init(apiBase) {
       if (e.target === overlay) closeSearch();
     });
   }
+
+  // Page-header close button (also what modalManager's page close path clicks)
+  const closeBtn = el('search-page-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeSearch);
 }
 
 const searchChatModule = {

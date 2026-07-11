@@ -2184,6 +2184,10 @@
   <!-- Search overlay (Ctrl+K command palette) -->
   <div class="search-overlay hidden" id="search-overlay">
     <div class="search-popup">
+      <div class="modal-header search-page-header">
+        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:6px;opacity:0.6"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg>Search</h4>
+        <button class="close-btn" id="search-page-close" aria-label="Close search">&#x2716;</button>
+      </div>
       <input type="text" id="search-input" placeholder="Search conversations..." autocomplete="off" />
       <div class="search-results" id="search-results"></div>
     </div>
