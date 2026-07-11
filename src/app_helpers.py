@@ -46,7 +46,12 @@ def serve_html_with_nonce(request: Request, file_path: str) -> HTMLResponse:
         raise HTTPException(500, "Internal server error")
     nonce = getattr(request.state, "csp_nonce", "")
     html = html.replace("{{CSP_NONCE}}", nonce)
-    return HTMLResponse(html)
+    # no-store: the shell embeds a per-request CSP nonce and references
+    # un-versioned assets, so a cached copy is stale UI with a dead nonce.
+    # Without this, Safari/iOS-PWA reuse the start-URL document across
+    # launches and users keep seeing removed UI. Asset requests stay cheap —
+    # /static serves .js/.css/.html with no-cache, so they 304 when unchanged.
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 def inside_base_dir(base_dir: str, path: str) -> bool:

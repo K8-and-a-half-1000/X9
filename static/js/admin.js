@@ -2334,6 +2334,27 @@ function initBackup() {
   });
 }
 
+/* ── Refresh Interface (drop caches + reload) ── */
+function initForceRefresh() {
+  el('adm-forceRefreshBtn').addEventListener('click', async () => {
+    const btn = el('adm-forceRefreshBtn');
+    btn.disabled = true; btn.textContent = 'Refreshing…';
+    // Best-effort cleanup of legacy layers (pre-removal service workers and
+    // their CacheStorage); the reload itself is what re-fetches the UI.
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch (e) { /* ignore — proceed to reload */ }
+    location.reload();
+  });
+}
+
 /* ── Danger Zone ── */
 function initDangerZone() {
   // Per-category Danger Zone wipes. Each button declares its target
@@ -2597,7 +2618,7 @@ function initAll() {
   modalEl = el('settings-modal');
   const inits = [
     initEndpointForm, initMcpForm,
-    initBackup, initDangerZone, initTokenForm, initLogsView,
+    initBackup, initForceRefresh, initDangerZone, initTokenForm, initLogsView,
     () => settingsModule.initIntegrations()
   ];
   for (const fn of inits) {

@@ -2100,6 +2100,11 @@
             </div>
             <div id="adm-backupMsg" style="margin-top:6px;"></div>
           </div>
+          <div class="admin-card">
+            <h2><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;opacity:0.6"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>Refresh Interface</h2>
+            <div class="admin-toggle-sub" style="margin-bottom:8px">Clears every cached copy of the interface (HTML, CSS, JS) and re-downloads it from the server. Use this if the app still shows old UI after an update.</div>
+            <button class="admin-btn-add" id="adm-forceRefreshBtn">Refresh UI</button>
+          </div>
           <div class="admin-card admin-danger-card">
             <h2 style="color:#e55;">Danger Zone</h2>
             <div class="admin-toggle-sub" style="margin-bottom:8px">Irreversible. Each wipe targets one category — pick exactly what you want gone.</div>
@@ -2216,6 +2221,13 @@
 <script type="module" src="/static/app.js?v=20260630mdfontsize"></script>  <!-- app.js must be LAST -->
 <script type="module" src="/static/js/init.js"></script>
 <script type="module" src="/static/js/a11y.js"></script>
-<script nonce="{{CSP_NONCE}}">if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js').catch(()=>{});}</script>
+<script nonce="{{CSP_NONCE}}">
+// Service worker removed: registered at /static/ scope it never controlled the
+// app page at /, yet its precache was one more layer keeping installed PWAs on
+// stale UI. Unregister leftover workers and drop their CacheStorage so old
+// installs converge on plain HTTP freshness (HTML no-store, assets no-cache).
+if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>{rs.forEach(r=>r.unregister());}).catch(()=>{});}
+if(window.caches&&caches.keys){caches.keys().then(ks=>{ks.forEach(k=>caches.delete(k));}).catch(()=>{});}
+</script>
 </body>
 </html>
