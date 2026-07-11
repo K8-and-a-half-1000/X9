@@ -2355,8 +2355,7 @@ async function initReminderSettings() {
     llmToggle.checked = !!s.reminder_llm_synthesis;
     // Persona dropdown — populate from built-in PROMPT_TEMPLATES (characters)
     // plus any custom character preset. Selected value persists to
-    // reminder_llm_persona (backend hook lives in the reminder path once
-    // /api/notes/fire-reminder lands).
+    // reminder_llm_persona.
     const personaSel = el('set-reminder-llm-persona');
     if (personaSel) {
       try {
@@ -2457,78 +2456,6 @@ async function initReminderSettings() {
     save({ reminder_llm_synthesis: llmToggle.checked });
   });
 
-  // Test button
-  const testBtn = el('set-reminder-test-btn');
-  const testMsg = el('set-reminder-test-msg');
-  if (testBtn) {
-    testBtn.addEventListener('click', async () => {
-      testBtn.disabled = true;
-      if (testMsg) { testMsg.textContent = 'Sending'; testMsg.style.color = 'var(--fg)'; }
-      // Whirlpool loader right next to the "Sending" text while it sends.
-      let _testSpin = null;
-      try {
-        const _sp = (await import('./spinner.js')).default;
-        _testSpin = _sp.createWhirlpool(14);
-        _testSpin.element.style.cssText = 'width:14px;height:14px;margin:0 0 0 7px;display:inline-block;vertical-align:middle;';
-        (testMsg || testBtn).insertAdjacentElement('afterend', _testSpin.element);
-      } catch (_) {}
-      const _stopTestSpin = () => { try { _testSpin && _testSpin.stop(); _testSpin && _testSpin.element.remove(); } catch (_) {} };
-      try {
-        // Persona picker is in a different scope (Reminders init), look it up
-        // by id so we can pass whatever is currently selected on screen.
-        const personaSel = el('set-reminder-llm-persona');
-        const res = await fetch('/api/notes/fire-reminder', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            note_id: 'test-' + Date.now(),
-            title: 'Test Reminder',
-            body: 'This is a test reminder to verify your settings are working.',
-            channel: channelSel.value,
-            // Mirror the in-UI AI Synthesis toggle + persona so the test never
-            // races a pending save and lets the user preview changes before
-            // hitting Save.
-            llm_synthesis: !!(llmToggle && llmToggle.checked),
-            llm_persona: (personaSel && personaSel.value) || '',
-            ...(channelSel.value === 'webhook' ? {
-              webhook_integration_id: webhookIntgSel?.value || '',
-              webhook_payload_template: webhookTemplateIn?.value.trim() || '',
-            } : {}),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Server error');
-        if (channelSel.value === 'ntfy' && !data.ntfy_sent) {
-          throw new Error(data.ntfy_error || 'ntfy reminder was not sent');
-        }
-        if (channelSel.value === 'webhook' && !data.webhook_sent) {
-          const activeChannel = data.channel ? ` (server used channel: "${data.channel}")` : '';
-          throw new Error((data.webhook_error || 'Webhook reminder was not sent') + activeChannel);
-        }
-        let status = 'Delivered via ' + channelSel.value;
-        if (data.synthesis) status += ' (AI: "' + data.synthesis.slice(0, 60) + '...")';
-        if (data.ntfy_sent) status += ' — ntfy sent';
-        if (data.webhook_sent) status += ' — webhook sent';
-        if (testMsg) { testMsg.textContent = status; testMsg.style.color = 'var(--green, #50fa7b)'; }
-        // Also fire a browser notification so user can see it
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            new Notification('Test Reminder', {
-              body: data.synthesis || 'This is a test reminder.',
-              tag: 'reminder-test',
-              icon: '/static/favicon.ico',
-            });
-          } catch {}
-        }
-      } catch (e) {
-        if (testMsg) { testMsg.textContent = 'Failed: ' + e.message; testMsg.style.color = 'var(--red)'; }
-      } finally {
-        _stopTestSpin();
-        testBtn.disabled = false;
-      }
-    });
-  }
 }
 
 async function initIntegrations() {
@@ -4233,10 +4160,6 @@ async function initUnifiedIntegrations() {
   if (addBtn) {
     const _typeOptions = [
       ['api', 'API Service'],
-      ['claude', 'Claude Agent'],
-      ['codex', 'Codex Agent'],
-      ['carddav', 'Contacts (CardDAV)'],
-      ['contacts', 'Contacts Import'],
       ['mcp', 'MCP Tool Server'],
     ];
     const _iconFor = (k) => (INTG_TYPES[k]?.icon || '').replace(/width="14"/, 'width="16"').replace(/height="14"/, 'height="16"');

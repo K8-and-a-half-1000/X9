@@ -34,10 +34,13 @@ function _statusTag(pkg) {
 }
 
 function _row(pkg) {
-  const note = pkg.status_note
+  // llama_cpp carries a dynamic build-deps/status note (cmake/g++/git probe)
+  // that clutters the card — show only its short description.
+  const _hideNotes = pkg.name === 'llama_cpp';
+  const note = (pkg.status_note && !_hideNotes)
     ? `<div class="memory-item-meta" style="font-size:10px;opacity:0.65;margin-top:3px;">${esc(pkg.status_note)}</div>`
     : '';
-  const updateNote = pkg.installed && pkg.update_note
+  const updateNote = (pkg.installed && pkg.update_note && !_hideNotes)
     ? `<div class="memory-item-meta" style="font-size:10px;opacity:0.55;margin-top:3px;">${esc(pkg.update_note)}</div>`
     : '';
   return `<div class="dep-row" data-pkg-name="${esc(pkg.name)}">`
