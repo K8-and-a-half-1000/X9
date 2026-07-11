@@ -1,6 +1,6 @@
 // Shared window-resize helper. Companion to makeWindowDraggable: gives every
-// draggable tool window (Library, Notes, Tasks, Gallery, Email,
-// Cookbook, Memory, Settings, Theme, Compare, Research, Sessions) edge- and
+// draggable tool window (Library, Notes, Tasks, Gallery,
+// Cookbook, Memory, Settings, Theme, Research, Sessions) edge- and
 // corner-resize, the same way a native desktop window resizes — grab any of
 // the four edges or four corners and drag.
 //

@@ -2,7 +2,7 @@
 //
 // Adds a "drag-to-right" gesture that docks a modal as a right-side panel
 // (mirrors the snap-to-top fullscreen pattern used by _makeDraggable in
-// emailLibrary.js / documentLibrary.js / galleryEditor.js). While docked:
+// documentLibrary.js / galleryEditor.js). While docked:
 //   - the modal-content lives at `right: 0; top: 0; bottom: 0` with a
 //     viewport-fraction width
 //   - body gets `right-dock-active` + `--right-dock-w` so the workspace
@@ -20,7 +20,6 @@
 const SNAP_PX = 60;
 const UNSNAP_PX = 80;
 const MIN_CHAT_WIDTH = 380;
-const EMAIL_DOC_SPLIT_WIDTH_KEY = 'odysseus-email-doc-split-width';
 const EDGE_DOCK_WIDTH_KEY_PREFIX = 'odysseus-edge-dock-width';
 const MIN_EDGE_DOCK_WIDTH = 320;
 
@@ -128,12 +127,8 @@ function _resolveRightDockWidth(modal, content) {
 }
 
 function _resolveLeftDockWidth(content, left = _leftNavRight()) {
-  return _clampLeftDockWidth(content?._userDockWidth || _storedDockWidth(content?._dockOwner, content, 'left') || _resolveEmailDocSplitWidth(content, left), left);
-}
-
-function _isEmailDockOwner(owner) {
-  const id = owner?.id || '';
-  return id === 'email-lib-modal' || id.startsWith('email-reader-') || owner?.classList?.contains('email-window-modal');
+  const fallback = Math.max(440, Math.max(0, window.innerWidth - left) * 0.55);
+  return _clampLeftDockWidth(content?._userDockWidth || _storedDockWidth(content?._dockOwner, content, 'left') || fallback, left);
 }
 
 function _showSnapHint(on, side = 'right') {
@@ -188,30 +183,6 @@ function _leftNavRight() {
   return x;
 }
 
-function _clampEmailDocSplitWidth(width, left = _leftNavRight()) {
-  const available = Math.max(0, window.innerWidth - left);
-  if (!available) return 0;
-  const compact = available < 760;
-  const minEmail = compact ? 260 : 340;
-  const minDoc = compact ? 260 : 360;
-  const maxEmail = Math.max(minEmail, available - minDoc);
-  return Math.min(maxEmail, Math.max(minEmail, Math.round(width)));
-}
-
-function _storedEmailDocSplitWidth() {
-  try {
-    const raw = localStorage.getItem(EMAIL_DOC_SPLIT_WIDTH_KEY);
-    const n = parseFloat(raw || '');
-    return Number.isFinite(n) && n > 0 ? n : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function _saveEmailDocSplitWidth(width) {
-  try { localStorage.setItem(EMAIL_DOC_SPLIT_WIDTH_KEY, String(Math.round(width))); } catch (_) {}
-}
-
 function _disconnectLeftDockObservers(content) {
   if (!content?._leftDockNavObs) return;
   const obs = content._leftDockNavObs;
@@ -222,84 +193,17 @@ function _disconnectLeftDockObservers(content) {
   delete content._leftDockNavObs;
 }
 
-function _applyEmailDocSplitGeometry(left, emailWidth) {
-  const x = left + emailWidth;
-  document.documentElement.style.setProperty('--email-doc-split-left-x', `${left}px`);
-  document.documentElement.style.setProperty('--email-doc-split-email-w', `${emailWidth}px`);
-  document.documentElement.style.setProperty('--email-doc-split-right-x', `${x}px`);
-
-  // emailLibrary.js pins the document pane with inline !important styles
-  // after opening a document beside a snapped email. Update that inline
-  // geometry too, otherwise the email resizes but the document stays put.
-  const docPane = document.getElementById('doc-editor-pane');
-  if (!docPane || window.innerWidth <= 768) return;
-  docPane.style.setProperty('position', 'fixed', 'important');
-  docPane.style.setProperty('left', `${x}px`, 'important');
-  docPane.style.setProperty('right', 'var(--right-dock-w, 0px)', 'important');
-  docPane.style.setProperty('top', '0px', 'important');
-  docPane.style.setProperty('bottom', '0px', 'important');
-  docPane.style.setProperty('width', 'auto', 'important');
-  docPane.style.setProperty('max-width', 'none', 'important');
-  docPane.style.setProperty('height', '100vh', 'important');
-  docPane.style.setProperty('z-index', '260', 'important');
-  docPane.style.setProperty('transform', 'none', 'important');
-}
-
-function _clearEmailDocSplitGeometry() {
-  document.body.classList.remove('email-doc-split-active');
-  document.documentElement.style.removeProperty('--email-doc-split-left-x');
-  document.documentElement.style.removeProperty('--email-doc-split-email-w');
-  document.documentElement.style.removeProperty('--email-doc-split-right-x');
-  const docPane = document.getElementById('doc-editor-pane');
-  if (!docPane) return;
-  [
-    'position', 'left', 'right', 'top', 'bottom', 'width', 'max-width',
-    'height', 'z-index', 'transform',
-  ].forEach(prop => docPane.style.removeProperty(prop));
-}
-
-function _resolveEmailDocSplitWidth(content, left) {
-  const available = Math.max(0, window.innerWidth - left);
-  const fallback = Math.max(440, available * 0.55);
-  const requested = content?._emailDocSplitUserW || _storedEmailDocSplitWidth() || fallback;
-  return _clampEmailDocSplitWidth(requested, left);
-}
-
 // Position a left-docked window flush against the current left nav, covering
 // the chat area. Re-run whenever the sidebar is toggled so the window slides
 // to follow the nav instead of being covered by it.
-//
-// Also: if the document editor pane is rendered to the right of the chat
-// area, cap the email's right edge to stop just before it so the two share
-// the row instead of overlapping. Pure geometry read — no CSS class changes
-// (the previous attempt that flipped body classes here caused layout thrash
-// and broke the whole tab).
 function _anchorLeftDock(content) {
   if (!content || content._dockSide !== 'left') return;
   const left = _leftNavRight();
-  const w = document.body.classList.contains('doc-view')
-    ? _resolveEmailDocSplitWidth(content, left)
-    : _resolveLeftDockWidth(content, left);
+  const w = _resolveLeftDockWidth(content, left);
   content.style.left = left + 'px';
   content.style.width = w + 'px';
   content.style.maxWidth = w + 'px';
-  // If a document is also open, drive the existing email/doc-split CSS rule
-  // (style.css `body.email-doc-split-active.doc-view .doc-editor-pane`) so
-  // the doc-pane becomes position:fixed starting at the email's right edge.
-  // No flex/max-width fighting; the doc just owns the right side from the
-  // email's right edge to the viewport edge — they touch flush, no gap.
-  const docOpen = document.body.classList.contains('doc-view') && _isEmailDockOwner(content._dockOwner);
-  if (docOpen) {
-    if (!document.body.classList.contains('email-doc-split-active')) {
-      document.body.classList.add('email-doc-split-active');
-    }
-    document.documentElement.style.setProperty('--left-dock-w', '0px');
-    _applyEmailDocSplitGeometry(left, w);
-  } else if (document.body.classList.contains('email-doc-split-active')) {
-    _clearEmailDocSplitGeometry();
-  } else {
-    document.documentElement.style.setProperty('--left-dock-w', w + 'px');
-  }
+  document.documentElement.style.setProperty('--left-dock-w', w + 'px');
 }
 
 export function collapseSidebarToRail() { return _collapseSidebarToRail(); }
@@ -309,8 +213,8 @@ function _collapseSidebarToRail() {
   if (!sidebar || !rail) return;
   // Mark the collapse as route/dock-driven so the paired restore in
   // app.js (window._restoreSidebarIfRouteCollapsed) knows it owns the
-  // un-collapse. Same marker the /email and /notes openers use — they
-  // can't both be active at once so no conflict.
+  // un-collapse. Same marker the /notes opener uses — they can't both
+  // be active at once so no conflict.
   if (!sidebar.classList.contains('hidden')) {
     document.body.dataset.routeCollapsedSidebar = '1';
   }
@@ -320,7 +224,7 @@ function _collapseSidebarToRail() {
 }
 
 // Resolve the dock target. For .modal containers, the inner .modal-content
-// is what we position; for standalone panes (research, compare, etc.) the
+// is what we position; for standalone panes (research, etc.) the
 // passed element itself is both the container and the content. Returns
 // {modal, content} or null when nothing usable was passed in.
 function _resolveDockNodes(target) {
@@ -404,8 +308,7 @@ function _applyDockInternal(modal, side, dockClass) {
   let w;
   if (side === 'left') {
     // Left dock: collapse the sidebar to the icon rail, then pin the window
-    // beside the rail. Normal left docks reserve their width so chat shrinks;
-    // the email+document split keeps its existing overlay geometry.
+    // beside the rail. Left docks reserve their width so chat shrinks.
     _collapseSidebarToRail();
     content._preDockSnapshot.collapsedSidebar = true;
     content.style.right = 'auto';
@@ -414,16 +317,13 @@ function _applyDockInternal(modal, side, dockClass) {
     _anchorLeftDock(content);
     w = parseFloat(content.style.width) || 0;
     document.body.classList.add('left-dock-active');
-    document.documentElement.style.setProperty(
-      '--left-dock-w',
-      document.body.classList.contains('email-doc-split-active') ? '0px' : w + 'px',
-    );
-    // Re-anchor the email when the sidebar is toggled (expanded/collapsed) so
-    // the nav slides the window over instead of growing on top of it. Also
-    // re-anchor when the document editor pane appears/disappears (signaled by
-    // body.doc-view) AND when the user drags the doc divider to resize it
-    // (ResizeObserver) so the email shrinks/grows inversely to keep the two
-    // sharing the row cleanly.
+    document.documentElement.style.setProperty('--left-dock-w', w + 'px');
+    // Re-anchor the window when the sidebar is toggled (expanded/collapsed)
+    // so the nav slides the window over instead of growing on top of it.
+    // Also re-anchor when the document editor pane appears/disappears
+    // (signaled by body.doc-view) AND when the user drags the doc divider to
+    // resize it (ResizeObserver) so the window shrinks/grows inversely to
+    // keep the two sharing the row cleanly.
     if (!content._leftDockNavObs && typeof MutationObserver !== 'undefined') {
       const sidebar = document.getElementById('sidebar');
       const _doAnchor = () => {
@@ -434,7 +334,7 @@ function _applyDockInternal(modal, side, dockClass) {
         _doAnchor();
         // Multi-stage settle: the dock-flip + sidebar collapse + doc mount
         // each have their own transition timing (160ms / ~240ms / variable).
-        // Re-measure at each plausible settle point so the email lands flush
+        // Re-measure at each plausible settle point so the window lands flush
         // against the doc's FINAL position, not a mid-transition snapshot.
         requestAnimationFrame(_doAnchor);
         setTimeout(_doAnchor, 80);
@@ -459,7 +359,7 @@ function _applyDockInternal(modal, side, dockClass) {
       bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
       // ResizeObserver on the current .doc-editor-pane so dragging its
-      // divider live-reflows the email's right edge. Also observe
+      // divider live-reflows the window's right edge. Also observe
       // #chat-container — its width changes when the sidebar collapses,
       // when right-dock padding drains, or when doc content paint reflows
       // the row, all of which shift the doc pane's left edge without
@@ -561,11 +461,6 @@ function _onDockedModalGone(modal, dockClass) {
   // when another docked window is not still using that side.
   if (hadRight) clearDockSide('right', modal);
   if (hadLeft) clearDockSide('left', modal);
-  // Tear down the email/doc split CSS vars we set in _anchorLeftDock so the
-  // doc-pane returns to its natural flex layout when the email is closed.
-  if (hadLeft && !_hasOtherDockedWindow('left', modal)) {
-    _clearEmailDocSplitGeometry();
-  }
   if (_c?._preDockSnapshot?.collapsedSidebar && !_hasAnyOtherDockedWindow(modal)) {
     _expandSidebarFromRail();
   }
@@ -615,9 +510,6 @@ export function clearRightDock(modal, cx, cy, dockClass) {
   if (!modal.classList.contains(dockClass)) return;
   modal.classList.remove(dockClass);
   clearDockSide(side, modal);
-  if (side === 'left' && !_hasOtherDockedWindow('left', modal)) {
-    _clearEmailDocSplitGeometry();
-  }
   delete content._dockSide;
   delete content._dockOwner;
   _disconnectLeftDockObservers(content);
@@ -677,10 +569,8 @@ export function suspendDock(modal) {
   const nodes = _resolveDockNodes(modal);
   if (!nodes || !nodes.content) return null;
   const content = nodes.content;
-  const hadEmailSnapLeft = modal.classList.contains('email-snap-left');
   const side = content._dockSide
     || (modal.classList.contains('modal-left-docked') ? 'left'
-        : modal.classList.contains('email-snap-left') ? 'left'
         : modal.classList.contains('modal-right-docked') ? 'right' : null);
   if (!side) return null;
   // Stop the close-watcher from tearing the dock fully down when `.hidden`
@@ -694,17 +584,6 @@ export function suspendDock(modal) {
   clearDockSide(side, modal);
   if (side === 'left') {
     _disconnectLeftDockObservers(content);
-  }
-  if (hadEmailSnapLeft) {
-    modal.classList.remove('email-snap-left');
-    _clearEmailDocSplitGeometry();
-    delete content._dockSide;
-    delete content._dockOwner;
-    delete content._dockSuspended;
-    return null;
-  }
-  if (side === 'left' && !_hasOtherDockedWindow('left', modal)) {
-    _clearEmailDocSplitGeometry();
   }
   if (content._preDockSnapshot?.collapsedSidebar && !_hasAnyOtherDockedWindow(modal)) {
     _expandSidebarFromRail();
@@ -854,8 +733,7 @@ export function makeEdgeDockController(modal, side = 'right', dockClass) {
       if (!modal || modal === owner) return false;
       if (owner?.contains?.(modal) || modal.contains?.(owner)) return false;
       if (modal.classList.contains('modal-left-docked')
-          || modal.classList.contains('modal-right-docked')
-          || modal.classList.contains('email-snap-left')) return false;
+          || modal.classList.contains('modal-right-docked')) return false;
       if (modal.style.display === 'none') return false;
       const content = _resolveDockNodes(modal)?.content;
       const r = content?.getBoundingClientRect?.();
@@ -885,28 +763,21 @@ export function makeEdgeDockController(modal, side = 'right', dockClass) {
       const left = _leftNavRight();
       w = _clampLeftDockWidth(clientX - left, left);
       content._userDockWidth = w;
-      content._emailDocSplitUserW = w;
       content.style.left = left + 'px';
       content.style.right = 'auto';
       content.style.width = w + 'px';
       content.style.maxWidth = w + 'px';
       document.body.classList.add('left-dock-active');
-      document.documentElement.style.setProperty(
-        '--left-dock-w',
-        document.body.classList.contains('email-doc-split-active') ? '0px' : w + 'px',
-      );
+      document.documentElement.style.setProperty('--left-dock-w', w + 'px');
     }
     _positionEdgeDockResizeHandles();
     return w;
   };
 
   _edgeDockHandlePositioner = () => {
-    const splitOwnsLeftSeam = document.body.classList.contains('email-doc-split-active')
-      && document.body.classList.contains('doc-view')
-      && window.innerWidth > 768;
     for (const side of ['left', 'right']) {
       const handle = handles[side];
-      if (window.innerWidth <= 768 || (side === 'left' && splitOwnsLeftSeam)) {
+      if (window.innerWidth <= 768) {
         _hideHandle(handle);
         continue;
       }
@@ -989,91 +860,3 @@ export function makeEdgeDockController(modal, side = 'right', dockClass) {
   _positionEdgeDockResizeHandles();
 })();
 
-(function _initSplitSeamIndicator() {
-  if (typeof document === 'undefined') return;
-  const stripe = document.createElement('div');
-  stripe.id = 'email-doc-split-seam';
-  stripe.style.position = 'fixed';
-  stripe.style.top = '0';
-  stripe.style.bottom = '0';
-  stripe.style.width = '10px';
-  stripe.style.cursor = 'col-resize';
-  stripe.style.zIndex = '261';
-  stripe.style.background = 'linear-gradient(to right, transparent 0 3px, color-mix(in srgb, var(--accent, var(--red)) 35%, transparent) 3px 7px, transparent 7px 10px)';
-  stripe.style.pointerEvents = 'auto';
-  stripe.style.touchAction = 'none';
-  stripe.style.display = 'none';
-  stripe.title = 'Drag to resize email and draft';
-
-  const _activeLeftDockContent = () => {
-    const modal = document.querySelector(
-      '#email-lib-modal.modal-left-docked:not(.hidden), ' +
-      '#email-lib-modal.email-snap-left:not(.hidden), ' +
-      '.modal[id^="email-reader-"].modal-left-docked:not(.hidden), ' +
-      '.modal[id^="email-reader-"].email-snap-left:not(.hidden)'
-    );
-    return modal?.querySelector?.('.modal-content') || null;
-  };
-
-  const _position = () => {
-    const splitActive = document.body.classList.contains('email-doc-split-active')
-      && document.body.classList.contains('doc-view')
-      && window.innerWidth > 768;
-    if (!splitActive) { stripe.style.display = 'none'; return; }
-    const x = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--email-doc-split-right-x')) || 0;
-    if (!x) { stripe.style.display = 'none'; return; }
-    stripe.style.display = 'block';
-    stripe.style.left = (x - 5) + 'px';
-  };
-
-  const _dragTo = (clientX) => {
-    const content = _activeLeftDockContent();
-    if (!content) return;
-    const left = _leftNavRight();
-    const w = _clampEmailDocSplitWidth(clientX - left, left);
-    content._emailDocSplitUserW = w;
-    content.style.left = left + 'px';
-    content.style.width = w + 'px';
-    content.style.maxWidth = w + 'px';
-    _applyEmailDocSplitGeometry(left, w);
-    _position();
-  };
-
-  stripe.addEventListener('pointerdown', (e) => {
-    if (stripe.style.display === 'none') return;
-    e.preventDefault();
-    stripe.setPointerCapture?.(e.pointerId);
-    const prevCursor = document.body.style.cursor;
-    const prevUserSelect = document.body.style.userSelect;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.body.classList.add('email-doc-split-resizing');
-    _dragTo(e.clientX);
-    const onMove = (ev) => {
-      ev.preventDefault();
-      _dragTo(ev.clientX);
-    };
-    const onUp = (ev) => {
-      try { stripe.releasePointerCapture?.(e.pointerId); } catch (_) {}
-      document.removeEventListener('pointermove', onMove, true);
-      document.removeEventListener('pointerup', onUp, true);
-      document.removeEventListener('pointercancel', onUp, true);
-      document.body.classList.remove('email-doc-split-resizing');
-      document.body.style.cursor = prevCursor;
-      document.body.style.userSelect = prevUserSelect;
-      const rightX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--email-doc-split-right-x')) || 0;
-      const left = _leftNavRight();
-      if (rightX > left) _saveEmailDocSplitWidth(rightX - left);
-      ev.preventDefault();
-    };
-    document.addEventListener('pointermove', onMove, true);
-    document.addEventListener('pointerup', onUp, true);
-    document.addEventListener('pointercancel', onUp, true);
-  });
-
-  document.body.appendChild(stripe);
-  new MutationObserver(_position).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  new MutationObserver(_position).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-  window.addEventListener('resize', _position);
-  _position();
-})();

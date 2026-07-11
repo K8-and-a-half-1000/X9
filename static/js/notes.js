@@ -4,7 +4,7 @@
  */
 
 import uiModule from './ui.js';
-import { spawnConfetti } from './compare/vote.js';
+import { spawnConfetti } from './confetti.js';
 import * as Modals from './modalManager.js';
 import { attachColorPicker } from './colorPicker.js';
 import { makeWindowDraggable } from './windowDrag.js';
@@ -940,9 +940,9 @@ function _checkReminders() {
 
 function _fireReminder(note) {
   const title = note.title || 'Note reminder';
-  // Include the verbatim note content so the email/notification actually
+  // Include the verbatim note content so the notification actually
   // shows what to do, not just a count. Cap the per-item lines (8 max) and
-  // total length so the body stays inbox-friendly.
+  // total length so the body stays glanceable.
   let rawBody;
   if (_hasItems(note)) {
     const pending = (note.items || [])
@@ -961,9 +961,9 @@ function _fireReminder(note) {
   }
 
   // Ask the server to dispatch according to user settings. The server may
-  // return an LLM-written synthesis line and/or send an email. We still show
-  // a local browser notification so the user gets immediate feedback even if
-  // the server path is disabled or slow.
+  // return an LLM-written synthesis line and/or notify via ntfy/webhook. We
+  // still show a local browser notification so the user gets immediate
+  // feedback even if the server path is disabled or slow.
   const showLocal = (body) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
@@ -1848,7 +1848,7 @@ function _renderNotes() {
       const fullText = note.content || '';
       const preview = fullText.length > 600 ? fullText.slice(0, 600) + '…' : fullText;
       // _linkify already calls _esc internally, so URLs become clickable
-      // anchors (used by e.g. the "remind me to reply" email deep-link).
+      // anchors.
       contentHtml = preview ? `<div class="note-content-preview">${_linkify(preview)}</div>` : '';
     }
 

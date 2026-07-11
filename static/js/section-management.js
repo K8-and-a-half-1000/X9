@@ -14,9 +14,6 @@ export function initSectionCollapse(Storage) {
     const section = header.closest('.section');
     if (!section || !section.id) return;
 
-    // Skip email section — it doesn't collapse (title opens popup instead)
-    if (section.id === 'email-section') return;
-
     // Add chevron (always visible — rotates when collapsed)
     header.insertAdjacentHTML('beforeend', _chevronHtml);
 

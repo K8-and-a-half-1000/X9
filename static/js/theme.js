@@ -295,11 +295,6 @@ export function applyColors(colors) {
 // script in index.html so a theme change keeps the route icon, not the
 // default boat. Returns the inner SVG markup colored with `fg`.
 const _ROUTE_FAVICON_SHAPES = {
-  '/calendar':
-    "<rect x='4' y='6' width='24' height='22' rx='2' fill='none' stroke='__C__' stroke-width='2.5'/>" +
-    "<line x1='4' y1='12' x2='28' y2='12' stroke='__C__' stroke-width='2.5'/>" +
-    "<line x1='10' y1='3' x2='10' y2='9' stroke='__C__' stroke-width='2.5' stroke-linecap='round'/>" +
-    "<line x1='22' y1='3' x2='22' y2='9' stroke='__C__' stroke-width='2.5' stroke-linecap='round'/>",
   '/notes':
     "<rect x='6' y='4' width='20' height='24' rx='2' fill='none' stroke='__C__' stroke-width='2.5'/>" +
     "<line x1='10' y1='10' x2='22' y2='10' stroke='__C__' stroke-width='2'/>" +
@@ -310,9 +305,6 @@ const _ROUTE_FAVICON_SHAPES = {
     "<path d='M9 4 L23 4 L23 8 L9 8 Z' fill='none' stroke='__C__' stroke-width='2.5' stroke-linejoin='round'/>" +
     "<line x1='11' y1='14' x2='21' y2='14' stroke='__C__' stroke-width='2'/>" +
     "<line x1='11' y1='19' x2='17' y2='19' stroke='__C__' stroke-width='2'/>",
-  '/email':
-    "<rect x='4' y='7' width='24' height='18' rx='2' fill='none' stroke='__C__' stroke-width='2.5'/>" +
-    "<path d='M5 9 L16 17 L27 9' fill='none' stroke='__C__' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>",
   '/memory':
     "<path d='M16 5 C10 5 6 9 6 14 C6 19 10 21 11 22 L11 26 L21 26 L21 22 C22 21 26 19 26 14 C26 9 22 5 16 5 Z' fill='none' stroke='__C__' stroke-width='2.5' stroke-linejoin='round'/>" +
     "<line x1='12' y1='28' x2='20' y2='28' stroke='__C__' stroke-width='2'/>",

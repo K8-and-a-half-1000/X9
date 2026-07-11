@@ -1,6 +1,6 @@
 // Shared window-drag helper. Replaces the duplicated mousedown / mousemove
 // / mouseup + snap-to-top fullscreen + left/right edge dock patterns that
-// were copy-pasted across tasks.js, gallery.js, emailLibrary.js,
+// were copy-pasted across tasks.js, gallery.js,
 // documentLibrary.js, theme.js. Behavior stays identical to the old per-file
 // copies — each callsite provides its own enter/exit-fullscreen callbacks
 // since the CSS class + inline styles differ per modal.

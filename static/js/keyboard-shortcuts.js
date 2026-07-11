@@ -66,7 +66,7 @@ export function initKeyboardShortcuts(modules) {
   // re-renders). So a single global handler that clicks whichever cancel
   // button is currently visible covers all of them — notes, skills,
   // memory, gallery, sessions, doc library (chats/archive/research/docs),
-  // email, cookbook serve — without each module wiring its own listener.
+  // cookbook serve — without each module wiring its own listener.
   // Capture phase + stopPropagation so Esc cancels select instead of
   // closing the surrounding modal.
   document.addEventListener('keydown', (e) => {
@@ -93,7 +93,7 @@ export function initKeyboardShortcuts(modules) {
 
   // ── "Toggle Window" — close whatever tool window is open, or reopen the
   // last one. Maps each window's modal element to the button/title that
-  // opens it (mirrors modalManager's _AUTO_WIRE, plus email's section title).
+  // opens it (mirrors modalManager's _AUTO_WIRE).
   const _WINDOW_TRIGGERS = {
     'settings-modal':         'user-bar-settings',
     'theme-modal':            'tool-theme-btn',
@@ -104,7 +104,6 @@ export function initKeyboardShortcuts(modules) {
     'gallery-modal':          'tool-gallery-btn',
     'research-overlay':       'tool-research-btn',
     'cookbook-modal':         'tool-cookbook-btn',
-    'email-lib-modal':        'email-section-title',
   };
   let _lastWindow = 'settings-modal';
 

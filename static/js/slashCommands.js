@@ -1258,7 +1258,7 @@ async function _cmdToggleSidebar(args, ctx) {
 async function _cmdOpen(args, ctx) {
   const target = (args[0] || '').trim().toLowerCase();
   if (!target) {
-    slashReply('Open what? Try /open Cookbook, /open Settings, /open Gallery, /open Notes, /open Tasks, /open Library, /open Research, or /open Compare.');
+    slashReply('Open what? Try /open Cookbook, /open Settings, /open Gallery, /open Notes, /open Tasks, /open Library, or /open Research.');
     return true;
   }
   const clickFirst = (...ids) => {
@@ -1291,7 +1291,6 @@ async function _cmdOpen(args, ctx) {
       memory: ['tool-memory-btn', 'rail-memory'],
       memories: ['tool-memory-btn', 'rail-memory'],
       research: ['tool-research-btn', 'rail-research'],
-      compare: ['tool-compare-btn', 'rail-compare'],
       theme: ['tool-theme-btn', 'rail-theme'],
     };
     const ids = targets[target];
@@ -2426,289 +2425,6 @@ async function _cmdDemo(args, ctx) {
   return true;
 }
 
-// ── Compare tour ──
-async function _cmdTourCompare(args, ctx) {
-  // The slash dispatcher doesn't auto-clear the input, so explicitly
-  // wipe it — otherwise "/tour-compare" stays parked in the textarea
-  // and visually competes with the tour walkthrough.
-  const _msgEl = document.getElementById('message');
-  if (_msgEl) {
-    _msgEl.value = '';
-    _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-  if (!document.getElementById('tour-styles')) {
-    const s = document.createElement('style');
-    s.id = 'tour-styles';
-    s.textContent =
-      '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
-      'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
-      'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
-      'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
-      '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
-      '#tour-tooltip .tour-text{margin-bottom:8px;opacity:0.8}' +
-      '.tour-nav{display:flex;align-items:center;justify-content:space-between}' +
-      '.tour-nav button{background:none;border:1px solid var(--border);color:var(--fg);' +
-      'cursor:pointer;font-family:inherit;border-radius:4px;transition:all .1s}' +
-      '.tour-nav button:hover{background:color-mix(in srgb,var(--fg) 8%,transparent)}' +
-      '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
-      '.tour-btn-arrow:hover{opacity:1}' +
-      '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
-      '.tour-btn-skip:hover{opacity:0.6}';
-    document.head.appendChild(s);
-  }
-
-  let overlay = document.getElementById('compare-model-overlay');
-  if (!overlay) {
-    const opener = document.getElementById('tool-compare-btn') || document.getElementById('rail-compare');
-    if (opener) opener.click();
-    for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 80));
-      overlay = document.getElementById('compare-model-overlay');
-      if (overlay) break;
-    }
-  }
-  if (!overlay) {
-    slashReply('Could not open Model Comparison. Try clicking the Compare tool first.');
-    return true;
-  }
-
-  document.body.classList.add('tour-active');
-  const tooltip = document.createElement('div');
-  tooltip.id = 'tour-tooltip';
-  document.body.appendChild(tooltip);
-
-  // Track halos so we can destroy them between steps. Halos sit on the
-  // body (above modals) so the outline isn't clipped by modal-content's
-  // overflow:auto — same pattern as _cmdDemo's makeHalo.
-  let _halos = [];
-  function _makeHalo(target) {
-    const halo = document.createElement('div');
-    halo.className = 'tour-halo';
-    document.body.appendChild(halo);
-    const update = () => {
-      const r = target.getBoundingClientRect();
-      halo.style.top    = (r.top - 4) + 'px';
-      halo.style.left   = (r.left - 4) + 'px';
-      halo.style.width  = (r.width + 8) + 'px';
-      halo.style.height = (r.height + 8) + 'px';
-    };
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    requestAnimationFrame(() => halo.classList.add('tour-fade-in'));
-    return {
-      destroy() {
-        window.removeEventListener('resize', update);
-        window.removeEventListener('scroll', update, true);
-        halo.remove();
-      },
-    };
-  }
-  function _clearHalos() {
-    _halos.forEach(h => h.destroy());
-    _halos = [];
-    document.querySelectorAll('.tour-halo').forEach(e => e.remove());
-  }
-
-  const _clear = () => {
-    document.querySelectorAll('.odysseus-highlight').forEach(e => e.classList.remove('odysseus-highlight'));
-    _clearHalos();
-    tooltip.remove();
-    document.body.classList.remove('tour-active');
-  };
-
-  function _positionTooltip(target) {
-    const r = target.getBoundingClientRect();
-    tooltip.style.visibility = 'hidden';
-    tooltip.style.display = '';
-    const tw = tooltip.offsetWidth || 260;
-    const th = tooltip.offsetHeight || 100;
-    const gap = 12;
-    let top, left;
-    if (r.bottom + gap + th < window.innerHeight - 10) {
-      top = r.bottom + gap;
-      left = r.left + r.width / 2 - tw / 2;
-    } else if (r.top - gap - th > 10) {
-      top = r.top - gap - th;
-      left = r.left + r.width / 2 - tw / 2;
-    } else {
-      top = r.top + r.height / 2 - th / 2;
-      left = r.right + gap;
-      if (left + tw > window.innerWidth - 10) left = r.left - tw - gap;
-    }
-    if (left + tw > window.innerWidth - 10) left = window.innerWidth - tw - 10;
-    if (left < 10) left = 10;
-    if (top < 10) top = 10;
-    tooltip.style.top = top + 'px';
-    tooltip.style.left = left + 'px';
-    tooltip.style.visibility = '';
-  }
-
-  function _showStep(sel, text, opts) {
-    opts = opts || {};
-    const isFirst = !!opts.isFirst;
-    const isLast = !!opts.isLast;
-    const advanceOnClick = !!opts.advanceOnClick;
-    return new Promise(resolve => {
-      _clearHalos();
-      const target = document.querySelector(sel);
-      if (!target) return resolve('skip');
-      _halos.push(_makeHalo(target));
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      tooltip.classList.remove('tour-fade-in');
-      const hint = advanceOnClick
-        ? '<div style="font-size:0.72rem;opacity:0.45;margin-bottom:6px;">Click the highlighted element to continue.</div>'
-        : '';
-      tooltip.innerHTML =
-        '<div class="tour-text">' + text + '</div>' + hint +
-        '<div class="tour-nav">' +
-          '<button class="tour-btn-arrow' + (isFirst ? ' disabled' : '') + '" data-act="back">←</button>' +
-          '<button class="tour-btn-skip" data-act="skip">' + (isLast ? 'done' : 'skip tour') + '</button>' +
-          '<button class="tour-btn-arrow" data-act="next">' + (isLast ? '✓' : '→') + '</button>' +
-        '</div>';
-      requestAnimationFrame(() => {
-        _positionTooltip(target);
-        tooltip.classList.add('tour-fade-in');
-      });
-
-      let resolved = false;
-      const onClick = (e) => {
-        const hit = e.target.closest && e.target.closest('[data-act]');
-        const act = hit && hit.dataset.act;
-        if (!act) return;
-        if (resolved) return;
-        resolved = true;
-        tooltip.removeEventListener('click', onClick);
-        if (advanceOnClick) document.removeEventListener('click', onTargetClick, true);
-        resolve(act);
-      };
-      // Capture-phase listener so we hear the target click before any
-      // child handler that might stopPropagation.
-      const onTargetClick = (e) => {
-        if (resolved) return;
-        if (!target.contains(e.target) && e.target !== target) return;
-        resolved = true;
-        tooltip.removeEventListener('click', onClick);
-        document.removeEventListener('click', onTargetClick, true);
-        resolve('next');
-      };
-      tooltip.addEventListener('click', onClick);
-      if (advanceOnClick) {
-        document.addEventListener('click', onTargetClick, true);
-      }
-    });
-  }
-
-  // ── Phase 1: model-selector modal ──
-  // Scope every selector to #compare-model-overlay so we don't accidentally
-  // match the Group Chat panel's .compare-parallel-toggle (line 1053 of
-  // index.html), which has the same class name and is hidden — its zero
-  // bounding-rect was putting the tooltip in the top-left corner.
-  const phase1 = [
-    { sel: '#compare-model-overlay .modal-body',
-      text: 'Pick what type of test you want to run. <b>Chat</b>, <b>Agent</b>, <b>Search</b> or <b>Deep Research</b>.',
-      placement: 'center-above',
-      before: () => {
-        const modalBody = document.querySelector('#compare-model-overlay .modal-body');
-        if (modalBody) modalBody.scrollTop = 0;
-      } },
-    { sel: '#compare-model-overlay .compare-blind-toggle',
-      text: '<b>Blind Mode</b> hides model names so you don’t know which model gives what output.' },
-    { sel: '#compare-model-overlay .compare-parallel-toggle',
-      text: '<b>Parallel</b> runs side by side, toggle to <b>Sequential</b> as well.' },
-    { sel: '#compare-model-overlay .compare-dice-toggle',
-      text: '<b>Shuffle</b> picks the models in your entire list of endpoints. Combine with <b>Blind Mode</b> and you get the cleanest evaluation.' },
-  ];
-
-  for (let i = 0; i < phase1.length; i++) {
-    const step = phase1[i];
-    const res = await _showStep(step.sel, step.text, {
-      isFirst: i === 0,
-      isLast: false,
-    });
-    if (res === 'skip') { _clear(); return true; }
-    if (res === 'back') { if (i > 0) i -= 2; continue; }
-  }
-
-  // ── Wait for the modal to close and the compare panes to come up ──
-  _clearHalos();
-  tooltip.innerHTML =
-    '<div class="tour-text">Click <b>Start</b> when ready — it will probe the models before beginning.</div>' +
-    '<div class="tour-nav">' +
-      '<button class="tour-btn-skip" data-act="skip">skip</button>' +
-    '</div>';
-  // Anchor the tooltip next to the actual "Start" button so
-  // the user's eye is drawn to the next click. Halo on it too so it
-  // glows the same way as the previous steps.
-  const startBtn = document.querySelector('#compare-model-overlay .research-start-btn');
-  if (startBtn) {
-    _halos.push(_makeHalo(startBtn));
-    requestAnimationFrame(() => _positionTooltip(startBtn));
-  } else {
-    // Fallback: park near the top if the start button isn't around (yet).
-    tooltip.style.left = ((window.innerWidth / 2) - 140) + 'px';
-    tooltip.style.top  = '20px';
-  }
-
-  const skipDuringWait = new Promise(resolve => {
-    const onClick = (e) => {
-      const hit = e.target.closest && e.target.closest('[data-act="skip"]');
-      if (!hit) return;
-      tooltip.removeEventListener('click', onClick);
-      resolve('skip');
-    };
-    tooltip.addEventListener('click', onClick);
-  });
-  const modalClosed = new Promise(resolve => {
-    const tick = () => {
-      if (!document.getElementById('compare-model-overlay')
-          && (document.getElementById('compare-check-btn') || document.getElementById('cmp-eval-btn'))) {
-        resolve('ready');
-      } else {
-        setTimeout(tick, 200);
-      }
-    };
-    tick();
-  });
-  const waitRes = await Promise.race([skipDuringWait, modalClosed]);
-  if (waitRes === 'skip') { _clear(); return true; }
-
-  // Small breather so any entry animation finishes before we measure.
-  await new Promise(r => setTimeout(r, 300));
-
-  // ── Phase 2: compare panes (post-modal) ──
-  // Note: the Probe button (`#compare-check-btn`) is dynamic — only
-  // visible when there's at least one unverified model — so we don't
-  // tour it here; the user will discover it naturally when needed.
-  const phase2 = [
-    { sel: '#compare-add-btn',
-      text: 'Add more <b>Models</b> here, keep stacking, who’s stopping ya? (you can also remove btw).' },
-    { sel: '#compare-shuffle-btn',
-      text: 'After adding, <b>Shuffle</b> to randomize the order again.' },
-    { sel: '#cmp-eval-btn',
-      text: 'When you’re ready to test, feel free to use curated <b>evaluation prompts</b>.',
-      advanceOnClick: true },
-  ];
-
-  for (let i = 0; i < phase2.length; i++) {
-    const step = phase2[i];
-    const res = await _showStep(step.sel, step.text, {
-      isFirst: i === 0,
-      isLast: i === phase2.length - 1,
-      advanceOnClick: !!step.advanceOnClick,
-    });
-    if (res === 'skip') { _clear(); return true; }
-    if (res === 'back') { if (i > 0) i -= 2; continue; }
-  }
-
-  _clear();
-  await typewriterReply('That’s it, you’ll figure out the rest! Have fun!');
-  return true;
-}
-
 // ── Cookbook tour ──
 async function _cmdTourCookbook(args, ctx) {
   // Clear the chat input so "/tour-cookbook" doesn't linger.
@@ -2718,7 +2434,7 @@ async function _cmdTourCookbook(args, ctx) {
     _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // Idempotent tour-styles injection (shared with /tour and /tour-compare).
+  // Idempotent tour-styles injection (shared with /tour).
   if (!document.getElementById('tour-styles')) {
     const s = document.createElement('style');
     s.id = 'tour-styles';
@@ -4279,7 +3995,7 @@ async function _cmdTourResearch(args, ctx) {
     _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // Shared tour-styles injection (same block as /tour, /tour-compare, /tour-cookbook).
+  // Shared tour-styles injection (same block as /tour, /tour-cookbook).
   if (!document.getElementById('tour-styles')) {
     const s = document.createElement('style');
     s.id = 'tour-styles';
@@ -5712,13 +5428,6 @@ const COMMANDS = {
     handler: _cmdDemo,
     usage: '/demo'
   },
-  'tour-compare': {
-    alias: ['compare-tour'],
-    category: 'Tours',
-    help: 'Model comparison tour',
-    handler: _cmdTourCompare,
-    usage: '/tour-compare'
-  },
   'tour-cookbook': {
     alias: ['cookbook-tour'],
     category: 'Tours',
@@ -5859,13 +5568,6 @@ const COMMANDS = {
     help: 'Open Deep Research',
     handler: (args, ctx) => _cmdToolPanel('research', args, ctx),
     usage: '/research'
-  },
-  compare: {
-    alias: [],
-    category: 'Tools',
-    help: 'Open Compare',
-    handler: (args, ctx) => _cmdToolPanel('compare', args, ctx),
-    usage: '/compare'
   },
   mcp: {
     alias: [],

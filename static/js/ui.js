@@ -32,7 +32,6 @@ function _targetEl(target) {
 }
 
 const SPACE_CARD_SELECTOR = [
-  '#email-lib-modal .doclib-card',
   '#doclib-modal .doclib-card',
   '#doclib-modal .doclib-chat-row',
   '#memory-modal .doclib-card',
@@ -40,8 +39,6 @@ const SPACE_CARD_SELECTOR = [
   '#tasks-modal .task-log-row',
   '#research-overlay [data-job-id]',
   '#cookbook-modal .doclib-card',
-  '.email-reader-tab-modal .doclib-card',
-  '.email-window-modal .doclib-card',
 ].join(', ');
 
 const SPACE_BLOCKED_SELECTOR = [
@@ -54,7 +51,6 @@ const SPACE_BLOCKED_SELECTOR = [
   '[contenteditable=""]',
   '.recipient-chip',
   '.doclib-card-dropdown',
-  '.email-card-dropdown',
   '.task-log-row-actions',
   '.modal-header',
 ].join(', ');
@@ -116,14 +112,6 @@ function _closeHoveredWindow() {
   }
   if (!win) win = hoveredToggleWindow;
   if (!win || !document.contains(win)) return false;
-  const modalForWin = win.closest?.('.modal[id]');
-  if (modalForWin?.id === 'email-lib-modal') {
-    const closeBtn = document.getElementById('email-lib-close') || modalForWin.querySelector('.close-btn');
-    if (closeBtn) {
-      try { closeBtn.click(); return true; } catch {}
-    }
-    try { modalForWin.remove(); return true; } catch {}
-  }
   const id = _spaceWindowId(win);
   if (id && Modals.isRegistered(id)) {
     Modals.close(id);
@@ -911,11 +899,11 @@ if ('ontouchstart' in window) {
   // the page after the sheet slides away.
   function _closeFloatingDropdownsForSwipe() {
     document.querySelectorAll(
-      '.email-card-dropdown, .hwfit-cached-dropdown, .cookbook-saved-menu, .cookbook-dep-menu'
+      '.hwfit-cached-dropdown, .cookbook-saved-menu, .cookbook-dep-menu'
     ).forEach(d => {
       if (d._anchor) d._anchor.classList.remove('cookbook-menu-active', 'reader-more-active');
       // Registered menus tear down through their own dismiss (releasing the
-      // Escape-stack entry); unregistered ones (email/dep) just get removed.
+      // Escape-stack entry); unregistered ones (dep) just get removed.
       dismissOrRemove(d);
     });
   }
@@ -930,13 +918,12 @@ if ('ontouchstart' in window) {
     // to interpret it as a swipe-to-dismiss gesture. Skip the swipe init
     // entirely when the touch starts inside the editor area.
     if (e.target.closest('.gallery-editor, .gallery-editor-container')) return;
-    // Internal vertical drag handles (e.g. splitters that
-    // resizes the day-detail pane) consume vertical touches themselves. If
-    // we don't bail here, the swipe-dismiss path also tracks the touch and
-    // slides the whole modal down as the user drags the handle. The
-    // [data-no-swipe-dismiss] hook lets other components opt out the same
-    // way without having to hard-code their selector here.
-    if (e.target.closest('.cal-splitter, [data-no-swipe-dismiss]')) return;
+    // Internal vertical drag handles (splitters) consume vertical touches
+    // themselves. If we don't bail here, the swipe-dismiss path also tracks
+    // the touch and slides the whole modal down as the user drags the
+    // handle. The [data-no-swipe-dismiss] hook lets components opt out
+    // without having to hard-code their selector here.
+    if (e.target.closest('[data-no-swipe-dismiss]')) return;
 
     // Only allow swipe-dismiss from header or grab handle (top 48px)
     const isHeader = !!e.target.closest('.modal-header');
@@ -1015,8 +1002,8 @@ if ('ontouchstart' in window) {
         _swipeTarget.style.willChange = 'transform';
         // A swipe is starting — close any floating menus/dropdowns so they
         // don't orphan over the page once the sheet slides away. Covers the
-        // email reader More menu, cookbook serve kebab + saved-configs, and
-        // anything else hanging off body via _anchor.
+        // cookbook serve kebab + saved-configs, and anything else hanging
+        // off body via _anchor.
         _closeFloatingDropdownsForSwipe();
       } else {
         return;
@@ -1065,9 +1052,9 @@ if ('ontouchstart' in window) {
         const modal = el.closest('.modal');
         if (modal) {
           modal.classList.add('hidden');
-          // Some modals (email library) toggle visibility via
-          // inline display style which would override .hidden — clear it
-          // so the modal is actually dismissed.
+          // Some modals toggle visibility via inline display style which
+          // would override .hidden — clear it so the modal is actually
+          // dismissed.
           modal.style.display = '';
           document.querySelectorAll('#settings-menu-list .list-item.active').forEach(i => i.classList.remove('active'));
           // Notify modules so they can sync internal open-state flags
@@ -1196,10 +1183,10 @@ if (!window._odyEscExpandGuard) {
   // Auto-promote any modal that becomes visible to the top of the z-stack.
   // Every modal shares `z-index: 250` from the base `.modal` rule, so visual
   // stacking falls back to DOM order — which is unpredictable (cookbook is
-  // a static HTML node; some panes are appended once and stay, others
-  // research get re-appended on each open). Result: opening compare AFTER
-  // cookbook can render compare UNDER it. Bumping the z-index on every
-  // open guarantees most-recently-opened wins both visually AND for ESC.
+  // a static HTML node; some panes are appended once and stay, others like
+  // research get re-appended on each open). Result: a window opened AFTER
+  // cookbook can render UNDER it. Bumping the z-index on every open
+  // guarantees most-recently-opened wins both visually AND for ESC.
   let _zCounter = 1000;
   const _isVisible = (m) => !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none';
   const _promote = (m) => {
@@ -1291,7 +1278,7 @@ if (!window._odyEscExpandGuard) {
     }
     const settingsModal = document.getElementById('settings-modal');
     if (settingsModal && _isVisible(settingsModal)) {
-      const innerForm = settingsModal.querySelector('#unified-intg-form, #set-email-accounts-form');
+      const innerForm = settingsModal.querySelector('#unified-intg-form');
       if (innerForm && innerForm.style.display !== 'none' && innerForm.children.length > 0) {
         e.preventDefault();
         e.stopImmediatePropagation();
