@@ -4234,7 +4234,11 @@ body.bg-pattern-sparkles {
     }
     @media (max-width:768px){
       .box { max-height:none; }
-      .chat-container { padding:10px; flex:1; margin-top:0; padding-top:42px; min-height:0; }
+      /* iOS PWA (standalone + viewport-fit=cover): inset-top clears the
+         status bar / Dynamic Island; 0 in normal browser tabs. The top bar
+         (and its centered session title) sits inside this padding via its
+         negative margin, so it shifts down with the container. */
+      .chat-container { padding:10px; flex:1; margin-top:0; padding-top:calc(42px + env(safe-area-inset-top, 0px)); min-height:0; }
       .scroll-nav-btn { width:44px; height:44px; font-size:14px; margin-bottom:0; }
       .send-btn { width:48px; height:48px !important; border-radius:12px; }
       .send-btn svg { width:22px; height:22px; }
@@ -4375,7 +4379,8 @@ body.bg-pattern-sparkles {
       /* Incognito indicator — right side next to hamburger on mobile */
       .incognito-indicator {
         position: fixed;
-        top: 12px;
+        /* Track the hamburger's safe-area offset so the top row stays aligned */
+        top: calc(12px + env(safe-area-inset-top, 0px));
         left: auto !important;
         right: 48px !important;
         transform: none;
@@ -4437,7 +4442,8 @@ body.bg-pattern-sparkles {
       .hamburger-btn {
         width: 44px;
         height: 44px;
-        top: 6px;
+        /* Keep clear of the iOS status icons in standalone PWA mode */
+        top: calc(6px + env(safe-area-inset-top, 0px));
         left: auto !important;
         right: 4px !important;
         -webkit-tap-highlight-color: transparent;
@@ -4452,7 +4458,8 @@ body.bg-pattern-sparkles {
       .mobile-new-chat-btn {
         display: flex;
         position: fixed;
-        top: 12px;
+        /* Track the hamburger's safe-area offset so the top row stays aligned */
+        top: calc(12px + env(safe-area-inset-top, 0px));
         left: 8px;
         z-index: 210;
         width: 32px;
