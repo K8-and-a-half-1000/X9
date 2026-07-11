@@ -4245,7 +4245,7 @@ body.bg-pattern-sparkles {
          status bar / Dynamic Island; 0 in normal browser tabs. The top bar
          (and its centered session title) sits inside this padding via its
          negative margin, so it shifts down with the container. */
-      .chat-container { padding:10px 10px 2px; flex:1; margin-top:0; padding-top:calc(42px + env(safe-area-inset-top, 0px)); min-height:0; }
+      .chat-container { padding:10px; flex:1; margin-top:0; padding-top:calc(42px + env(safe-area-inset-top, 0px)); min-height:0; }
       .scroll-nav-btn { width:44px; height:44px; font-size:14px; margin-bottom:0; }
       .send-btn { width:48px; height:48px !important; border-radius:12px; }
       .send-btn svg { width:22px; height:22px; }
@@ -27813,4 +27813,178 @@ body.theme-frosted .modal {
 }
 @keyframes dep-pkg-flash {
   50% { background: color-mix(in srgb, var(--accent, var(--red)) 18%, var(--panel)); }
+}
+
+/* ═══════════════════════ Tool pages ═══════════════════════
+   Sidebar-reachable tool windows (Brain, Deep Research, Gallery, Library,
+   Tasks, Theme, Settings) render as full PAGES instead of floating popups:
+   they fill the chat area beside the sidebar (desktop) or the whole screen
+   (mobile), scroll vertically only, and are navigated with the same sidebar
+   as the chat page. No dragging, docking, resizing or minimizing.
+   Marked .tool-page / body.tool-page-view by modalManager.js; drag+resize
+   are short-circuited in windowDrag.js / windowResize.js.
+   Popups NOT reachable from the sidebar keep the floating-window styling. */
+
+/* Pinned below the sidebar (400), its backdrop (390) and the raised
+   hamburger so navigation always stays reachable. !important beats the
+   window manager's inline z-index bumps. */
+.modal.tool-page {
+  z-index: 240 !important;
+  align-items: stretch;
+  background: none !important;
+  backdrop-filter: none !important;
+}
+body.tool-page-view .hamburger-btn {
+  z-index: 300;
+}
+
+/* The page surface fills its wrapper (already chat-area-sized on desktop,
+   full-viewport on mobile). Neutralize every windowing leftover: inline
+   drag/resize geometry, size caps, sheet radii, shadows. */
+.modal.tool-page > .modal-content {
+  position: static !important;
+  transform: none !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.tool-page .modal-header { cursor: default; }
+.tool-page .modal-header:active { cursor: default; }
+.tool-page .modal-minimize-btn,
+.tool-page .minimize-btn { display: none !important; }
+
+/* Pages read like the chat page: slightly larger base text, and helper /
+   description text in the chat's text color instead of a washed-out mix. */
+.tool-page > .modal-content { font-size: 15px; }
+.tool-page .admin-toggle-sub {
+  color: var(--fg);
+  opacity: 0.92;
+  font-size: 13px;
+}
+.tool-page .shortcut-label { font-size: 13px; }
+.tool-page .settings-nav-item {
+  font-size: 13.5px;
+  color: color-mix(in srgb, var(--fg) 85%, transparent);
+}
+
+/* Whole page scrolls as one vertical column — no inner max-height traps. */
+.tool-page .settings-layout { max-height: none; }
+
+/* Desktop: a hairline between sidebar and page, like a content pane. */
+@media (min-width: 769px) {
+  .modal.tool-page > .modal-content {
+    border-left: 1px solid var(--border) !important;
+  }
+  /* The chat-area offset rule (see "Tool windows open centered in the CHAT
+     AREA") assumes the sidebar is on the LEFT. With a right-side sidebar
+     (the default), anchor the page to the left edge and reserve the
+     sidebar/rail width on the right instead. */
+  body:has(.sidebar.right-side) #gallery-modal.tool-page,
+  body:has(.sidebar.right-side) #tasks-modal.tool-page,
+  body:has(.sidebar.right-side) #memory-modal.tool-page,
+  body:has(.sidebar.right-side) #doclib-modal.tool-page,
+  body:has(.sidebar.right-side) #research-overlay.tool-page,
+  body:has(.sidebar.right-side) #theme-modal.tool-page,
+  body:has(.sidebar.right-side) #settings-modal.tool-page {
+    left: 0;
+    width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
+  }
+  body:has(.sidebar.right-side) .modal.tool-page > .modal-content {
+    border-left: none !important;
+    border-right: 1px solid var(--border) !important;
+  }
+}
+
+/* Two-level vertical settings nav — back row (hidden on wide layouts). */
+.settings-back-row {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 10px;
+  margin: 0 0 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: color-mix(in srgb, var(--fg) 85%, transparent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.settings-back-row svg { flex-shrink: 0; opacity: 0.7; }
+
+@media (max-width: 768px) {
+  /* Full-bleed page under the status bar / above the home indicator. */
+  .modal.tool-page,
+  #research-overlay.tool-page {
+    align-items: stretch !important;
+    padding: 0;
+  }
+  /* Theme and Research have bottom-sheet rules keyed on IDs with !important
+     (65vh / 90dvh, fixed to the bottom edge) — match them at ID strength so
+     pages win: static, full-height, square, whole page scrolls. */
+  .modal.tool-page > .modal-content,
+  #theme-modal.tool-page > #theme-popup,
+  #research-overlay.tool-page > #research-pane {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+    /* A page is not a sheet: plain fade instead of a slide-up. */
+    animation: fadeIn 0.18s ease-out both;
+  }
+  /* No bottom-sheet grab pill on a page. */
+  .modal.tool-page > .modal-content::before,
+  #theme-modal.tool-page > #theme-popup::before { content: none !important; }
+  /* The fixed hamburger floats top-right above the page — keep the page
+     header's row clear of it. */
+  .tool-page .modal-header { padding-right: 48px; }
+
+  /* Settings: vertical section list first, chosen panel + back row second.
+     Replaces the horizontal scrolling tab strip (media 600px + container
+     rules) — higher specificity + later in the file. */
+  .tool-page .settings-layout {
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .tool-page .settings-sidebar {
+    width: auto;
+    flex-direction: column;
+    overflow: visible;
+    border-right: none;
+    border-bottom: none;
+    background: none;
+    padding: 4px 0;
+    gap: 4px;
+  }
+  .tool-page .settings-sidebar-divider { display: block; }
+  .tool-page .settings-sidebar-label { display: block; font-size: 11px; }
+  .tool-page .settings-nav-item {
+    flex: 0 0 auto;
+    padding: 13px 12px;
+    font-size: 14.5px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--fg) 4%, transparent);
+  }
+  .tool-page .settings-panels { padding: 0 2px; }
+  /* The two levels: menu OR panel, never both. */
+  .tool-page .settings-modal-content:not(.settings-panel-active) .settings-panels { display: none; }
+  .tool-page .settings-modal-content.settings-panel-active .settings-sidebar { display: none; }
+  .tool-page .settings-modal-content.settings-panel-active .settings-back-row { display: flex; }
 }

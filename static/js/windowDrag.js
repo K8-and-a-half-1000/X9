@@ -280,6 +280,9 @@ export function makeWindowDraggable(modal, options = {}) {
 
   header.addEventListener('mousedown', (e) => {
     if (mobileSkip > 0 && window.innerWidth <= mobileSkip) return;
+    // Tool pages (sidebar tools rendered as full pages) are not windows —
+    // no dragging, docking, or fullscreen-snapping.
+    if (modal.classList && modal.classList.contains('tool-page')) return;
     if (skipSelector && e.target.closest(skipSelector)) return;
     e.preventDefault();
     movedDuringDrag = false;
@@ -309,6 +312,7 @@ export function makeWindowDraggable(modal, options = {}) {
   if (enableTouch) {
     header.addEventListener('touchstart', (e) => {
       if (mobileSkip > 0 && window.innerWidth <= mobileSkip) return;
+      if (modal.classList && modal.classList.contains('tool-page')) return;
       if (skipSelector && e.target.closest(skipSelector)) return;
       const t = e.touches[0];
       if (!t) return;

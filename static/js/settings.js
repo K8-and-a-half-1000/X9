@@ -23,10 +23,36 @@ function safeRasterDataUrl(raw) {
 /* ── Tab switching ── */
 const ADMIN_TABS = new Set(['services', 'integrations', 'tools', 'users', 'system']);
 
+/* Two-level vertical nav state (narrow/page layouts): false = section list,
+   true = a section panel with the back row. Scrolls to the top on each flip
+   so a "navigation" feels like a page change, not a scroll position. */
+function _setPanelActive(on) {
+  const content = modalEl && modalEl.querySelector('.settings-modal-content');
+  if (!content) return;
+  content.classList.toggle('settings-panel-active', !!on);
+  content.scrollTop = 0;
+  const panels = content.querySelector('.settings-panels');
+  if (panels) panels.scrollTop = 0;
+}
+
 function initTabs() {
+  // Narrow/page layouts run a two-level vertical nav: section list first,
+  // then the chosen panel with a back row on top. The class is toggled on
+  // every layout — CSS only acts on it below the narrow breakpoint.
+  const backRow = modalEl.querySelector('#settings-back-row');
+  if (backRow) {
+    backRow.addEventListener('click', () => {
+      _setPanelActive(false);
+      // Leaving the Appearance panel via "back" must undo its page-dim state,
+      // same as switching tabs or closing the modal does.
+      document.body.classList.remove('settings-appearance-open');
+      syncAppearanceOpacity(false);
+    });
+  }
   modalEl.querySelectorAll('[data-settings-tab]').forEach(btn => {
     btn.addEventListener('click', () => {
       const tab = btn.dataset.settingsTab;
+      _setPanelActive(true);
       // Lazy-init admin when first clicking an admin tab
       if (ADMIN_TABS.has(tab) && window.adminModule && typeof window.adminModule.open === 'function') {
         window.adminModule.open(tab);
@@ -4239,6 +4265,9 @@ export function open(tab) {
     modalEl.querySelectorAll('[data-settings-tab]').forEach(b => b.classList.toggle('active', b.dataset.settingsTab === tab));
     modalEl.querySelectorAll('[data-settings-panel]').forEach(p => p.classList.toggle('hidden', p.dataset.settingsPanel !== tab));
   }
+  // Narrow/page nav: an explicit tab deep-links into that panel; a plain
+  // open() starts at the section list (CSS ignores this on wide layouts).
+  _setPanelActive(!!tab);
   // Auto-init admin data if showing an admin tab
   const activeTab = tab || (modalEl.querySelector('[data-settings-tab].active') || {}).dataset?.settingsTab || 'services';
   document.body.classList.toggle('settings-appearance-open', activeTab === 'appearance');

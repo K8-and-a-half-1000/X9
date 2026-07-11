@@ -39,7 +39,9 @@ export function makeWindowResizable(content, options = {}) {
   const onResizeEnd = options.onResizeEnd || null;
   const storageKey = options.storageKey || null;
 
-  const _skip = () => (mobileSkip > 0 && window.innerWidth <= mobileSkip) || isLocked();
+  const _skip = () => (mobileSkip > 0 && window.innerWidth <= mobileSkip) || isLocked()
+    // Tool pages fill the chat area — edge-resize would fight the page layout.
+    || !!(content.closest && content.closest('.tool-page'));
 
   // Which borders is (cx,cy) within EDGE px of? Only counts when the pointer
   // is also within the window's span on the perpendicular axis, so the corners

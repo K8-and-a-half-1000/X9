@@ -1190,6 +1190,10 @@ if (!window._odyEscExpandGuard) {
   const _isVisible = (m) => !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none';
   const _promote = (m) => {
     if (!m?.classList?.contains('modal') || !_isVisible(m)) return;
+    // Tool pages are pinned LOW (below sidebar/hamburger) by the stylesheet
+    // so sidebar navigation stays clickable — never promote them, and shed
+    // any stale inline z so the stylesheet pin wins.
+    if (m.classList.contains('tool-page')) { m.style.removeProperty('z-index'); return; }
     // Re-entry guard: setting style.zIndex itself fires the observer that
     // calls us back. Skip if this element is already pinned to the top
     // (matches the current counter) so we don't spin into an infinite loop.

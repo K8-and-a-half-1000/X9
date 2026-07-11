@@ -65,6 +65,12 @@ function _applyRememberedDock(id) {
 let _modalTopZ = 300;
 function _bringToFront(modal) {
   if (!modal) return;
+  // Tool pages stay at the stylesheet's low pin (below sidebar/hamburger) —
+  // pages don't participate in window stacking.
+  if (modal.classList && modal.classList.contains('tool-page')) {
+    modal.style.removeProperty('z-index');
+    return;
+  }
   const z = nextToolWindowZ({
     exclude: modal,
     current: getComputedStyle(modal).zIndex,
@@ -1388,7 +1394,7 @@ const _AUTO_WIRE = {
   'memory-modal':         { rail: null,             sidebar: 'tool-memory-btn' },
   'research-overlay':     { rail: 'rail-research',  sidebar: 'tool-research-btn' },
   'theme-modal':          { rail: null,             sidebar: 'tool-theme-btn' },
-  'settings-modal':       { rail: null,             sidebar: 'tool-settings-btn' },
+  'settings-modal':       { rail: 'rail-settings',  sidebar: 'user-bar-settings' },
   'ge-shortcuts-modal':   { rail: null,             sidebar: null },
   // Prompt window opens from the overflow menu (no rail/sidebar button), but
   // wiring it here makes tab-down use the new .minimized-dock-chip instead of
@@ -1431,6 +1437,9 @@ function _scanAndWire() {
     if (!modal) continue;
     injectMinimizeButton(modal, id);
   }
+  // Keep the tool-page marking/body-class eventually consistent for any
+  // open/close path the observers can't see (defined further down; hoisted).
+  _syncPageView();
 }
 const _scanTimer = setInterval(_scanAndWire, 1000);
 // First scan after DOM ready
@@ -1492,5 +1501,112 @@ document.addEventListener('click', (e) => {
     }
   }
 }, true);
+
+/* ── Tool pages ──────────────────────────────────────────────────────────
+   The sidebar-reachable tool windows render as full PAGES (chat-area sized,
+   sidebar kept as navigation) instead of floating popups. This coordinator
+   marks them with .tool-page, keeps body.tool-page-view in sync, and gives
+   them page semantics: opening one page closes the others, and opening a
+   chat from the sidebar closes the page. Layout lives in style.css ("Tool
+   pages" section); drag/resize are disabled for .tool-page elements inside
+   windowDrag.js / windowResize.js. Popups NOT reachable from the sidebar
+   (prompt window, confirms, pickers…) are untouched. */
+const _PAGE_IDS = ['memory-modal', 'gallery-modal', 'tasks-modal', 'doclib-modal',
+                   'research-overlay', 'theme-modal', 'settings-modal'];
+
+function _pageVisible(el) {
+  return !!el && document.body.contains(el)
+    && !el.classList.contains('hidden')
+    && !el.classList.contains('modal-minimized')
+    && el.style.display !== 'none';
+}
+
+function _closePage(id) {
+  if (!_state.has(id)) _autoRegister(id);
+  try { close(id); } catch (err) { console.warn('tool-page close failed', id, err); }
+}
+
+function _syncPageView(openedId) {
+  let anyVisible = false;
+  for (const id of _PAGE_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (!el.classList.contains('tool-page')) {
+      el.classList.add('tool-page');
+      // A window remembered as edge-docked would re-dock on open and fight
+      // the page layout — drop the legacy state once.
+      try { localStorage.removeItem('odysseus-modal-remembered-dock-' + id); } catch (_) {}
+    }
+    if (!_pageVisible(el)) continue;
+    if (openedId && id !== openedId) { _closePage(id); continue; }
+    anyVisible = true;
+  }
+  document.body.classList.toggle('tool-page-view', anyVisible);
+}
+
+const _pageAttrObserver = new MutationObserver((muts) => {
+  let openedId;
+  for (const m of muts) {
+    if (!_pageVisible(m.target)) continue;
+    const old = m.oldValue || '';
+    const wasHidden = m.attributeName === 'class'
+      ? /\bhidden\b|\bmodal-minimized\b/.test(old)
+      : /display:\s*none/.test(old);
+    if (wasHidden) openedId = m.target.id;
+  }
+  _syncPageView(openedId);
+});
+
+function _observePage(el) {
+  if (el.dataset.pageObserved) return;
+  el.dataset.pageObserved = '1';
+  _pageAttrObserver.observe(el, {
+    attributes: true, attributeFilter: ['class', 'style'], attributeOldValue: true,
+  });
+}
+
+// Dynamic tool modals (gallery, tasks, doclib, research) are appended to
+// <body> when opened — mark + observe them the moment they land so the page
+// styling applies before first paint.
+new MutationObserver((muts) => {
+  let touched = false;
+  let openedId;
+  for (const m of muts) {
+    for (const n of m.addedNodes) {
+      if (n.nodeType === 1 && _PAGE_IDS.includes(n.id)) {
+        _observePage(n);
+        touched = true;
+        if (_pageVisible(n)) openedId = n.id;
+      }
+    }
+    for (const n of m.removedNodes) {
+      if (n.nodeType === 1 && _PAGE_IDS.includes(n.id)) touched = true;
+    }
+  }
+  if (touched) _syncPageView(openedId);
+}).observe(document.body, { childList: true });
+
+// Sidebar navigation while a page is open: opening a chat (or starting a new
+// one) leaves the page, same as navigating between pages.
+document.addEventListener('click', (e) => {
+  if (!document.body.classList.contains('tool-page-view')) return;
+  if (!e.target.closest('#sidebar-brand-btn, #sidebar-new-chat-btn, #sidebar .list-item[data-session-id]')) return;
+  for (const id of _PAGE_IDS) {
+    if (_pageVisible(document.getElementById(id))) _closePage(id);
+  }
+}, true);
+
+function _initPageView() {
+  for (const id of _PAGE_IDS) {
+    const el = document.getElementById(id);
+    if (el) _observePage(el);
+  }
+  _syncPageView();
+}
+if (document.readyState !== 'loading') {
+  _initPageView();
+} else {
+  document.addEventListener('DOMContentLoaded', _initPageView);
+}
 
 export default { register, unregister, isRegistered, isMinimized, minimize, restore, toggle, close, injectMinimizeButton };
