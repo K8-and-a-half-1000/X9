@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Optional
 
+from core.platform_compat import IS_WINDOWS
 from src.agent_tools import ToolBlock, TOOL_TAGS
 from src.tool_parsing import _TOOL_NAME_MAP
 
@@ -20,16 +21,41 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # OpenAI-compatible function tool schemas
 # ---------------------------------------------------------------------------
+# On Windows the `bash` tool actually executes PowerShell (the name is kept
+# for tag/frontend compatibility) — the description must say so, or models
+# emit POSIX commands that fail on the host.
+_SHELL_TOOL_DESC = (
+    (
+        "Run a PowerShell command on the WINDOWS host (full access; the tool name `bash` is historical "
+        "-- the command executes in PowerShell). Write PowerShell syntax, not bash or cmd.exe: "
+        "Get-ChildItem not ls, Select-String not grep, $env:NAME not $NAME; chain with `;` "
+        "(avoid &&/||, unsupported in Windows PowerShell 5.1). Multi-line scripts are fine. "
+        if IS_WINDOWS
+        else "Run a shell command (full access). "
+    )
+    + "Prefer a dedicated tool whenever one fits the job (reading, writing, editing, searching, or "
+    "listing files); use bash only for what no dedicated tool covers (installs, git, builds, running "
+    "programs, system info). Do NOT create or edit files via shell redirects/heredocs/sed/Set-Content "
+    "-- use the dedicated file tools."
+)
+
 FUNCTION_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
             "name": "bash",
-            "description": "Run a shell command (full access). Prefer a dedicated tool whenever one fits the job (reading, writing, editing, searching, or listing files); use bash only for what no dedicated tool covers (installs, git, builds, running programs, system info). Do NOT create or edit files via bash redirects/heredocs/sed -- use the dedicated file tools.",
+            "description": _SHELL_TOOL_DESC,
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string", "description": "The shell command to execute"}
+                    "command": {
+                        "type": "string",
+                        "description": (
+                            "The PowerShell command to execute"
+                            if IS_WINDOWS
+                            else "The shell command to execute"
+                        ),
+                    }
                 },
                 "required": ["command"]
             }

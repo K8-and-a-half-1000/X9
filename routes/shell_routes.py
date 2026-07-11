@@ -734,10 +734,12 @@ async def _generate_win_detached(cmd: str, request: Request):
     else:
         script_path = TMUX_LOG_DIR / f"{session_id}.cmd"
         # cmd.exe wrapper: run, redirect all output to the log, record exit code.
+        # Redirect-first echo: `echo %ERRORLEVEL%> file` expands to `echo 5> file`
+        # and cmd parses the digit as a stream-handle redirect (empty exit file).
         script_path.write_text(
             "@echo off\r\n"
             f'call {cmd} > "{log_path}" 2>&1\r\n'
-            f'echo %ERRORLEVEL%> "{exit_path}"\r\n',
+            f'>"{exit_path}" echo %ERRORLEVEL%\r\n',
             encoding="utf-8",
         )
         argv = [os.environ.get("ComSpec", "cmd.exe"), "/c", str(script_path)]

@@ -25,6 +25,7 @@ from src.settings import get_setting
 from src.prompt_security import untrusted_context_message
 from src.tool_security import blocked_tools_for_owner, plan_mode_disabled_tools
 from src.tool_policy import GUIDE_ONLY_DIRECTIVE, ToolPolicy
+from core.platform_compat import IS_WINDOWS
 from src.tool_utils import _truncate, get_mcp_manager
 from src.agent_tools import (
     parse_tool_blocks,
@@ -166,6 +167,12 @@ _AGENT_PREAMBLE = """\
 You are an AI assistant with tool access. Only the tools listed below are available for this turn.
 To use a tool, write a fenced code block with the tool name as the language tag. The block executes automatically and you see the output."""
 
+if IS_WINDOWS:
+    # Without this, models default to POSIX and every shell call fails on the
+    # host. The `bash` tool executes PowerShell on Windows (subprocess_tools).
+    _AGENT_PREAMBLE += """ \
+The host machine runs WINDOWS: shell commands execute in PowerShell — write PowerShell syntax, not bash."""
+
 _AGENT_RULES = """\
 ## Base rules
 - Only use tools when needed. For casual messages like "test", "yo", "thanks", answer normally.
@@ -278,10 +285,7 @@ def _domain_rules_for_tools(tool_names: set) -> list[str]:
         rules.append(_LINK_RULES)
     return rules
 
-# Each tool section is keyed by tool name(s) it covers.
-# Sections with multiple tools use a tuple key.
-TOOL_SECTIONS = {
-    "bash": """\
+_BASH_SECTION_POSIX = """\
 ```bash
 <shell command>
 ```
@@ -294,7 +298,31 @@ For LONG-running commands (package installs, pip/npm, ffmpeg, model downloads, t
 pip install openai-whisper
 ```
 SANDBOX LIMITS: stdin/stdout are pipes, so there is NO interactive terminal — `input()`, `curses`, `termios`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax (`python -c "import py_compile; py_compile.compile('x.py')"`) and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the Odysseus UI — no need to copy files out.
-NEVER pipe multi-line Python through `python -c "..."` — shell quoting eats real newlines and `\\n` arrives as literal backslash-n, which Python parses as a line-continuation error on line 1. To run multi-line code, either use the dedicated `python` tool block above, or save to a file first with a quoted HEREDOC (`cat > /tmp/x.py << 'EOF' ... EOF`) and then `python /tmp/x.py`.""",
+NEVER pipe multi-line Python through `python -c "..."` — shell quoting eats real newlines and `\\n` arrives as literal backslash-n, which Python parses as a line-continuation error on line 1. To run multi-line code, either use the dedicated `python` tool block above, or save to a file first with a quoted HEREDOC (`cat > /tmp/x.py << 'EOF' ... EOF`) and then `python /tmp/x.py`."""
+
+# Windows: the same tool tag executes POWERSHELL (subprocess_tools.BashTool
+# routes it through `powershell -File`). The section must teach the right
+# dialect or the model's commands fail on the host.
+_BASH_SECTION_WINDOWS = """\
+```bash
+<PowerShell command>
+```
+Runs the command in POWERSHELL on the WINDOWS host (the `bash` tag is historical — do NOT write bash or cmd.exe syntax). Output is returned to you. Use for: installing packages, checking files, git, system info, process management, etc.
+PowerShell, not POSIX: `Get-ChildItem` (not `ls -la`), `Select-String` (not `grep`), `Get-Content` (not `cat`), `$env:NAME` (not `$NAME`); chain commands with `;` (avoid `&&`/`||` — not supported in Windows PowerShell 5.1). Multi-line scripts are fine and run in full.
+Do NOT use the shell / Invoke-WebRequest / curl for web lookup/search/latest/current requests when `web_search` or `web_fetch` is available.
+NEVER use the shell to create or change files — no `>`/`>>` redirects, no `Set-Content`/`Out-File`/`Add-Content`/`New-Item`, no in-place edits. To CREATE or fully rewrite a file use `write_file`; to change part of an existing file use `edit_file`. Those show a diff and are the ONLY allowed way to write files. (The shell is for read-only inspection: `Get-ChildItem`, `Get-Content` to READ, `Select-String`, `git status`/`git diff`, builds, installs.)
+For LONG-running commands (package installs, pip/npm, ffmpeg, model downloads, training, builds — anything that may take more than ~20s), make the FIRST line `#!bg` to run it in the BACKGROUND. You get a job id back immediately and are automatically re-invoked with the full output when it finishes — so you never block the chat waiting. Example:
+```bash
+#!bg
+pip install openai-whisper
+```
+SANDBOX LIMITS: the shell runs -NonInteractive with pipes for stdin/stdout, so there is NO interactive terminal — `Read-Host`, `pause`, `input()`, `curses`, `pygame`, and `tkinter` will all fail. Don't try to RUN interactive terminal games or GUI apps here — verify syntax and tell the user to run it themselves in their own terminal. For anything the USER should play/use interactively (games, UIs, demos), prefer a single self-contained HTML file with `<canvas>` + inline JS — save it via `create_document` with language="html" and tell the user to hit the Run / Preview button (▶) in the document editor toolbar; it renders inline in a sandboxed iframe so the game is playable right there. Works from any machine that can reach the Odysseus UI — no need to copy files out.
+NEVER pipe multi-line Python through `python -c "..."` — quoting eats real newlines. To run multi-line code, use the dedicated `python` tool block, or save it to a file with `write_file` and then run `python <path>`."""
+
+# Each tool section is keyed by tool name(s) it covers.
+# Sections with multiple tools use a tuple key.
+TOOL_SECTIONS = {
+    "bash": _BASH_SECTION_WINDOWS if IS_WINDOWS else _BASH_SECTION_POSIX,
 
     "python": """\
 ```python

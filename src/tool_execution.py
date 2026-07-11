@@ -16,6 +16,7 @@ import os
 import pathlib
 import re
 import sys
+import tempfile
 import time
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
@@ -88,6 +89,11 @@ def _is_sensitive_path(resolved: str) -> bool:
     the lowercase form, so a case-sensitive check would let it slip past the
     deny-list in every file tool that relies on it.
     """
+    # Windows accepts / as a separator too (os.altsep); fold it into os.sep so
+    # a forward-slash path can't hide ".ssh" inside one unsplit component.
+    # No-op on POSIX (altsep is None), where \ is a legal filename character.
+    if os.altsep:
+        resolved = resolved.replace(os.altsep, os.sep)
     parts = [p.casefold() for p in resolved.split(os.sep)]
     filename = parts[-1] if parts else ""
 
@@ -124,6 +130,12 @@ def _tool_path_roots() -> list[str]:
     tmpdir = os.environ.get("TMPDIR")
     if tmpdir:
         roots.append(tmpdir)
+
+    # Cross-platform temp root — on Windows this is %TEMP%
+    # (C:\Users\<u>\AppData\Local\Temp), which none of the POSIX-shaped
+    # entries above cover; on POSIX it duplicates /tmp or $TMPDIR and the
+    # dedup below drops it.
+    roots.append(tempfile.gettempdir())
 
     # Opt-in extra roots from settings.
     try:

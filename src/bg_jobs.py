@@ -31,11 +31,14 @@ from typing import Any, Dict, List, Optional
 
 from core.atomic_io import atomic_write_json
 from core.platform_compat import (
+    IS_WINDOWS,
     detached_popen_kwargs,
     find_bash,
     git_bash_path,
     kill_process_tree,
     pid_alive,
+    powershell_file_argv,
+    powershell_script_text,
 )
 
 from src.constants import BG_JOBS_DIR, BG_JOBS_FILE
@@ -91,21 +94,38 @@ def launch(command: str, session_id: str, cwd: Optional[str] = None,
     log_path = _JOBS_DIR / f"{job_id}.log"
     exit_path = _JOBS_DIR / f"{job_id}.exit"
 
-    # The user command goes in its OWN script file, run as a child `bash`. This
+    # The user command goes in its OWN script file, run as a child shell. This
     # is what isolates it: an `exit` inside it only ends that child (so the
     # wrapper still records the exit code), and — unlike textually wrapping the
     # command in `( … )` — the wrapper can't be broken by an unbalanced paren or
-    # a trailing line-continuation in the command. `$?` is the child's real
-    # exit status.
-    bash = find_bash()
-    if bash:
-        # POSIX, or Windows with Git Bash/WSL. The user command goes in its OWN
-        # script file, run as a child `bash` — an `exit` inside it only ends
-        # that child (so the wrapper still records the exit code), and an
-        # unbalanced paren / trailing line-continuation in the command can't
-        # break the wrapper. `$?` is the child's real exit status. Paths are
-        # emitted as POSIX (forward-slash) + shell-quoted so Git Bash on Windows
-        # handles drive paths and spaces correctly.
+    # a trailing line-continuation in the command.
+    if IS_WINDOWS:
+        # PowerShell — the same dialect as the foreground `bash` tool on
+        # Windows (subprocess_tools.BashTool), so a `#!bg` command the model
+        # wrote for the foreground shell runs unchanged in the background.
+        # The .cmd wrapper records the child's real exit code via %ERRORLEVEL%
+        # (powershell -File propagates it — see powershell_script_text).
+        child_path = _JOBS_DIR / f"{job_id}.child.ps1"
+        child_path.write_text(powershell_script_text(command), encoding="utf-8-sig")
+        ps_cmdline = subprocess.list2cmdline(powershell_file_argv(child_path))
+        script_path = _JOBS_DIR / f"{job_id}.cmd"
+        # Redirect-first echo: `echo %ERRORLEVEL%> file` expands to e.g.
+        # `echo 5> file`, and cmd parses a digit glued to `>` as a stream
+        # HANDLE redirect — the exit file ends up empty. `>file echo n` can't
+        # be misparsed and adds no trailing space.
+        script_path.write_text(
+            "@echo off\r\n"
+            f'{ps_cmdline} > "{log_path}" 2>&1\r\n'
+            f'>"{exit_path}" echo %ERRORLEVEL%\r\n',
+            encoding="utf-8",
+        )
+        argv = [os.environ.get("ComSpec", "cmd.exe"), "/c", str(script_path)]
+    else:
+        # POSIX: child `bash` script. An unbalanced paren / trailing
+        # line-continuation in the command can't break the wrapper. `$?` is the
+        # child's real exit status. Paths are shell-quoted (git_bash_path is a
+        # no-op forward-slash conversion on POSIX).
+        bash = find_bash() or "bash"
         cmd_path = _JOBS_DIR / f"{job_id}.cmd.sh"
         cmd_path.write_text(command + "\n", encoding="utf-8")
         lp, xp, cp = (shlex.quote(git_bash_path(p)) for p in (log_path, exit_path, cmd_path))
@@ -116,19 +136,6 @@ def launch(command: str, session_id: str, cwd: Optional[str] = None,
             encoding="utf-8",
         )
         argv = [bash, str(script_path)]
-    else:
-        # Windows without any bash installed: cmd.exe wrapper. The command runs
-        # in its own child .cmd so %ERRORLEVEL% is the command's real exit code.
-        child_path = _JOBS_DIR / f"{job_id}.child.cmd"
-        child_path.write_text("@echo off\r\n" + command + "\r\n", encoding="utf-8")
-        script_path = _JOBS_DIR / f"{job_id}.cmd"
-        script_path.write_text(
-            "@echo off\r\n"
-            f'call "{child_path}" > "{log_path}" 2>&1\r\n'
-            f'echo %ERRORLEVEL%> "{exit_path}"\r\n',
-            encoding="utf-8",
-        )
-        argv = [os.environ.get("ComSpec", "cmd.exe"), "/c", str(script_path)]
 
     proc = subprocess.Popen(
         argv,
@@ -136,7 +143,7 @@ def launch(command: str, session_id: str, cwd: Optional[str] = None,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,
         cwd=cwd or None,
-        **detached_popen_kwargs(),  # detach from the request lifecycle (setsid / DETACHED_PROCESS)
+        **detached_popen_kwargs(),  # detach from the request lifecycle (setsid / own hidden console)
     )
 
     rec = {

@@ -1,8 +1,13 @@
 import asyncio
+import os
+import subprocess
 import sys
+import tempfile
 import time
+import uuid
 import collections
 from typing import Optional, Callable, Awaitable, Tuple, Dict
+from core.platform_compat import IS_WINDOWS, powershell_file_argv, powershell_script_text
 from src.constants import MAX_OUTPUT_CHARS
 
 DEFAULT_BASH_TIMEOUT = 60 * 60     # 1 hour
@@ -100,23 +105,115 @@ async def _run_subprocess_streaming(
         timed_out,
     )
 
+def _run_subprocess_blocking(
+    args,
+    *,
+    shell: bool,
+    env,
+    cwd,
+    timeout: float,
+) -> Tuple[str, str, Optional[int], bool]:
+    """``subprocess.run`` twin of ``_run_subprocess_streaming`` (same return
+    shape, no progress streaming) for event loops that cannot spawn asyncio
+    subprocesses — SelectorEventLoop on Windows, e.g. under
+    ``uvicorn --reload``. ``subprocess.run`` kills the child on timeout."""
+    try:
+        p = subprocess.run(
+            args, shell=shell, env=env, cwd=cwd,
+            capture_output=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as e:
+        return (
+            (e.stdout or b"").decode("utf-8", errors="replace"),
+            (e.stderr or b"").decode("utf-8", errors="replace"),
+            None,
+            True,
+        )
+    return (
+        p.stdout.decode("utf-8", errors="replace"),
+        p.stderr.decode("utf-8", errors="replace"),
+        p.returncode,
+        False,
+    )
+
+
+async def _run_agent_subprocess(
+    args,
+    *,
+    shell: bool,
+    env,
+    cwd,
+    timeout: float,
+    progress_cb: Optional[Callable[[Dict], Awaitable[None]]] = None,
+) -> Tuple[str, str, Optional[int], bool]:
+    """Spawn an agent subprocess (``args`` is a command string when ``shell``,
+    else an argv list) and collect its output.
+
+    Falls back to a blocking run in a thread when the running event loop
+    can't spawn asyncio subprocesses (NotImplementedError from
+    SelectorEventLoop on Windows, e.g. under ``uvicorn --reload``) — progress
+    streaming is lost there, but the command still runs.
+    """
+    try:
+        if shell:
+            proc = await asyncio.create_subprocess_shell(
+                args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                cwd=cwd,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                cwd=cwd,
+            )
+    except NotImplementedError:
+        return await asyncio.to_thread(
+            _run_subprocess_blocking, args,
+            shell=shell, env=env, cwd=cwd, timeout=timeout,
+        )
+    return await _run_subprocess_streaming(proc, timeout=timeout, progress_cb=progress_cb)
+
+
 class BashTool:
     async def execute(self, content: str, ctx: dict) -> dict:
         from src.tool_execution import agent_cwd, _truncate
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
-        proc = await asyncio.create_subprocess_shell(
-            content,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_subproc_env,
-            cwd=agent_cwd(),
-        )
-        stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
-            proc,
-            timeout=DEFAULT_BASH_TIMEOUT,
-            progress_cb=progress_cb,
-        )
+        script_path = None
+        if IS_WINDOWS:
+            # Run the command as a PowerShell script file. cmd.exe (the shell
+            # create_subprocess_shell would use here) silently executes only
+            # the FIRST line of a multi-line command; a -File script keeps
+            # multi-line commands and quoting intact, and PowerShell is the
+            # dialect the prompt tells the model to write on Windows.
+            script_path = os.path.join(
+                tempfile.gettempdir(), f"x9_shell_{uuid.uuid4().hex}.ps1"
+            )
+            with open(script_path, "w", encoding="utf-8-sig") as f:
+                f.write(powershell_script_text(content))
+            args, shell = powershell_file_argv(script_path), False
+        else:
+            args, shell = content, True
+        try:
+            stdout, stderr, rc, timed_out = await _run_agent_subprocess(
+                args,
+                shell=shell,
+                env=_subproc_env,
+                cwd=agent_cwd(),
+                timeout=DEFAULT_BASH_TIMEOUT,
+                progress_cb=progress_cb,
+            )
+        finally:
+            if script_path:
+                try:
+                    os.unlink(script_path)
+                except OSError:
+                    pass
         if timed_out:
             return {"error": f"bash: timed out after {DEFAULT_BASH_TIMEOUT}s — process killed", "exit_code": 124, "stdout": _truncate(stdout, MAX_OUTPUT_CHARS), "stderr": _truncate(stderr, MAX_OUTPUT_CHARS)}
         output = stdout.rstrip()
@@ -131,15 +228,11 @@ class PythonTool:
         from src.tool_execution import agent_cwd, _truncate
         progress_cb = ctx.get("progress_cb")
         _subproc_env = ctx.get("subproc_env")
-        proc = await asyncio.create_subprocess_exec(
-            (sys.executable or "python"), "-I", "-c", content,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        stdout, stderr, rc, timed_out = await _run_agent_subprocess(
+            [(sys.executable or "python"), "-I", "-c", content],
+            shell=False,
             env=_subproc_env,
             cwd=agent_cwd(),
-        )
-        stdout, stderr, rc, timed_out = await _run_subprocess_streaming(
-            proc,
             timeout=DEFAULT_PYTHON_TIMEOUT,
             progress_cb=progress_cb,
         )

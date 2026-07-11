@@ -60,13 +60,16 @@ def detached_popen_kwargs() -> dict:
     it outlives the request/stream that launched it.
 
     POSIX: ``start_new_session=True`` (setsid) — new session + process group.
-    Windows: ``CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`` — the child gets
-    its own process group (so it isn't killed when the parent's console closes)
-    and is detached from any console.
+    Windows: ``CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW`` — the child gets
+    its own process group and its own *hidden* console, so it isn't killed
+    when the parent's console closes. NOT ``DETACHED_PROCESS`` (no console at
+    all): PowerShell 5.1's console host silently drops ALL cmdlet output when
+    it has no console, so a detached background job would run but log nothing.
+    A hidden console keeps console-host apps fully functional.
     """
     if IS_WINDOWS:
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200) | getattr(
-            subprocess, "DETACHED_PROCESS", 0x00000008
+            subprocess, "CREATE_NO_WINDOW", 0x08000000
         )
         return {"creationflags": flags}
     return {"start_new_session": True}
@@ -234,10 +237,12 @@ def git_bash_path(path: str | Path) -> str:
 def find_bash() -> Optional[str]:
     """Locate a real ``bash`` interpreter, or None.
 
-    On Windows this is typically Git Bash / WSL. Many Odysseus features (the
-    agent ``bash`` tool, background jobs, Cookbook scripts) emit bash syntax, so
-    when a bash is present we use it and keep full parity with POSIX. Result is
-    cached.
+    On Windows this is typically Git Bash / WSL. Repo-shipped scripts
+    (Cookbook, install helpers) are written in bash, so when a bash is present
+    we use it for those and keep full parity with POSIX. Result is cached.
+    NB: the agent's interactive ``bash`` tool and ``#!bg`` background jobs do
+    NOT use this on Windows — they run PowerShell (see
+    :func:`powershell_file_argv`), so the model works in one dialect.
     """
     global _BASH_CACHE, _BASH_PROBED
     if _BASH_PROBED:
@@ -293,6 +298,67 @@ def run_script_argv(script_path) -> List[str]:
         comspec = os.environ.get("ComSpec", "cmd.exe")
         return [comspec, "/c", str(script_path)]
     return ["sh", str(script_path)]
+
+
+_POWERSHELL_CACHE: Optional[str] = None
+_POWERSHELL_PROBED = False
+
+
+def find_powershell() -> str:
+    """Locate the PowerShell executable for running agent shell commands.
+
+    Prefers PowerShell 7+ (``pwsh``) when installed — same language, but with
+    UTF-8 output by default and ``&&``/``||`` pipeline chains that models
+    commonly emit — falling back to the built-in Windows PowerShell 5.1.
+    Result is cached.
+    """
+    global _POWERSHELL_CACHE, _POWERSHELL_PROBED
+    if not _POWERSHELL_PROBED:
+        _POWERSHELL_PROBED = True
+        _POWERSHELL_CACHE = (
+            shutil.which("pwsh") or shutil.which("powershell") or "powershell.exe"
+        )
+    return _POWERSHELL_CACHE
+
+
+def powershell_script_text(command: str) -> str:
+    """Wrap ``command`` for execution as a ``.ps1`` script file.
+
+    Callers must write the result with ``encoding="utf-8-sig"``: Windows
+    PowerShell 5.1 reads BOM-less scripts as ANSI and mangles non-ASCII.
+
+    The prologue forces UTF-8 output so cmdlet results survive the pipe (5.1
+    otherwise encodes to the OEM codepage); the try/catch tolerates
+    consoleless hosts where the ``[Console]`` setter throws. The epilogue
+    propagates the last native command's exit code, which ``-File`` does not
+    do by itself (``$LASTEXITCODE`` is ``$null`` when no native command ran,
+    and ``exit $null`` exits 0).
+    """
+    return (
+        "try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}\n"
+        "$OutputEncoding = [System.Text.Encoding]::UTF8\n"
+        f"{command}\n"
+        "exit $LASTEXITCODE\n"
+    )
+
+
+def powershell_file_argv(script_path) -> List[str]:
+    """argv to execute a PowerShell *script file* non-interactively.
+
+    ``-ExecutionPolicy Bypass`` is required: the machine-default policy
+    (Restricted) refuses to run any ``.ps1`` at all. ``-NonInteractive``
+    turns would-be prompts (``Read-Host`` etc.) into errors instead of
+    hanging the pipe forever.
+    """
+    return [
+        find_powershell(),
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_path),
+    ]
 
 
 def is_wsl() -> bool:
