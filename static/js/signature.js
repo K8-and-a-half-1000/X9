@@ -387,7 +387,7 @@ export function capture(opts = {}) {
         </div>
         <div class="modal-body">
           <canvas class="sig-canvas" width="900" height="280" data-no-swipe-dismiss></canvas>
-          <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:0.78rem;">
+          <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:max(0.78rem, 14px);">
             <label for="sig-smoothness" style="white-space:nowrap;opacity:0.8;">Smoothness</label>
             <input id="sig-smoothness" class="sig-smoothness" type="range" min="0" max="10" step="1" value="${initialSmooth}" style="flex:1;">
             <span class="sig-smoothness-val" style="width:18px;text-align:right;font-variant-numeric:tabular-nums;opacity:0.7;">${initialSmooth}</span>
@@ -466,7 +466,7 @@ export function pick(opts = {}) {
       return `
       <div class="sig-tile" data-id="${_esc(s.id)}">
         <img src="${_esc(dataUrl)}"/>
-        <div style="margin-top:4px;font-size:0.72rem;color:var(--fg);opacity:0.85;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name || '')}</div>
+        <div style="margin-top:4px;font-size:max(0.72rem, 14px);color:var(--fg);opacity:0.85;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name || '')}</div>
         <button class="sig-tile-del" data-id="${_esc(s.id)}" title="Delete">×</button>
       </div>
     `;
@@ -480,7 +480,7 @@ export function pick(opts = {}) {
         </div>
         <div class="modal-body">
           <button class="sig-new-tile confirm-btn confirm-btn-primary" style="width:100%;margin-bottom:12px;padding:8px;">+ Draw new signature</button>
-          ${tiles ? `<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">${tiles}</div>` : '<div style="opacity:0.6;font-size:0.8rem;text-align:center;padding:8px 0;">No saved signatures yet — draw one above.</div>'}
+          ${tiles ? `<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">${tiles}</div>` : '<div style="opacity:0.6;font-size:max(0.8rem, 14px);text-align:center;padding:8px 0;">No saved signatures yet — draw one above.</div>'}
         </div>
       </div>
     `);

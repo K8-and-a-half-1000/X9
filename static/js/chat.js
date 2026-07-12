@@ -1132,7 +1132,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
       if (el('web-toggle').checked && !_isAgent) {
         const _searchLabel = searchModule ? searchModule.getProviderLabel() : 'web';
         loadingText = `Searching via ${_searchLabel}...<br>
-                       <span style="font-size: 0.9em; opacity: 0.8;">
+                       <span style="font-size: max(0.9em, 14px); opacity: 0.8;">
                        Query: "${msg.substring(0, 50)}${msg.length > 50 ? '...' : ''}"<br>
                        Fetching top results...</span>`;
       } else if (el('research-toggle').checked) {
@@ -1796,7 +1796,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                       <div class="thinking-header" data-thinking-id="${_liveThinkDomId}">
                         <div class="thinking-header-left"><span class="live-think-header-text">Thinking\u2026</span></div>
                         <span class="live-think-spinner-slot" style="flex-shrink:0;margin-left:auto;"></span>
-                        <span class="live-think-timer" style="font-size:11px;opacity:0.4;font-variant-numeric:tabular-nums;margin-left:6px;margin-right:5px;"></span>
+                        <span class="live-think-timer" style="font-size:14px;opacity:0.4;font-variant-numeric:tabular-nums;margin-left:6px;margin-right:5px;"></span>
                         <span class="thinking-toggle live-think-toggle expanded" id="${_liveThinkDomId}-toggle"></span>
                       </div>
                       <div class="thinking-content expanded" id="${_liveThinkDomId}">
@@ -2417,7 +2417,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                   if (!tailEl) {
                     tailEl = document.createElement('pre');
                     tailEl.className = 'agent-thread-tail';
-                    tailEl.style.cssText = 'margin:4px 0 0;padding:6px 8px;font-size:11px;background:rgba(0,0,0,0.18);border-radius:4px;max-height:140px;overflow:auto;white-space:pre-wrap;opacity:0.85;';
+                    tailEl.style.cssText = 'margin:4px 0 0;padding:6px 8px;font-size:14px;background:rgba(0,0,0,0.18);border-radius:4px;max-height:140px;overflow:auto;white-space:pre-wrap;opacity:0.85;';
                     const content = currentToolBubble.querySelector('.agent-thread-content');
                     if (content) content.appendChild(tailEl);
                   }
@@ -2640,7 +2640,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 _cancelThinkingTimer();
                 _removeThinkingSpinner();
                 const budgetDiv = document.createElement('div');
-                budgetDiv.style.cssText = 'font-size:11px;opacity:0.6;font-style:italic;padding:4px 8px;margin:4px 0;';
+                budgetDiv.style.cssText = 'font-size:14px;opacity:0.6;font-style:italic;padding:4px 8px;margin:4px 0;';
                 budgetDiv.textContent = `Tool budget reached (${json.used}/${json.limit} calls). Agent stopped.`;
                 const chatBox = document.getElementById('chat-history');
                 chatBox.appendChild(budgetDiv);
@@ -2655,7 +2655,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 const chatBox = document.getElementById('chat-history');
                 const banner = document.createElement('div');
                 banner.className = 'teacher-takeover-banner';
-                banner.style.cssText = 'margin:10px 0;padding:8px 12px;border-left:3px solid #c08a3e;background:rgba(192,138,62,0.08);font-size:12px;color:var(--fg);border-radius:4px;';
+                banner.style.cssText = 'margin:10px 0;padding:8px 12px;border-left:3px solid #c08a3e;background:rgba(192,138,62,0.08);font-size:14px;color:var(--fg);border-radius:4px;';
                 const teacherName = json.teacher_model || 'teacher';
                 const why = json.student_failure ? ` &mdash; <span style="opacity:0.7">${esc(json.student_failure)}</span>` : '';
                 banner.innerHTML = `<strong>Teacher takeover:</strong> escalating to <code>${esc(teacherName)}</code>${why}`;
@@ -2672,7 +2672,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 const chatBox = document.getElementById('chat-history');
                 const note = document.createElement('div');
                 note.className = 'skill-saved-note';
-                note.style.cssText = 'margin:6px 0;padding:6px 10px;border-left:3px solid #4a8a4a;background:rgba(74,138,74,0.07);font-size:12px;color:var(--fg);border-radius:4px;';
+                note.style.cssText = 'margin:6px 0;padding:6px 10px;border-left:3px solid #4a8a4a;background:rgba(74,138,74,0.07);font-size:14px;color:var(--fg);border-radius:4px;';
                 note.innerHTML = `<strong>Skill learned:</strong> <code>${esc(json.name || '')}</code>${json.category ? ` <span style="opacity:0.6">[${esc(json.category)}]</span>` : ''}`;
                 chatBox.appendChild(note);
                 uiModule.scrollHistory();
@@ -2682,7 +2682,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
                 const chatBox = document.getElementById('chat-history');
                 const note = document.createElement('div');
                 note.className = 'escalation-failed-note';
-                note.style.cssText = 'margin:6px 0;padding:6px 10px;border-left:3px solid #8a4a4a;background:rgba(138,74,74,0.07);font-size:12px;color:var(--fg);border-radius:4px;';
+                note.style.cssText = 'margin:6px 0;padding:6px 10px;border-left:3px solid #8a4a4a;background:rgba(138,74,74,0.07);font-size:14px;color:var(--fg);border-radius:4px;';
                 const label = json.type === 'escalation_failed' ? 'Teacher could not solve it' : 'Skill not saved';
                 note.innerHTML = `<strong>${label}:</strong> <span style="opacity:0.75">${esc(json.reason || '')}</span>`;
                 chatBox.appendChild(note);
@@ -4525,7 +4525,7 @@ import { wireArrowUpRecall, getLastUserMessageFromChatHistory } from './composer
         _researchAvgDuration = data.avg_duration || null;
         _researchTimerEl = document.createElement('div');
         _researchTimerEl.className = 'research-timer';
-        _researchTimerEl.style.cssText = 'font-size:0.8em; opacity:0.6; margin-top:4px; font-family:monospace;';
+        _researchTimerEl.style.cssText = 'font-size:max(0.8em, 14px); opacity:0.6; margin-top:4px; font-family:monospace;';
         spinner.element.parentNode.insertBefore(_researchTimerEl, spinner.element.nextSibling);
         _researchTimerInterval = setInterval(() => {
           if (!_researchTimerEl) return;

@@ -740,7 +740,7 @@ export function applyModelColor(roleEl, modelName) {
       if (isCostTrackedEndpoint(_epUrl)) {
         if (info && info.input != null) html += '<div><span class="ctx-label">Input</span> $' + info.input.toFixed(2) + ' / 1M</div>';
         if (info && info.output != null) html += '<div><span class="ctx-label">Output</span> $' + info.output.toFixed(2) + ' / 1M</div>';
-        if (!info) html += '<div style="opacity:0.4;font-size:0.85em;margin-top:4px;">No pricing data available</div>';
+        if (!info) html += '<div style="opacity:0.4;font-size:max(0.85em, 14px);margin-top:4px;">No pricing data available</div>';
       }
       popup.innerHTML = html;
       const rect = roleEl.getBoundingClientRect();
@@ -1835,14 +1835,14 @@ export function displayMetrics(messageElement, metrics) {
       ${modelWaitTime != null ? `<div><span class="ctx-label">Model wait</span> ${modelWaitTime}s</div>` : ''}
       ${costRows}
       ${sessionCostStr}
-      ${prepDetails ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:0.85em;opacity:0.8;">
+      ${prepDetails ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:max(0.85em, 14px);opacity:0.8;">
         <div style="font-weight:600;margin-bottom:4px;color:var(--fg);">Agent prep</div>
         ${prepDetails}
       </div>` : ''}
       ${ctxPct !== undefined && ctxPct > 0 ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
         <span class="ctx-label">Context</span> <span style="color:${ctxColor};font-weight:600;">${ctxPct}%</span> used
       </div>` : ''}
-      ${isReal ? '' : '<div style="margin-top:4px;font-size:0.8em;opacity:0.4;">~ estimated token count</div>'}
+      ${isReal ? '' : '<div style="margin-top:4px;font-size:max(0.8em, 14px);opacity:0.4;">~ estimated token count</div>'}
     `;
 
     const rect = metricsContainer.getBoundingClientRect();
@@ -1906,11 +1906,11 @@ export function displayMetrics(messageElement, metrics) {
         <div class="ctx-bar-wrap">
           <div class="ctx-bar-fill" style="width:${Math.min(ctxPct, 100)}%;background:${ctxColor};"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:0.75rem;margin-top:4px;opacity:0.6;">
+        <div style="display:flex;justify-content:space-between;font-size:max(0.75rem, 14px);margin-top:4px;opacity:0.6;">
           <span>${fmtNum(usedTokens)} used</span>
           <span>${fmtNum(totalCtx)} total</span>
         </div>
-        <div style="margin-top:8px;font-size:0.8rem;">
+        <div style="margin-top:8px;font-size:max(0.8rem, 14px);">
           <div><span class="ctx-label">Model</span> ${modelShort}</div>
           <div><span class="ctx-label">Usage</span> <span style="color:${ctxColor};font-weight:600;">${ctxPct}%</span></div>
           <div><span class="ctx-label">Window</span> ${fmtNum(totalCtx)} tokens</div>

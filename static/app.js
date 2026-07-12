@@ -1477,7 +1477,7 @@ function initializeEventListeners() {
     if (!chatBox) return;
     const div = document.createElement('div');
     div.className = 'msg msg-ai tool-splash';
-    div.innerHTML = '<div class="role">' + splash.role + '</div><div class="body" style="opacity:0.7;font-size:0.92em">' + splash.text + '</div>';
+    div.innerHTML = '<div class="role">' + splash.role + '</div><div class="body" style="opacity:0.7;font-size:max(0.92em, 14px)">' + splash.text + '</div>';
     chatBox.appendChild(div);
     if (uiModule) uiModule.scrollHistory();
   }

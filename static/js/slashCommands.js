@@ -1895,7 +1895,7 @@ async function _cmdDemo(args, ctx) {
     s.textContent = `
       #tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);
         border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;
-        font-family:inherit;font-size:0.8rem;line-height:1.5;
+        font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;
         box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;
         opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}
       #tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}
@@ -1910,7 +1910,7 @@ async function _cmdDemo(args, ctx) {
       .tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}
       .tour-btn-arrow:hover{opacity:1}
       .tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}
-      .tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}
+      .tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}
       .tour-btn-skip:hover{opacity:0.6}
       .tour-btn-arrow-pulse{opacity:1;border-color:var(--accent,var(--red));color:var(--accent,var(--red));
         animation:tour-arrow-pulse 1.2s ease-in-out infinite}
@@ -2061,7 +2061,7 @@ async function _cmdDemo(args, ctx) {
       targets[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
       tooltip.innerHTML = `<div class="tour-text">${text}</div>
-        ${breathing ? '<div style="font-size:0.72rem;opacity:0.35;margin-bottom:6px">Click the highlighted element to continue</div>' : ''}
+        ${breathing ? '<div style="font-size:max(0.72rem, 14px);opacity:0.35;margin-bottom:6px">Click the highlighted element to continue</div>' : ''}
         <div class="tour-nav" style="${breathing ? 'justify-content:center' : ''}">
           ${breathing ? '' : `<button class="tour-btn-arrow${isFirst ? ' disabled' : ''}" data-act="back">\u2190</button>`}
           <button class="tour-btn-skip" data-act="skip">${stepOpts.finishLabel ? 'finish tour' : 'skip tour'}</button>
@@ -2284,7 +2284,7 @@ async function _cmdTourTheme(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -2296,7 +2296,7 @@ async function _cmdTourTheme(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -2530,7 +2530,7 @@ async function _cmdTourSettings(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -2542,7 +2542,7 @@ async function _cmdTourSettings(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -2758,7 +2758,7 @@ async function _cmdTourGallery(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -2770,7 +2770,7 @@ async function _cmdTourGallery(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -2971,7 +2971,7 @@ async function _cmdTourBrain(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -2983,7 +2983,7 @@ async function _cmdTourBrain(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -3189,7 +3189,7 @@ async function _runTaskTour(steps, doneText, opts) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -3201,7 +3201,7 @@ async function _runTaskTour(steps, doneText, opts) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -3415,7 +3415,7 @@ async function _cmdTourResearch(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -3427,7 +3427,7 @@ async function _cmdTourResearch(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -3629,7 +3629,7 @@ async function _cmdTourLibrary(args, ctx) {
     s.textContent =
       '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
       'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:0.8rem;line-height:1.5;' +
+      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
       'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
       'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
       '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
@@ -3641,7 +3641,7 @@ async function _cmdTourLibrary(args, ctx) {
       '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
       '.tour-btn-arrow:hover{opacity:1}' +
       '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:0.72rem;padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
+      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
       '.tour-btn-skip:hover{opacity:0.6}';
     document.head.appendChild(s);
   }
@@ -4303,7 +4303,7 @@ async function _cmdFlip(args, ctx) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:6px;';
   wrap.appendChild(coin);
-  if (edge) { const lbl = document.createElement('div'); lbl.style.cssText='font-size:0.8em;opacity:0.5;';lbl.textContent='The coin landed on its edge.';wrap.appendChild(lbl); }
+  if (edge) { const lbl = document.createElement('div'); lbl.style.cssText='font-size:max(0.8em, 14px);opacity:0.5;';lbl.textContent='The coin landed on its edge.';wrap.appendChild(lbl); }
   chatBox.appendChild(wrap);
   uiModule.scrollHistory();
   // Inject keyframes if not present
@@ -4326,7 +4326,7 @@ async function _cmdRoll(args, ctx) {
   const dice = results.map((v, i) => {
     return `<div style="min-width:42px;height:42px;border-radius:6px;border:2px solid var(--border);background:var(--panel);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--red);animation:egg-spin 0.5s ease-out ${i*0.08}s both;cursor:pointer" title="d${sides}" onclick="this.style.animation='none';this.offsetHeight;var r=Math.floor(Math.random()*${sides})+1;this.textContent=r;this.style.animation='egg-shake 0.3s ease'">${v}</div>`;
   }).join('');
-  const totalHtml = count > 1 ? `<div style="font-size:0.8em;opacity:0.5;margin-top:4px">${count}d${sides} = ${total}</div>` : '';
+  const totalHtml = count > 1 ? `<div style="font-size:max(0.8em, 14px);opacity:0.5;margin-top:4px">${count}d${sides} = ${total}</div>` : '';
   _eggRender(`<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${dice}</div>${totalHtml}</div>`);
   if (!document.getElementById('egg-styles')) {
     const s = document.createElement('style'); s.id = 'egg-styles';
@@ -4349,7 +4349,7 @@ async function _cmd8Ball(args, ctx) {
         <span style="color:#fff;font-size:18px;font-weight:900">8</span>
       </div>
     </div>
-    <div style="font-size:0.8em;opacity:0.5;max-width:300px;text-align:center">${ctx.esc(q)}</div>
+    <div style="font-size:max(0.8em, 14px);opacity:0.5;max-width:300px;text-align:center">${ctx.esc(q)}</div>
     <div style="color:${clr};font-weight:600;animation:egg-fade 0.5s 0.8s both;text-align:center">${answer}</div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
@@ -4359,9 +4359,9 @@ async function _cmd8Ball(args, ctx) {
 async function _cmdFortune(args, ctx) {
   const f = _FORTUNES[Math.floor(Math.random() * _FORTUNES.length)];
   _eggRender(`<div style="max-width:360px;border:1px dashed var(--border);border-radius:4px;padding:12px 16px;text-align:center;position:relative;animation:egg-fade 0.4s ease-out">
-    <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:2px;opacity:0.35;margin-bottom:8px">Fortune Cookie</div>
+    <div style="font-size:max(0.7em, 14px);text-transform:uppercase;letter-spacing:2px;opacity:0.35;margin-bottom:8px">Fortune Cookie</div>
     <div style="font-style:italic;line-height:1.5">${f}</div>
-    <div style="margin-top:8px;font-size:0.75em;opacity:0.3">${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)}</div>
+    <div style="margin-top:8px;font-size:max(0.75em, 14px);opacity:0.3">${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)} ${String(Math.floor(Math.random()*90)+10)}</div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
   return true;
@@ -4371,7 +4371,7 @@ async function _cmdOdyssey(args, ctx) {
   const q = _ODYSSEY_QUOTES[Math.floor(Math.random() * _ODYSSEY_QUOTES.length)];
   _eggRender(`<div style="max-width:420px;border-left:3px solid var(--red);padding:8px 16px;animation:egg-fade 0.5s ease-out">
     <div style="font-style:italic;line-height:1.6;opacity:0.9">${q}</div>
-    <div style="margin-top:8px;font-size:0.8em;opacity:0.4">Homer, The Odyssey</div>
+    <div style="margin-top:8px;font-size:max(0.8em, 14px);opacity:0.4">Homer, The Odyssey</div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
   return true;
@@ -4397,7 +4397,7 @@ async function _cmdAscii(args, ctx) {
   };
   const chars = text.toUpperCase().split('').map(c => (FONT[c] || FONT['?']).split('\n'));
   const rows = [0,1,2,3,4].map(r => chars.map(c => c[r] || '     ').join(' '));
-  _eggRender(`<pre style="color:var(--red);font-size:10px;line-height:1.15;background:none;border:none;padding:0;margin:0;animation:egg-fade 0.3s ease-out">${rows.join('\n')}</pre>`);
+  _eggRender(`<pre style="color:var(--red);font-size:14px;line-height:1.15;background:none;border:none;padding:0;margin:0;animation:egg-fade 0.3s ease-out">${rows.join('\n')}</pre>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
   return true;
 }
@@ -4446,7 +4446,7 @@ async function _cmdSay(args, ctx) {
   const mid = '< ' + text + ' '.repeat(pad - text.length - 2) + ' >';
   const bot = ' ' + '-'.repeat(pad);
   const cow = `${top}\n${mid}\n${bot}\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||`;
-  _eggRender(`<pre style="font-size:11px;line-height:1.3;animation:egg-fade 0.3s ease-out">${ctx.esc(cow)}</pre>`);
+  _eggRender(`<pre style="font-size:14px;line-height:1.3;animation:egg-fade 0.3s ease-out">${ctx.esc(cow)}</pre>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
   return true;
 }
@@ -4472,7 +4472,7 @@ async function _cmdWisdom(args, ctx) {
   const [quote, author] = wisdoms[Math.floor(Math.random() * wisdoms.length)];
   _eggRender(`<div style="max-width:400px;border-left:3px solid var(--border);padding:8px 16px;animation:egg-fade 0.4s ease-out">
     <div style="font-style:italic;line-height:1.6">${quote}</div>
-    <div style="margin-top:6px;font-size:0.8em;opacity:0.4">${author}</div>
+    <div style="margin-top:6px;font-size:max(0.8em, 14px);opacity:0.4">${author}</div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }
   return true;
@@ -4493,7 +4493,7 @@ async function _cmdUptime(args, ctx) {
   _eggRender(`<div style="display:flex;flex-direction:column;align-items:center;gap:6px;animation:egg-fade 0.3s ease-out">
     <div style="font-size:1.4em;font-weight:700;font-variant-numeric:tabular-nums">${parts.join(' ')}</div>
     <div style="width:120px;height:4px;border-radius:2px;background:var(--border);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--red);border-radius:2px;transition:width 0.5s"></div></div>
-    <div style="font-size:0.7em;opacity:0.35">session uptime</div>
+    <div style="font-size:max(0.7em, 14px);opacity:0.35">session uptime</div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s2=document.createElement('style');s2.id='egg-styles';s2.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s2); }
   return true;
@@ -4506,7 +4506,7 @@ async function _cmdPing(args, ctx) {
     const data = await res.json();
     const eps = data.endpoints || [];
     if (!eps.length) { slashReply('No endpoints configured.'); return true; }
-    let html = '<div style="font-family:inherit;font-size:0.9em">';
+    let html = '<div style="font-family:inherit;font-size:max(0.9em, 14px)">';
     for (const ep of eps) {
       const isUp = ep.status === 'online';
       const dot = isUp ? '\u25CF' : '\u25CB';
@@ -4514,12 +4514,12 @@ async function _cmdPing(args, ctx) {
       const latency = ep.latency_ms != null ? ep.latency_ms + 'ms' : '--';
       const latencyColor = !isUp ? 'var(--color-error)' : ep.latency_ms < 150 ? 'var(--color-success)' : ep.latency_ms < 500 ? 'var(--color-blind-orange)' : 'var(--color-error)';
       const models = ep.model_count || 0;
-      const err = ep.error ? ' <span style="opacity:0.4;font-size:0.85em">(' + ctx.esc(ep.error).slice(0, 60) + ')</span>' : '';
+      const err = ep.error ? ' <span style="opacity:0.4;font-size:max(0.85em, 14px)">(' + ctx.esc(ep.error).slice(0, 60) + ')</span>' : '';
       html += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0">';
-      html += '<span style="color:' + color + ';font-size:12px">' + dot + '</span>';
+      html += '<span style="color:' + color + ';font-size:14px">' + dot + '</span>';
       html += '<span style="min-width:140px">' + ctx.esc(ep.name) + '</span>';
       html += '<code style="min-width:60px;text-align:right;color:' + latencyColor + '">' + latency + '</code>';
-      html += '<span style="opacity:0.4;font-size:0.85em">' + models + ' model' + (models !== 1 ? 's' : '') + '</span>';
+      html += '<span style="opacity:0.4;font-size:max(0.85em, 14px)">' + models + ' model' + (models !== 1 ? 's' : '') + '</span>';
       html += err;
       html += '</div>';
     }
@@ -4563,7 +4563,7 @@ async function _cmdProbe(args, ctx) {
   const bodyEl = msgEl ? msgEl.querySelector('.body') : null;
   if (!bodyEl) return true;
 
-  let html = '<div style="font-family:inherit;font-size:0.9em">';
+  let html = '<div style="font-family:inherit;font-size:max(0.9em, 14px)">';
   let currentEndpoint = '';
   let summary = { total: 0, ok: 0 };
 
@@ -4591,7 +4591,7 @@ async function _cmdProbe(args, ctx) {
             html += '<div style="margin-top:8px;font-weight:600;color:var(--fg);opacity:0.8">'
               + ctx.esc(data.endpoint) + ' <span style="opacity:0.4;font-weight:400">(' + data.model_count + ' chat models' + skipNote + ')</span></div>';
             if (data.error) {
-              html += '<div style="padding:2px 0 2px 20px;opacity:0.5;font-size:0.9em">' + ctx.esc(data.error) + '</div>';
+              html += '<div style="padding:2px 0 2px 20px;opacity:0.5;font-size:max(0.9em, 14px)">' + ctx.esc(data.error) + '</div>';
             }
             bodyEl.innerHTML = html + '</div>';
 
@@ -4605,9 +4605,9 @@ async function _cmdProbe(args, ctx) {
               ? (data.latency_ms < 2000 ? 'var(--color-success)' : 'var(--color-blind-orange)')
               : 'var(--color-error)';
             const modelName = (data.model || '').split('/').pop();
-            const err = data.error ? ' <span style="opacity:0.4;font-size:0.85em">(' + ctx.esc(data.error) + ')</span>' : '';
+            const err = data.error ? ' <span style="opacity:0.4;font-size:max(0.85em, 14px)">(' + ctx.esc(data.error) + ')</span>' : '';
             html += '<div style="display:flex;align-items:center;gap:8px;padding:2px 0 2px 20px">';
-            html += '<span style="color:' + color + ';font-size:12px">' + dot + '</span>';
+            html += '<span style="color:' + color + ';font-size:14px">' + dot + '</span>';
             html += '<span style="min-width:180px">' + ctx.esc(modelName) + '</span>';
             html += '<code style="min-width:60px;text-align:right;color:' + latencyColor + '">' + latency + '</code>';
             html += err;
@@ -4643,7 +4643,7 @@ async function _cmdColor(args, ctx) {
   _eggRender(`<div style="display:flex;align-items:center;gap:12px;animation:egg-fade 0.3s ease-out">
     <div style="width:48px;height:48px;border-radius:4px;border:1px solid var(--border);background:${ctx.esc(c)};cursor:pointer" title="Click to copy" onclick="navigator.clipboard.writeText('${ctx.esc(c)}');this.style.transform='scale(0.9)';setTimeout(()=>this.style.transform='',150)"></div>
     <div style="display:flex;flex-direction:column;gap:2px"><code style="font-size:1.1em">${ctx.esc(c)}</code>
-      <span style="font-size:0.75em;opacity:0.4">click swatch to copy</span>
+      <span style="font-size:max(0.75em, 14px);opacity:0.4">click swatch to copy</span>
     </div>
   </div>`);
   if (!document.getElementById('egg-styles')) { const s=document.createElement('style');s.id='egg-styles';s.textContent='@keyframes egg-spin{0%{transform:rotateY(0) scale(0.5);opacity:0}50%{transform:rotateY(540deg) scale(1.2)}100%{transform:rotateY(720deg) scale(1)}} @keyframes egg-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}} @keyframes egg-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';document.head.appendChild(s); }

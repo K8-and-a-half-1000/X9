@@ -153,7 +153,7 @@ async function loadEndpoints() {
               ${kindLabel ? `<span class="admin-badge">${esc(kindLabel)}</span>` : ''}
               ${statusBadge}
               ${ep.is_enabled ? '' : '<span class="admin-badge admin-badge-off">disabled</span>'}
-              ${hasModels ? `<span style="font-size:10px;opacity:0.4;${category === 'api' ? 'flex-basis:100%;' : ''}">Click to manage models</span>` : ''}
+              ${hasModels ? `<span style="font-size:14px;opacity:0.4;${category === 'api' ? 'flex-basis:100%;' : ''}">Click to manage models</span>` : ''}
             </div>
             <div style="display:flex;gap:4px;align-items:center;">
               <button class="admin-btn-sm" data-adm-toggle-ep="${ep.id}">${ep.is_enabled ? 'Disable' : 'Enable'}</button>
@@ -276,7 +276,7 @@ async function loadEndpoints() {
           panel.innerHTML = '';
           let _modelsSpin = null;
           const _ld = document.createElement('span');
-          _ld.style.cssText = 'opacity:0.55;font-size:11px;display:inline-flex;align-items:center;gap:8px;';
+          _ld.style.cssText = 'opacity:0.55;font-size:14px;display:inline-flex;align-items:center;gap:8px;';
           _ld.appendChild(document.createTextNode('Loading models…'));
           try {
             const _sp = (await import('./spinner.js')).default;
@@ -286,10 +286,10 @@ async function loadEndpoints() {
           } catch (_) {}
           panel.appendChild(_ld);
           const _stopSpin = () => { try { _modelsSpin && _modelsSpin.stop(); } catch (_) {} };
-          const _loadingHtml = (label) => `<span style="opacity:0.55;font-size:11px;display:inline-flex;align-items:center;gap:8px;">${esc(label)}</span>`;
+          const _loadingHtml = (label) => `<span style="opacity:0.55;font-size:14px;display:inline-flex;align-items:center;gap:8px;">${esc(label)}</span>`;
           const renderModels = (models, warning = '') => {
             const sortedModels = sortModelObjects(models);
-            const warningHtml = warning ? `<div class="admin-error" style="font-size:11px;margin:6px 0;">${esc(warning)}</div>` : '';
+            const warningHtml = warning ? `<div class="admin-error" style="font-size:14px;margin:6px 0;">${esc(warning)}</div>` : '';
             const attachRefresh = () => {
               panel.querySelector(`[data-ep-refresh-models="${epId}"]`)?.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -313,7 +313,7 @@ async function loadEndpoints() {
                   <span class="mcp-tools-count">0/0 enabled</span>
                   <a href="#" data-ep-refresh-models="${epId}">Refresh</a>
                 </span>
-              </div>${warningHtml}<span style="opacity:0.5;font-size:11px;">No models</span>`;
+              </div>${warningHtml}<span style="opacity:0.5;font-size:14px;">No models</span>`;
               attachRefresh();
               return;
             }
@@ -366,7 +366,7 @@ async function loadEndpoints() {
             const models = await res.json();
             _stopSpin();
             renderModels(models);
-          } catch (e) { _stopSpin(); panel.innerHTML = '<span class="admin-error" style="font-size:11px;">Failed to load models</span>'; }
+          } catch (e) { _stopSpin(); panel.innerHTML = '<span class="admin-error" style="font-size:14px;">Failed to load models</span>'; }
         }
       });
     });
@@ -1255,7 +1255,7 @@ function initEndpointForm() {
       }
       const msg = _endpointMsg('local');
       if (msg) {
-        msg.innerHTML = '<span style="font-size:11px;opacity:0.55;">Ollama ready to test.</span>';
+        msg.innerHTML = '<span style="font-size:14px;opacity:0.55;">Ollama ready to test.</span>';
         msg.className = '';
       }
     });
@@ -1278,7 +1278,7 @@ function initEndpointForm() {
         wrap.appendChild(wp.element);
         const txt = document.createElement('span');
         txt.textContent = 'Scanning ports 8000-8020, 8080, 1234, 11434, and 11435 for model servers...';
-        txt.style.cssText = 'font-size:12px;opacity:0.7;';
+        txt.style.cssText = 'font-size:14px;opacity:0.7;';
         wrap.appendChild(txt);
         msg.appendChild(wrap);
         discoverBtn._wp = wp;
@@ -1474,7 +1474,7 @@ async function loadBuiltinTools() {
         <div class="admin-tool-cat-header" data-tool-cat="${catId}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
           <span>${esc(cat)}</span>
           <span style="display:flex;align-items:center;gap:6px;" class="admin-tool-cat-right">
-            <span class="admin-tool-cat-count" style="font-size:10px;opacity:0.5;">${enabledCount}/${totalCount}</span>
+            <span class="admin-tool-cat-count" style="font-size:14px;opacity:0.5;">${enabledCount}/${totalCount}</span>
             <label class="admin-switch" style="flex-shrink:0;">
               <input type="checkbox" data-tool-cat-toggle="${catId}" ${allEnabled ? 'checked' : ''}>
               <span class="admin-slider"></span>
@@ -1585,10 +1585,10 @@ async function loadMcpServers() {
           <div class="admin-user-info" style="flex:1;flex-wrap:wrap;gap:0.3rem;">
             <span class="admin-user-name">${esc(s.name)}</span>
             <span class="admin-badge" style="background:${statusColor}33;color:${statusColor}">${statusText}</span>
-            ${hasTools ? `<span style="font-size:10px;opacity:0.4;">Click to manage tools</span>` : ''}
+            ${hasTools ? `<span style="font-size:14px;opacity:0.4;">Click to manage tools</span>` : ''}
           </div>
           <div style="display:flex;gap:4px;align-items:center;">
-            ${s.needs_oauth ? `<a href="/api/mcp/oauth/authorize/${s.id}" target="_blank" class="admin-btn-sm" style="background:var(--red);color:#fff;text-decoration:none;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;">Authorize</a>` : ''}
+            ${s.needs_oauth ? `<a href="/api/mcp/oauth/authorize/${s.id}" target="_blank" class="admin-btn-sm" style="background:var(--red);color:#fff;text-decoration:none;padding:3px 10px;border-radius:4px;font-size:14px;font-weight:600;">Authorize</a>` : ''}
             <button class="admin-btn-sm" data-adm-mcp-reconnect="${s.id}">Reconnect</button>
             <button class="admin-btn-delete" style="border-color:${s.is_enabled ? 'color-mix(in srgb, var(--red) 30%, transparent)' : 'color-mix(in srgb, var(--fg) 30%, transparent)'};color:${s.is_enabled ? 'var(--red)' : 'var(--fg)'};" data-adm-mcp-toggle="${s.id}" data-adm-mcp-enable="${!s.is_enabled}">${s.is_enabled ? 'Disable' : 'Enable'}</button>
             <button class="admin-btn-delete" data-adm-mcp-delete="${s.id}">Delete</button>
@@ -1644,11 +1644,11 @@ async function loadMcpServers() {
         }
         if (!_toolsLoaded && isOpen) {
           _toolsLoaded = true;
-          panel.innerHTML = '<span style="opacity:0.5;font-size:11px;">Loading tools...</span>';
+          panel.innerHTML = '<span style="opacity:0.5;font-size:14px;">Loading tools...</span>';
           try {
             const res = await fetch(`/api/mcp/servers/${sid}/tools`, { credentials: 'same-origin' });
             const tools = await res.json();
-            if (!tools.length) { panel.innerHTML = '<span style="opacity:0.5;font-size:11px;">No tools</span>'; return; }
+            if (!tools.length) { panel.innerHTML = '<span style="opacity:0.5;font-size:14px;">No tools</span>'; return; }
             const disabled = new Set(tools.filter(t => t.is_disabled).map(t => t.name));
             panel.innerHTML = `<div class="mcp-tools-header">
               <span>Tools</span>
@@ -1676,7 +1676,7 @@ async function loadMcpServers() {
             panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
               cb.addEventListener('change', () => _saveMcpToolState(sid, panel));
             });
-          } catch (e) { panel.innerHTML = '<span class="admin-error" style="font-size:11px;">Failed to load tools</span>'; }
+          } catch (e) { panel.innerHTML = '<span class="admin-error" style="font-size:14px;">Failed to load tools</span>'; }
         }
       });
     });
@@ -1743,10 +1743,10 @@ function initMcpForm() {
       row.className = 'admin-model-form-row';
       row.style.cssText = 'gap:6px;align-items:center;';
       const label = document.createElement('span');
-      label.style.cssText = 'font-size:11px;opacity:0.55;min-width:0;white-space:nowrap;';
+      label.style.cssText = 'font-size:14px;opacity:0.55;min-width:0;white-space:nowrap;';
       label.textContent = pd.label || 'Provider';
       const select = document.createElement('select');
-      select.style.cssText = 'flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;';
+      select.style.cssText = 'flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;';
       pd.options.forEach((opt, i) => {
         const o = document.createElement('option');
         o.value = i;
@@ -1778,7 +1778,7 @@ function initMcpForm() {
       row.className = 'admin-model-form-row';
       row.style.cssText = 'gap:6px;align-items:center;';
       const label = document.createElement('span');
-      label.style.cssText = 'font-size:11px;opacity:0.55;min-width:0;white-space:nowrap;';
+      label.style.cssText = 'font-size:14px;opacity:0.55;min-width:0;white-space:nowrap;';
       label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       const input = document.createElement('input');
       input.type = key.toLowerCase().includes('secret') || key.toLowerCase().includes('token') || key.toLowerCase().includes('key') || key.toLowerCase().includes('password') ? 'password' : 'text';
@@ -1797,7 +1797,7 @@ function initMcpForm() {
       const helpLink = document.createElement('a');
       helpLink.textContent = 'How do I get these?';
       helpLink.href = '#';
-      helpLink.style.cssText = 'font-size:10.5px;opacity:0.5;margin-top:2px;display:inline-block;';
+      helpLink.style.cssText = 'font-size:14px;opacity:0.5;margin-top:2px;display:inline-block;';
       helpLink.addEventListener('click', (e) => {
         e.preventDefault();
         helpBox.style.display = helpBox.style.display === 'none' ? '' : 'none';
@@ -2036,9 +2036,9 @@ function _renderTokenScopeRows(t) {
     const tool = s.label.replace(/\s+(read|write|draft|send|launch)$/i, '');
     return `
       <label style="display:flex;align-items:center;gap:8px;min-height:28px;padding:1px 0;">
-        <span class="settings-label" style="width:90px;flex-shrink:0;padding:0;font-size:12px;">${esc(tool)}</span>
-        <span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;padding:1px 7px;border-radius:999px;flex-shrink:0;min-width:44px;text-align:center;box-sizing:border-box;${pill}">${esc(action)}</span>
-        <span style="font-size:11px;line-height:1.35;opacity:0.62;flex:1;min-width:0;">${esc(s.detail)}</span>
+        <span class="settings-label" style="width:90px;flex-shrink:0;padding:0;font-size:14px;">${esc(tool)}</span>
+        <span style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;padding:1px 7px;border-radius:999px;flex-shrink:0;min-width:44px;text-align:center;box-sizing:border-box;${pill}">${esc(action)}</span>
+        <span style="font-size:14px;line-height:1.35;opacity:0.62;flex:1;min-width:0;">${esc(s.detail)}</span>
         <label class="admin-switch" style="margin-left:auto;flex-shrink:0;"><input type="checkbox" class="adm-tok-scope" data-token-id="${esc(t.id)}" data-scope="${esc(s.key)}" ${have.has(s.key) ? 'checked' : ''}><span class="admin-slider"></span></label>
       </label>`;
   }).join('');
@@ -2050,22 +2050,22 @@ async function loadTokens() {
   try {
     const res = await fetch('/api/tokens', { credentials: 'same-origin' });
     const tokens = await res.json();
-    if (!tokens.length) { list.innerHTML = '<div class="admin-empty" style="color:var(--accent, var(--red));opacity:0.7;font-size:10px;">No API tokens</div>'; return; }
+    if (!tokens.length) { list.innerHTML = '<div class="admin-empty" style="color:var(--accent, var(--red));opacity:0.7;font-size:14px;">No API tokens</div>'; return; }
     list.innerHTML = tokens.map(t => `
       <div class="admin-user-row" data-adm-tok-row="${esc(t.id)}" style="display:block;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <div class="admin-user-info" style="flex:1;min-width:0;flex-wrap:wrap;gap:0.3rem;">
-            <input type="text" class="adm-tok-rename" data-token-id="${esc(t.id)}" value="${esc(t.name || '')}" placeholder="Token name" style="font-size:13px;font-weight:600;padding:3px 6px;background:transparent;border:1px solid transparent;border-radius:4px;min-width:160px;" title="Click to rename">
+            <input type="text" class="adm-tok-rename" data-token-id="${esc(t.id)}" value="${esc(t.name || '')}" placeholder="Token name" style="font-size:14px;font-weight:600;padding:3px 6px;background:transparent;border:1px solid transparent;border-radius:4px;min-width:160px;" title="Click to rename">
             <span class="admin-badge">${esc(t.token_prefix)}...</span>
-            ${t.owner ? `<span style="font-size:0.75rem;opacity:0.5;">Owner: ${esc(t.owner)}</span>` : ''}
-            ${t.last_used_at ? `<span style="font-size:0.75rem;opacity:0.5;">Last used: ${new Date(t.last_used_at).toLocaleDateString()}</span>` : '<span style="font-size:0.75rem;opacity:0.4;">Never used</span>'}
+            ${t.owner ? `<span style="font-size:max(0.75rem, 14px);opacity:0.5;">Owner: ${esc(t.owner)}</span>` : ''}
+            ${t.last_used_at ? `<span style="font-size:max(0.75rem, 14px);opacity:0.5;">Last used: ${new Date(t.last_used_at).toLocaleDateString()}</span>` : '<span style="font-size:max(0.75rem, 14px);opacity:0.4;">Never used</span>'}
           </div>
           <button class="admin-btn-sm" data-adm-tok-toggle="${esc(t.id)}" style="opacity:0.75;">Permissions</button>
           <button class="admin-btn-delete" data-adm-del-token="${esc(t.id)}">Revoke</button>
         </div>
         <div data-adm-tok-perm="${esc(t.id)}" style="display:none;margin-top:8px;padding:8px 4px 0;border-top:1px solid var(--border);">
           ${_renderTokenScopeRows(t)}
-          <div class="adm-tok-scope-msg" data-token-id="${esc(t.id)}" style="font-size:11px;min-height:14px;margin-top:4px;"></div>
+          <div class="adm-tok-scope-msg" data-token-id="${esc(t.id)}" style="font-size:14px;min-height:14px;margin-top:4px;"></div>
         </div>
       </div>`).join('');
 
@@ -2190,7 +2190,7 @@ async function loadWebhooks() {
         ? `<span class="admin-badge" style="background:${w.last_status_code < 400 ? 'color-mix(in srgb, var(--fg) 20%, transparent)' : 'color-mix(in srgb, var(--red) 20%, transparent)'};color:${w.last_status_code < 400 ? 'var(--fg)' : 'var(--red)'};">${w.last_status_code}</span>`
         : '';
       const lastTriggered = w.last_triggered_at ? new Date(w.last_triggered_at).toLocaleString() : 'Never';
-      const errorText = w.last_error ? `<div style="font-size:0.75rem;color:var(--red);margin-top:0.2rem;">Error: ${esc(w.last_error.substring(0, 80))}</div>` : '';
+      const errorText = w.last_error ? `<div style="font-size:max(0.75rem, 14px);color:var(--red);margin-top:0.2rem;">Error: ${esc(w.last_error.substring(0, 80))}</div>` : '';
       return `
         <div class="admin-ep-item" style="flex-wrap:wrap;">
           <div class="admin-ep-info" style="flex:1;min-width:200px;">

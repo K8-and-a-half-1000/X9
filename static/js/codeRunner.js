@@ -344,7 +344,7 @@ export async function runServer(code, panel, lang) {
     }
     if (data.exit_code && data.exit_code !== 0) {
       var exitEl = document.createElement('div');
-      exitEl.style.cssText = 'font-size:0.75rem;opacity:0.5;padding:2px 8px;';
+      exitEl.style.cssText = 'font-size:max(0.75rem, 14px);opacity:0.5;padding:2px 8px;';
       exitEl.textContent = 'Exit code: ' + data.exit_code;
       panel.appendChild(exitEl);
     }

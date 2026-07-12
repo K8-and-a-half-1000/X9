@@ -38,15 +38,15 @@ function _row(pkg) {
   // that clutters the card — show only its short description.
   const _hideNotes = pkg.name === 'llama_cpp';
   const note = (pkg.status_note && !_hideNotes)
-    ? `<div class="memory-item-meta" style="font-size:10px;opacity:0.65;margin-top:3px;">${esc(pkg.status_note)}</div>`
+    ? `<div class="memory-item-meta" style="font-size:14px;opacity:0.65;margin-top:3px;">${esc(pkg.status_note)}</div>`
     : '';
   const updateNote = (pkg.installed && pkg.update_note && !_hideNotes)
-    ? `<div class="memory-item-meta" style="font-size:10px;opacity:0.55;margin-top:3px;">${esc(pkg.update_note)}</div>`
+    ? `<div class="memory-item-meta" style="font-size:14px;opacity:0.55;margin-top:3px;">${esc(pkg.update_note)}</div>`
     : '';
   return `<div class="dep-row" data-pkg-name="${esc(pkg.name)}">`
     + `<div class="dep-info">`
     + `<div class="memory-item-title">${_glyphHtml(pkg.name)}${esc(pkg.name)}</div>`
-    + `<div class="memory-item-meta" style="font-size:10px;opacity:0.5;margin-top:2px;">${esc(pkg.desc)}</div>`
+    + `<div class="memory-item-meta" style="font-size:14px;opacity:0.5;margin-top:2px;">${esc(pkg.desc)}</div>`
     + note
     + updateNote
     + `</div>`

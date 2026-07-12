@@ -123,7 +123,7 @@ function _buildModelRow(mid, url, displayName, endpointId, offline, modelType) {
     badge.className = 'model-type-badge';
     badge.textContent = 'IMG';
     badge.title = 'Image generation model';
-    badge.style.cssText = 'font-size:0.65em;padding:1px 4px;border-radius:3px;background:var(--accent,#7c3aed);color:#fff;margin-left:6px;vertical-align:middle;';
+    badge.style.cssText = 'font-size:max(0.65em, 14px);padding:1px 4px;border-radius:3px;background:var(--accent,#7c3aed);color:#fff;margin-left:6px;vertical-align:middle;';
     span.appendChild(badge);
   }
 
@@ -439,7 +439,7 @@ export async function refreshModels(force = false) {
         if (allHidden.length > 0) {
           const showMoreBtn = document.createElement('div');
           showMoreBtn.className = 'models-show-all-btn';
-          showMoreBtn.style.cssText = 'text-align:center;padding:6px;opacity:0.5;cursor:pointer;font-size:0.82em;';
+          showMoreBtn.style.cssText = 'text-align:center;padding:6px;opacity:0.5;cursor:pointer;font-size:max(0.82em, 14px);';
           showMoreBtn.textContent = `Show ${allHidden.length} more model${allHidden.length === 1 ? '' : 's'}`;
           showMoreBtn._target = target;
           showMoreBtn.addEventListener('click', () => {
