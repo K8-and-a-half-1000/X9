@@ -1,7 +1,7 @@
 /**
  * Deep Research side panel — open/close, form, job rendering, library.
  */
-import * as jobs from './jobs.js?v=20260630researchthumb';
+import * as jobs from './jobs.js?v=20260712researchformats';
 import themeModule from '../theme.js';
 import createResearchSynapse from '../researchSynapse.js';
 import spinnerModule from '../spinner.js';
@@ -383,13 +383,13 @@ function _buildPanelHTML() {
             <select id="research-rounds">${roundOpts}</select>
           </label>
           <label class="research-setting">
-            <span class="research-setting-label">Format <span class="hwfit-help-chip hwfit-help-chip-inline" title="Auto lets the LLM pick the output shape. Override when you specifically want a Compare table, How-to, Product, or Fact-check.">?</span></span>
+            <span class="research-setting-label">Format <span class="hwfit-help-chip hwfit-help-chip-inline" title="Auto lets the LLM pick the output shape. How-to writes a step-by-step guide. Skill researches a new skill and installs it. RAG gathers data and ingests it into the RAG store. Memory distills best practices from trusted sources into memories. Configure each format in Brain.">?</span></span>
             <select id="research-category">
               <option value="" selected>Auto</option>
-              <option value="product">Product</option>
-              <option value="comparison">Compare</option>
               <option value="howto">How-to</option>
-              <option value="factcheck">Fact-check</option>
+              <option value="skill">Skill</option>
+              <option value="rag">RAG</option>
+              <option value="memory">Memory</option>
             </select>
           </label>
           <label class="research-setting">
@@ -1079,18 +1079,27 @@ function _buildJobCard(job) {
 }
 
 const _CAT_ICONS = {
-  product:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M7 8V5a5 5 0 0 1 10 0v3"/></svg>',
-  comparison: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v18"/><path d="M16 3v18"/><path d="M3 8h5"/><path d="M16 16h5"/></svg>',
   howto:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
   landscape:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  skill:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  rag:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+  memory:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>',
+  // Legacy categories removed from the picker — kept so old library items
+  // (researched before the format swap) still render a badge/hero.
+  product:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M7 8V5a5 5 0 0 1 10 0v3"/></svg>',
+  comparison: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v18"/><path d="M16 3v18"/><path d="M3 8h5"/><path d="M16 16h5"/></svg>',
   factcheck:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
 
 const _CAT_LABELS = {
-  product: 'Product',
-  comparison: 'Comparison',
   howto: 'How-to Guide',
   landscape: 'Landscape',
+  skill: 'Skill',
+  rag: 'RAG',
+  memory: 'Memory',
+  // Legacy labels for pre-existing library items.
+  product: 'Product',
+  comparison: 'Comparison',
   factcheck: 'Fact-check',
 };
 

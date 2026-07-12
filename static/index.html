@@ -427,6 +427,48 @@
             </div>
             <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.5">Set to 0 to disable skill injection.</span>
           </div>
+          <!-- ── Deep Research formats ── -->
+          <div class="admin-card">
+            <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent, var(--red))" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Research formats</h2>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.6">Configure what each Deep Research format does. Changes apply to the next research run.</span>
+          </div>
+          <div class="admin-card">
+            <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:0.7"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>How-to format</h2>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.6">Writes a step-by-step guide.</span>
+            <textarea id="research-fmt-howto-instructions" class="memory-add-input" rows="2" placeholder="Extra instructions (optional) — e.g. 'always include a troubleshooting section'" aria-label="How-to format extra instructions" style="margin-top:8px;width:100%;resize:vertical;"></textarea>
+          </div>
+          <div class="admin-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
+              <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:0.7"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Skill format</h2>
+              <label class="admin-switch" style="flex-shrink:0" title="Publish the installed skill immediately"><input type="checkbox" id="research-fmt-skill-autopublish" checked /><span class="admin-slider"></span></label>
+            </div>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.6">Finds a matching skill in public GitHub skill repositories, trims it, and installs it. Toggle on = published (usable immediately); off = lands as a draft in Skills.</span>
+            <input type="text" id="research-fmt-skill-repos" class="memory-add-input" placeholder="Preferred repositories — e.g. anthropics/skills, owner/repo" aria-label="Preferred skill repositories" style="margin-top:8px;width:100%;" />
+            <textarea id="research-fmt-skill-instructions" class="memory-add-input" rows="2" placeholder="Extra instructions (optional) — e.g. 'prefer Windows-friendly skills'" aria-label="Skill format extra instructions" style="margin-top:6px;width:100%;resize:vertical;"></textarea>
+          </div>
+          <div class="admin-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
+              <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:0.7"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>RAG format</h2>
+              <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                <span class="admin-toggle-sub" style="margin:0">Max chunks</span>
+                <input type="number" id="research-fmt-rag-maxchunks" min="1" max="2000" step="1" value="200" aria-label="Max RAG chunks per research" style="width:72px;background:var(--input-bg,var(--panel));color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums" />
+              </span>
+            </div>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.6">Gathers reference data and ingests it into the RAG store — searchable immediately via the chat RAG toggle. Requires ChromaDB.</span>
+            <textarea id="research-fmt-rag-instructions" class="memory-add-input" rows="2" placeholder="Extra instructions (optional) — e.g. 'prefer tables of parameters and limits'" aria-label="RAG format extra instructions" style="margin-top:8px;width:100%;resize:vertical;"></textarea>
+          </div>
+          <div class="admin-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
+              <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="opacity:0.7"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>Memory format</h2>
+              <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                <span class="admin-toggle-sub" style="margin:0">Max memories</span>
+                <input type="number" id="research-fmt-memory-maxitems" min="1" max="50" step="1" value="12" aria-label="Max memories per research" style="width:72px;background:var(--input-bg,var(--panel));color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums" />
+              </span>
+            </div>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px;opacity:0.6">Distills cheat sheets and best practices into memories, from trusted sources only. Leave the domain list empty to let the AI judge trustworthiness per topic; fill it to hard-restrict sources to those domains.</span>
+            <textarea id="research-fmt-memory-domains" class="memory-add-input" rows="2" placeholder="Trusted domains, one per line (optional) — e.g. kubernetes.io" aria-label="Trusted domains for memory research" style="margin-top:8px;width:100%;resize:vertical;"></textarea>
+            <textarea id="research-fmt-memory-instructions" class="memory-add-input" rows="2" placeholder="Extra instructions (optional) — e.g. 'focus on security best practices'" aria-label="Memory format extra instructions" style="margin-top:6px;width:100%;resize:vertical;"></textarea>
+          </div>
         </div>
       </div>
     </div>

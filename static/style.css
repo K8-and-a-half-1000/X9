@@ -26575,6 +26575,13 @@ body.research-panel-view #research-divider { display:none; }
       color-mix(in srgb, var(--fg) 7%, transparent),
       color-mix(in srgb, var(--fg) 3%, transparent));
 }
+/* Mobile: the thumbnail eats card width and pushes the action buttons
+   out of the card — drop it, the buttons matter more. Let the row wrap
+   so the remaining buttons never spill past the card edge either. */
+@media (max-width: 768px) {
+  .research-job-thumb { display: none; }
+  .research-job-actions { flex-wrap: wrap; }
+}
 /* Push the first dim (dismiss/delete) button — and everything after it — to
    the right edge of the actions row. `:first-of-type` would match the very
    first <button> in the row regardless of class; this immediate-sibling

@@ -65,9 +65,15 @@ def _research_json_path(session_id: str) -> Optional[Path]:
 class ResearchHandler:
     """Handles research service operations with iterative deep research."""
 
-    def __init__(self):
+    def __init__(self, memory_manager=None, memory_vector=None, skills_manager=None):
         self._legacy_engine = None
         self._active_tasks: Dict[str, dict] = {}
+        # Injected by app_initializer for the post-research category actions
+        # (skill install / RAG ingest / memory distill). Optional — the actions
+        # fall back to constructing file-backed managers on demand.
+        self._memory_manager = memory_manager
+        self._memory_vector = memory_vector
+        self._skills_manager = skills_manager
         self._initialize_legacy_engine()
         RESEARCH_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -344,6 +350,11 @@ class ResearchHandler:
                 )
                 entry["result"] = result
                 entry["status"] = "done"
+                # Side-effect formats (skill / rag / memory) apply the research
+                # to the workspace before the result is saved, so the appended
+                # action summary is part of the persisted report.
+                await self._run_category_action(session_id, entry, query, llm_endpoint,
+                                                llm_model, llm_headers, on_progress)
                 self._save_result(session_id, entry)
                 # Persist to DB via callback (ensures result survives even if SSE disconnected)
                 try:
@@ -403,6 +414,60 @@ class ResearchHandler:
         task = asyncio.create_task(_run())
         entry["task"] = task
         return {"session_id": session_id, "status": "running", "query": query}
+
+    async def _run_category_action(self, session_id: str, entry: dict, query: str,
+                                   llm_endpoint: str, llm_model: str,
+                                   llm_headers: dict, on_progress) -> None:
+        """Apply a side-effect research format (skill / rag / memory).
+
+        Appends the action's markdown summary to the entry's result and raw
+        report. Never raises — a failed action leaves the report intact with
+        an explanatory note.
+        """
+        from src.research_actions import run_category_action, ACTION_CATEGORIES, ACTION_TIMEOUT_SECONDS
+
+        category = entry.get("category")
+        if category not in ACTION_CATEGORIES:
+            return
+        researcher = entry.get("researcher")
+        findings = list(researcher.findings) if researcher and researcher.findings else []
+        try:
+            on_progress({"phase": "action", "message": f"Applying {category} format…"})
+            action_md = await asyncio.wait_for(
+                run_category_action(
+                    category,
+                    question=query,
+                    report=entry.get("raw_report") or entry.get("result") or "",
+                    findings=findings,
+                    session_id=session_id,
+                    llm_endpoint=llm_endpoint,
+                    llm_model=llm_model,
+                    llm_headers=llm_headers,
+                    owner=entry.get("owner", ""),
+                    progress_callback=on_progress,
+                    memory_manager=self._memory_manager,
+                    memory_vector=self._memory_vector,
+                    skills_manager=self._skills_manager,
+                ),
+                timeout=ACTION_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Research {category} action timed out for {session_id}")
+            action_md = (
+                f"## {category.capitalize()} Action Timed Out\n\n"
+                "The research completed, but applying the result did not finish "
+                "in time. The report above is intact."
+            )
+        except Exception as e:
+            logger.error(f"Research {category} action failed: {e}", exc_info=True)
+            action_md = (
+                f"## {category.capitalize()} Action Failed\n\n"
+                f"The research completed, but applying the result failed: {e}"
+            )
+        if action_md:
+            entry["result"] = f"{entry.get('result') or ''}\n\n---\n\n{action_md}".strip()
+            if entry.get("raw_report"):
+                entry["raw_report"] = f"{entry['raw_report']}\n\n{action_md}"
 
     def get_status(self, session_id: str) -> Optional[dict]:
         """Get current research status for a session."""
@@ -814,6 +879,21 @@ class ResearchHandler:
                 maximum=3600,
             )
 
+            # Per-format Brain configuration: free-text extra instructions for
+            # any category, plus the hard trusted-domain allowlist that scopes
+            # the memory format's sources.
+            _category_instructions = ""
+            if category:
+                _category_instructions = (
+                    get_setting(f"research_format_{category}_instructions", "") or ""
+                ).strip()
+            _allowed_domains = None
+            if category == "memory":
+                from src.research_actions import _parse_config_list
+                _allowed_domains = _parse_config_list(
+                    get_setting("research_format_memory_trusted_domains", "")
+                ) or None
+
             researcher = DeepResearcher(
                 llm_endpoint=llm_endpoint,
                 llm_model=llm_model,
@@ -829,6 +909,8 @@ class ResearchHandler:
                 progress_callback=progress_callback,
                 search_provider=search_provider,
                 category=category,
+                category_instructions=_category_instructions,
+                allowed_domains=_allowed_domains,
             )
             if _task_entry is not None:
                 _task_entry["researcher"] = researcher

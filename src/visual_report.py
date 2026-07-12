@@ -1196,6 +1196,30 @@ body.category-landscape {
   --aurora-b: rgba(184,84,58,0.06);
   --aurora-c: rgba(122,76,184,0.05);
 }
+body.category-skill {
+  --accent: #c9622e;
+  --accent-light: #dd8355;
+  --accent-bg: rgba(201,98,46,0.07);
+  --aurora-a: rgba(201,98,46,0.11);
+  --aurora-b: rgba(201,149,46,0.06);
+  --aurora-c: rgba(64,98,128,0.06);
+}
+body.category-rag {
+  --accent: #2a8a8c;
+  --accent-light: #4ab0b2;
+  --accent-bg: rgba(42,138,140,0.07);
+  --aurora-a: rgba(42,138,140,0.11);
+  --aurora-b: rgba(64,98,128,0.07);
+  --aurora-c: rgba(122,76,184,0.05);
+}
+body.category-memory {
+  --accent: #3f6bb0;
+  --accent-light: #6b90c9;
+  --accent-bg: rgba(63,107,176,0.07);
+  --aurora-a: rgba(63,107,176,0.11);
+  --aurora-b: rgba(122,76,184,0.06);
+  --aurora-c: rgba(42,138,140,0.06);
+}
 @media (prefers-color-scheme: dark) {
   body.category-product {
     --accent: #5cc8cb; --accent-light: #8fdde0;
@@ -1225,6 +1249,27 @@ body.category-landscape {
     --aurora-b: rgba(232,143,115,0.07);
     --aurora-c: rgba(184,150,232,0.06);
   }
+  body.category-skill {
+    --accent: #e89563; --accent-light: #f2b790;
+    --accent-bg: rgba(232,149,99,0.10);
+    --aurora-a: rgba(232,149,99,0.13);
+    --aurora-b: rgba(232,192,90,0.07);
+    --aurora-c: rgba(125,180,224,0.07);
+  }
+  body.category-rag {
+    --accent: #5cc8cb; --accent-light: #8fdde0;
+    --accent-bg: rgba(92,200,203,0.10);
+    --aurora-a: rgba(92,200,203,0.13);
+    --aurora-b: rgba(125,180,224,0.07);
+    --aurora-c: rgba(184,150,232,0.06);
+  }
+  body.category-memory {
+    --accent: #86a9e0; --accent-light: #aec6ec;
+    --accent-bg: rgba(134,169,224,0.10);
+    --aurora-a: rgba(134,169,224,0.13);
+    --aurora-b: rgba(184,150,232,0.07);
+    --aurora-c: rgba(92,200,203,0.07);
+  }
 }
 
 /* ── Per-category font pairings ───────────────────────
@@ -1244,8 +1289,12 @@ body.category-comparison {
   --font-body: 'Inter', system-ui, sans-serif;
 }
 
-/* How-to: friendly geometric sans, top to bottom */
-body.category-howto {
+/* How-to + the action formats (skill/rag/memory): friendly geometric sans,
+   top to bottom — these are practical reference documents, not long-form. */
+body.category-howto,
+body.category-skill,
+body.category-rag,
+body.category-memory {
   --font-display: 'Manrope', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 }

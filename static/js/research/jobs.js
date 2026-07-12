@@ -252,6 +252,7 @@ export function formatPhase(progress, maxRounds) {
     case 'reading': return `${rn}Reading ${p.total_sources || 0} sources`;
     case 'analyzing': return `${rn}Analyzing ${p.total_findings || 0} findings`;
     case 'writing': return `Writing report -- ${p.total_sources || 0} sources`;
+    case 'action': return p.message || 'Applying format action...';
     default: return p.phase;
   }
 }

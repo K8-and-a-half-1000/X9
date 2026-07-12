@@ -194,6 +194,7 @@ async function syncToggles() {
   await syncPrefToggle('auto-approve-skills-toggle', 'auto_approve_skills', 'Auto-approve skills enabled', 'Auto-approve skills disabled', false);
   await syncPrefSlider('skill-confidence-slider', 'skill_min_confidence', 'skill-confidence-label', 0.85);
   await syncPrefNumber('skill-max-input', 'skill_max_injected', 3);
+  await syncResearchFormatSettings();
 
   // Reflect the header toggle into the sidebar dim + modal body opacity.
   const headerToggle = document.getElementById('memory-enabled-header-toggle');
@@ -322,6 +323,69 @@ async function syncPrefNumber(elementId, prefKey, defaultVal) {
       } catch (e) {
         console.error(`Failed to save ${prefKey} pref:`, e);
         showError('Failed to save preference');
+      }
+    });
+  }
+}
+
+/** Brain → Settings → Research formats. These are GLOBAL app settings (the
+ *  research pipeline reads them via get_setting), not per-user prefs, so they
+ *  load/save through /api/auth/settings instead of /api/prefs. Each control
+ *  saves itself on change. */
+const _RESEARCH_FMT_FIELDS = [
+  // [elementId, settingsKey, kind]
+  ['research-fmt-howto-instructions',  'research_format_howto_instructions',      'text'],
+  ['research-fmt-skill-repos',         'research_format_skill_repos',             'text'],
+  ['research-fmt-skill-instructions',  'research_format_skill_instructions',      'text'],
+  ['research-fmt-skill-autopublish',   'research_format_skill_auto_publish',      'bool'],
+  ['research-fmt-rag-maxchunks',       'research_format_rag_max_chunks',          'int'],
+  ['research-fmt-rag-instructions',    'research_format_rag_instructions',        'text'],
+  ['research-fmt-memory-domains',      'research_format_memory_trusted_domains',  'text'],
+  ['research-fmt-memory-maxitems',     'research_format_memory_max_items',        'int'],
+  ['research-fmt-memory-instructions', 'research_format_memory_instructions',     'text'],
+];
+
+async function syncResearchFormatSettings() {
+  // Bail early if the section isn't in the DOM (old cached HTML).
+  if (!document.getElementById('research-fmt-howto-instructions')) return;
+  let settings = {};
+  try {
+    const res = await fetch(`${window.location.origin}/api/auth/settings`);
+    if (res.ok) settings = await res.json();
+  } catch (e) {
+    console.error('Failed to load research format settings:', e);
+  }
+  for (const [elId, key, kind] of _RESEARCH_FMT_FIELDS) {
+    const el = document.getElementById(elId);
+    if (!el) continue;
+    const val = settings[key];
+    if (kind === 'bool') el.checked = val !== false && val !== 0;
+    else if (val !== undefined && val !== null) el.value = String(val);
+    if (el.dataset.bound) continue;
+    el.dataset.bound = '1';
+    el.addEventListener('change', async () => {
+      let out;
+      if (kind === 'bool') out = el.checked;
+      else if (kind === 'int') {
+        let v = parseInt(el.value, 10);
+        const lo = Number(el.min), hi = Number(el.max);
+        if (isNaN(v)) v = lo;
+        if (!isNaN(lo)) v = Math.max(lo, v);
+        if (!isNaN(hi)) v = Math.min(hi, v);
+        el.value = String(v);
+        out = v;
+      } else out = el.value;
+      try {
+        const res = await fetch(`${window.location.origin}/api/auth/settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [key]: out }),
+        });
+        if (!res.ok) { showError('Failed to save research format setting'); return; }
+        showToast('Research format setting saved');
+      } catch (e) {
+        console.error(`Failed to save ${key}:`, e);
+        showError('Failed to save research format setting');
       }
     });
   }

@@ -307,6 +307,11 @@ def emit_body(sections: Dict[str, Any]) -> str:
         parts.append(f"## {heading}\n\n{body}")
     extra = (sections.get("body_extra") or "").strip()
     if extra:
+        if not extra.lstrip().startswith("#"):
+            # A bare trailing paragraph would be glued onto the last list item
+            # on the next parse (_parse_list_lines continuation rule) — give
+            # extras their own unknown heading so they round-trip as body_extra.
+            extra = "## Notes\n\n" + extra
         parts.append(extra)
     return "\n\n".join(parts) + ("\n" if parts else "")
 

@@ -31,7 +31,7 @@ import './js/tileManager.js';
 import themeModule from './js/theme.js';
 
 import groupModule from './js/group.js';
-import * as researchPanelModule from './js/research/panel.js?v=20260630researchthumb';
+import * as researchPanelModule from './js/research/panel.js?v=20260712researchformats';
 import ttsModule from './js/tts-ai.js';
 import spinnerModule from './js/spinner.js';
 import { initKeyboardShortcuts } from './js/keyboard-shortcuts.js';

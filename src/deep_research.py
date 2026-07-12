@@ -146,20 +146,6 @@ Requirements:
 """
 
 CATEGORY_PROMPTS = {
-    "product": """IMPORTANT FORMAT OVERRIDE — this is a PRODUCT research report:
-- Structure as a RANKED LIST of products/options (best first)
-- For EACH product include: name as ### heading, approximate price, 2-3 sentence summary, **Pros:** bullet list, **Cons:** bullet list, **Where to buy:** URLs as links
-- Start with a quick-compare markdown table of top picks (columns: Name, Price, Best For, Rating)
-- End with a ## Verdict section picking Best Overall and Best Value
-- Still include source citations inline""",
-
-    "comparison": """IMPORTANT FORMAT OVERRIDE — this is a COMPARISON report:
-- Create a ## Comparison Table as a markdown table comparing ALL options across key criteria (rows = criteria, columns = options)
-- Use checkmarks, ratings, or short values in cells
-- Write a ## section per option with its strengths, weaknesses, and ideal use case
-- End with ## Best For verdicts (e.g., "**Best for small teams:** Option A because...")
-- Include a ## Shared Considerations section for things that apply to all options""",
-
     "howto": """IMPORTANT FORMAT OVERRIDE — this is a HOW-TO guide:
 - Start with ## Quick Guide — a super concise numbered list (one line per step, no details, just the action). Example: 1. Install X  2. Run Y  3. Configure Z
 - Then ## Prerequisites listing what's needed before starting
@@ -169,13 +155,58 @@ CATEGORY_PROMPTS = {
 - End with ## Common Mistakes section
 - Add estimated time and difficulty level near the top""",
 
-    "factcheck": """IMPORTANT FORMAT OVERRIDE — this is a FACT-CHECK report:
-- Start with ## The Claim restating what's being checked
-- Create ## Evidence For and ## Evidence Against sections
-- Each piece of evidence should be a ### with source name, what it found, and how strong the evidence is
-- Include a ## Verdict section with one of: **Supported**, **Mixed Evidence**, or **Unsupported**
-- End with ## Nuance & Caveats for important context and limitations
-- Be balanced and cite sources for every claim""",
+    "skill": """IMPORTANT FORMAT OVERRIDE — this is a SKILL research report (finding a reusable agent skill):
+- Start with ## Best Match — the single skill that best fits the topic: its name, the repository it lives in, and the exact URL to its SKILL.md or skill directory
+- Then ## Candidates — a markdown table of every skill considered (columns: Skill, Repository, URL, Why / why not)
+- Then ## What It Does — the chosen skill's purpose, procedure outline, and when to use it
+- Then ## What To Trim — parts of the upstream skill that are unnecessary for this workspace (extra platforms, optional assets, verbose examples)
+- Cite the repository URLs inline
+- Prefer skills from well-known skill repositories; note the license if visible""",
+
+    "rag": """IMPORTANT FORMAT OVERRIDE — this is a RAG data-collection report:
+- Start with ## Data Collected — one ### subsection per source, each containing the cleanly formatted, factual data extracted from that source (definitions, tables, parameters, procedures — not commentary)
+- Write each subsection as self-contained reference material: plain declarative sentences and markdown tables that stand alone without the surrounding report
+- Then ## Sources — a markdown table (columns: Source, URL, What it provides, Freshness)
+- Then ## Gaps — data that could not be gathered and where it might be found
+- No executive summary, no narrative analysis — this report IS the dataset""",
+
+    "memory": """IMPORTANT FORMAT OVERRIDE — this is a MEMORY distillation report (cheat sheets & best practices):
+- Start with ## Cheat Sheet — the essential commands / rules / values as a compact markdown table or tight bullet list
+- Then ## Best Practices — one ### per practice with a 1-3 sentence explanation of when and why it applies
+- Then ## Training Material — links to the best tutorials, courses, and official guides found, each with a one-line description
+- Only include facts backed by a trusted source (official documentation, standards bodies, vendor docs, well-established references) and cite that source inline for every item
+- Skip anything that is opinion, speculation, or from an untrusted source""",
+}
+
+# Categories the auto-classifier may pick when the user leaves Format on
+# "Auto". The action categories (skill / rag / memory) have side effects —
+# they install a skill, ingest RAG data, or write memories — so they must
+# only ever run when the user explicitly selects them.
+AUTO_CLASSIFY_CATEGORIES = ("howto",)
+
+# Per-category steering for search-query generation. Injected into the
+# query-gen prompt so the rounds actually look in the right places.
+CATEGORY_QUERY_HINTS = {
+    "skill": (
+        "The goal is to find an EXISTING reusable agent skill (a SKILL.md "
+        "bundle) for this topic. Target popular skill repositories on GitHub "
+        "(e.g. \"site:github.com SKILL.md <topic>\", \"awesome claude skills "
+        "<topic>\", \"agent skill <topic> github\"). Prefer queries that "
+        "surface concrete repositories over general articles."
+    ),
+    "rag": (
+        "The goal is to collect factual reference data for a knowledge base. "
+        "Target authoritative sources with dense, extractable content: "
+        "official documentation, specifications, reference tables, datasets. "
+        "Avoid opinion pieces and news."
+    ),
+    "memory": (
+        "The goal is to find cheat sheets, best-practice guides, and training "
+        "material from TRUSTED sources only: official documentation, vendor "
+        "docs, standards bodies, and well-established references for this "
+        "topic. Include queries like \"<topic> cheat sheet\", \"<topic> best "
+        "practices\", \"<topic> official guide\"."
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -209,12 +240,21 @@ class DeepResearcher:
         progress_callback: Optional[Callable] = None,
         search_provider: Optional[str] = None,
         category: Optional[str] = None,
+        category_instructions: str = "",
+        allowed_domains: Optional[List[str]] = None,
     ):
         self.llm_endpoint = llm_endpoint
         self.llm_model = llm_model
         self.llm_headers = llm_headers
         self.search_provider_override = search_provider
         self.category = category
+        # Extra per-format steering configured in Brain → Settings.
+        self.category_instructions = (category_instructions or "").strip()
+        # Hard source allowlist (memory format's trusted domains): search
+        # results outside these domains are never fetched or extracted.
+        self.allowed_domains = [
+            d.strip().lower().lstrip(".") for d in (allowed_domains or []) if d.strip()
+        ] or None
         self.max_rounds = max_rounds
         self.max_time = max_time
         self.max_urls_per_round = max_urls_per_round
@@ -424,8 +464,12 @@ class DeepResearcher:
             return ""
 
     async def _classify_category(self, question: str) -> Optional[str]:
-        """Fast LLM call to classify the research question into a category."""
-        valid = ", ".join(CATEGORY_PROMPTS.keys())
+        """Fast LLM call to classify the research question into a category.
+
+        Only AUTO_CLASSIFY_CATEGORIES are eligible — the action categories
+        (skill/rag/memory) have side effects and require explicit selection.
+        """
+        valid = ", ".join(AUTO_CLASSIFY_CATEGORIES)
         prompt = (
             f"Classify this research question into exactly ONE category.\n"
             f"Categories: {valid}\n"
@@ -442,12 +486,12 @@ class DeepResearcher:
             # Clean one-word answer first.
             parts = cat.split()
             first = parts[0].strip(".,\"'*:") if parts else ""
-            if first in CATEGORY_PROMPTS:
+            if first in AUTO_CLASSIFY_CATEGORIES:
                 return first
             # Weak local models often wrap the label in preamble ("the category
-            # is product") — scan the whole reply for any known category word
+            # is howto") — scan the whole reply for any known category word
             # before giving up (which would default to the generic format).
-            for c in CATEGORY_PROMPTS:
+            for c in AUTO_CLASSIFY_CATEGORIES:
                 if c in cat:
                     return c
             return None
@@ -472,6 +516,17 @@ class DeepResearcher:
                 "We already have partial findings.  Generate targeted follow-up "
                 "queries to fill gaps, verify claims, or explore specific aspects "
                 "that the report doesn't yet cover well."
+            )
+
+        # getattr: tests build the researcher via __new__ without __init__.
+        cat_hint = CATEGORY_QUERY_HINTS.get(getattr(self, "category", None) or "")
+        if cat_hint:
+            round_instruction += "\n" + cat_hint
+        cat_instructions = getattr(self, "category_instructions", "")
+        if cat_instructions:
+            round_instruction += (
+                "\nAdditional user-configured guidance for this research format: "
+                + cat_instructions
             )
 
         prompt = current_date_context() + QUERY_GEN_PROMPT.format(
@@ -515,6 +570,7 @@ class DeepResearcher:
 
         # Collect URLs to fetch from all search results
         urls_to_fetch = []
+        skipped_untrusted = 0
         for result in search_results:
             if isinstance(result, Exception):
                 logger.warning(f"Search error: {result}")
@@ -523,6 +579,9 @@ class DeepResearcher:
                 continue
             for r in result:
                 url = r.get("url", "")
+                if url and not self._domain_allowed(url):
+                    skipped_untrusted += 1
+                    continue
                 if url and url not in self.urls_fetched:
                     urls_to_fetch.append(r)
                     self.urls_fetched.add(url)
@@ -532,6 +591,11 @@ class DeepResearcher:
                     })
                 if len(urls_to_fetch) >= self.max_urls_per_round * len(queries):
                     break
+        if skipped_untrusted:
+            logger.info(
+                f"Trusted-domain filter skipped {skipped_untrusted} result(s) "
+                f"outside {self.allowed_domains}"
+            )
 
         if self._cancelled or self._time_exceeded():
             return all_findings
@@ -743,6 +807,12 @@ class DeepResearcher:
         cat_extra = CATEGORY_PROMPTS.get(self.category or "", "")
         if cat_extra:
             prompt += "\n\n" + cat_extra
+        cat_instructions = getattr(self, "category_instructions", "")
+        if cat_instructions:
+            prompt += (
+                "\n\nAdditional user-configured guidance for this format:\n"
+                + cat_instructions
+            )
 
         try:
             result = await self._llm(
@@ -795,6 +865,24 @@ class DeepResearcher:
 
     def _time_exceeded(self) -> bool:
         return (time.time() - self._start_time) > self.max_time
+
+    def _domain_allowed(self, url: str) -> bool:
+        """True if the URL's host is inside the trusted-domain allowlist.
+
+        No allowlist configured = everything allowed. Matching is by domain
+        suffix, so "python.org" admits "docs.python.org" too.
+        """
+        # getattr: tests build the researcher via __new__ without __init__.
+        if not getattr(self, "allowed_domains", None):
+            return True
+        try:
+            from urllib.parse import urlparse
+            host = (urlparse(url).hostname or "").lower()
+        except Exception:
+            return False
+        if not host:
+            return False
+        return any(host == d or host.endswith("." + d) for d in self.allowed_domains)
 
     # _strip_think_tags removed — use research_utils.strip_thinking()
 

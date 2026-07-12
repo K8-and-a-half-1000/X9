@@ -82,7 +82,11 @@ def initialize_managers(base_dir: str, rag_manager=None) -> Dict[str, Any]:
 
     # Initialize processors
     chat_processor = ChatProcessor(memory_manager, personal_docs_manager, memory_vector=memory_vector, skills_manager=skills_manager)
-    research_handler = ResearchHandler()
+    research_handler = ResearchHandler(
+        memory_manager=memory_manager,
+        memory_vector=memory_vector,
+        skills_manager=skills_manager,
+    )
     
     # Initialize chat handler with all dependencies
     chat_handler = ChatHandler(

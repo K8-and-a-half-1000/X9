@@ -99,6 +99,24 @@ DEFAULT_SETTINGS = {
     # unbounded model/API bill. Other values are bounded to [60, 86400].
     # Tune via Settings or by editing data/settings.json.
     "research_run_timeout_seconds": 1800,
+    # ── Deep-research format configuration (Brain → Settings → Research formats) ──
+    # Free-text extra guidance appended to the format's prompts (any format).
+    "research_format_howto_instructions": "",
+    "research_format_skill_instructions": "",
+    "research_format_rag_instructions": "",
+    "research_format_memory_instructions": "",
+    # skill: repositories the picker should prefer (comma/newline separated),
+    # and whether the installed skill is published immediately (usable right
+    # away) or lands as a draft for review in Brain → Skills.
+    "research_format_skill_repos": "anthropics/skills",
+    "research_format_skill_auto_publish": True,
+    # rag: cap on chunks ingested per research run.
+    "research_format_rag_max_chunks": 200,
+    # memory: hard source allowlist (comma/newline separated domains; empty =
+    # no hard filter, trust screening is left to the distillation step) and
+    # cap on memories saved per run.
+    "research_format_memory_trusted_domains": "",
+    "research_format_memory_max_items": 12,
     "agent_max_tool_calls": 0,
     "agent_max_rounds": 20,  # per-message agent step cap (clamped 1..200)
     # Soft input-token budget for the agent loop. The DEFAULT value (6000) is the
