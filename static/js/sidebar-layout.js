@@ -2,6 +2,14 @@
 // Sidebar Layout — icon rail, hamburger cycling, mobile backdrop & swipe
 // ============================================
 
+// iPhone home-screen app: the swipe gestures (chat-area swipe opens the
+// sidebar and can flip its side; sidebar edge-swipe closes it) misfire
+// against page scrolling and iOS system edge gestures — disabled there.
+// The hamburger/backdrop remain the way to open and close the drawer.
+const _GESTURES_OFF = /iPhone|iPod/.test(navigator.userAgent) &&
+  (navigator.standalone === true ||
+   (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+
 let _syncRailSideFn = null;
 
 /**
@@ -305,7 +313,7 @@ export function initSidebarLayout(Storage, opts) {
 
   // Swipe sidebar toward edge to close
   const sidebar = document.getElementById('sidebar');
-  if (sidebar && 'ontouchstart' in window) {
+  if (sidebar && 'ontouchstart' in window && !_GESTURES_OFF) {
     let _swStartX = 0, _swStartY = 0, _swSwiping = false;
     sidebar.addEventListener('touchstart', (e) => {
       if (e.target.closest('.list-item')) { _swSwiping = false; return; }
@@ -473,6 +481,7 @@ export function initSidebarLayout(Storage, opts) {
 // horizontal — without that, Firefox (and others) treat the horizontal swipe
 // as their own scroll/navigation gesture and our handler never gets to act.
 function _initChatSwipeToOpenSidebar() {
+  if (_GESTURES_OFF) return;
   if (window.__odySwipeWired) return;
   window.__odySwipeWired = true;
 

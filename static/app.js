@@ -987,12 +987,12 @@ function initializeEventListeners() {
     });
   }
 
-  // Sidebar tools list — settings entry point
-  const toolSettingsBtn = el('tool-settings-btn');
-
-  if (toolSettingsBtn) {
-    toolSettingsBtn.addEventListener('click', () => settingsModule.open());
-  }
+  // Sidebar tools list — settings entry point. Delegated so the handler
+  // survives the list item being re-rendered/re-parented (sort, visibility
+  // sweeps) — a direct listener on the node silently dies with it.
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#tool-settings-btn')) settingsModule.open();
+  });
 
   // Single-user mode: the one user is the admin; no per-user privileges.
   window._isAdmin = true;

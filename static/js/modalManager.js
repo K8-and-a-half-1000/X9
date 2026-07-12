@@ -1549,6 +1549,17 @@ function _finishPendingClose(el) {
 function _closePage(id) {
   if (!_state.has(id)) _autoRegister(id);
   try { close(id); } catch (err) { console.warn('tool-page close failed', id, err); }
+  // close() adds .hidden synchronously, which makes dismissModal's delayed
+  // remove() bail (it skips already-hidden modals) — leaving a hidden ZOMBIE
+  // in the DOM. The dynamic tools treat "element exists" as open, so their
+  // next open click would take a toggle path and open nothing. Sweep it
+  // once the 250ms dismiss window has passed.
+  if (_DYNAMIC_PAGE_IDS.has(id)) {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('hidden')) el.remove();
+    }, 300);
+  }
 }
 
 // Empty-field hints on pages are denoted by "(…)" instead of a dimmed color
@@ -1664,12 +1675,20 @@ document.addEventListener('click', (e) => {
       // Mid-close: finish the dismiss now so the tool's open handler
       // (running after this capture phase) starts from clean state.
       _finishPendingClose(el);
+      // Hidden zombie of a dynamic tool (see _closePage) — remove it so the
+      // open handler rebuilds instead of toggling a corpse.
+      const zombie = document.getElementById(pageId);
+      if (zombie && _DYNAMIC_PAGE_IDS.has(pageId) && zombie.classList.contains('hidden')) {
+        zombie.remove();
+      }
     }
     return;
   }
-  // Opening a chat (or starting a new one) leaves the current page.
-  if (!document.body.classList.contains('tool-page-view')) return;
+  // Opening a chat (or starting a new one) is navigation too: close the
+  // drawer, and leave the current page if one is open.
   if (!e.target.closest('#sidebar-brand-btn, #sidebar-new-chat-btn, #sidebar .list-item[data-session-id]')) return;
+  _closeMobileDrawer();
+  if (!document.body.classList.contains('tool-page-view')) return;
   for (const id of _PAGE_IDS) {
     if (_pageVisible(document.getElementById(id))) _closePage(id);
   }

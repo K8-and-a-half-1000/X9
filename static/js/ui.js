@@ -912,6 +912,11 @@ if ('ontouchstart' in window) {
     const content = e.target.closest('.modal-content') || e.target.closest('#theme-popup');
     if (!content) return;
 
+    // Tool PAGES are not sheets — they are left via the sidebar, never by a
+    // swipe. Without this, a scroll that starts on a page header slid the
+    // whole page down and dismissed it.
+    if (content.closest('.tool-page')) return;
+
     // The image editor owns all touches inside its container so the user
     // can paint / move layers / draw selections without the modal trying
     // to interpret it as a swipe-to-dismiss gesture. Skip the swipe init
