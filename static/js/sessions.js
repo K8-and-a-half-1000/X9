@@ -2139,9 +2139,14 @@ export function createDirectChat(url, modelId, endpointId) {
     metaEl.textContent = 'New Chat';
   }
 
-  // Enable input
+  // Enable input. No autofocus on phones — popping the keyboard shrinks the
+  // fresh chat view before the user has read it (same gate as loadSession).
   const msgInput = document.getElementById('message');
-  if (msgInput) { msgInput.disabled = false; msgInput.value = ''; msgInput.focus(); }
+  if (msgInput) {
+    msgInput.disabled = false;
+    msgInput.value = '';
+    if (window.innerWidth > 768) msgInput.focus();
+  }
 }
 
 /** Actually create the session in the DB. Called on first message send. */

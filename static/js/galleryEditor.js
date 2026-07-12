@@ -3139,7 +3139,7 @@ export async function exportToGallery() {
 // Open Settings → Dependencies and highlight a specific package row.
 // Used for "rembg not installed" → install path.
 function _openCookbookForDependency(pkgName) {
-  document.getElementById('user-bar-settings')?.click();
+  document.getElementById('tool-settings-btn')?.click();
   const tryTab = (attempt = 0) => {
     const tab = document.querySelector('[data-settings-tab="dependencies"]');
     if (!tab) {
@@ -3199,7 +3199,7 @@ async function _checkRembgInstalled() {
 function _openCookbookForImg2img() {
   // Model serving was removed from X9 — point the user at endpoint setup.
   if (uiModule) uiModule.showToast('No image model endpoint — add one in Settings \u2192 Services.', 8000);
-  document.getElementById('user-bar-settings')?.click();
+  document.getElementById('tool-settings-btn')?.click();
 }
 
 export function downloadPNG() {

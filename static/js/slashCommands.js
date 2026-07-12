@@ -1270,7 +1270,7 @@ async function _cmdOpen(args, ctx) {
   try {
     if (target === 'settings' || target === 'setting' || target === 'config') {
       if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open();
-      else clickFirst('user-bar-settings', 'rail-settings');
+      else clickFirst('tool-settings-btn', 'rail-settings');
       return true;
     }
     const targets = {
@@ -1300,7 +1300,7 @@ async function _cmdToolPanel(tool, args, ctx) {
   const rest = (args || []).join(' ').trim();
   if (target === 'settings') {
     if (settingsModule && typeof settingsModule.open === 'function') settingsModule.open(rest || undefined);
-    else document.getElementById('user-bar-settings')?.click();
+    else document.getElementById('tool-settings-btn')?.click();
     return true;
   }
   return _cmdOpen([target], ctx);
@@ -1315,7 +1315,7 @@ async function _cmdSettings(args, ctx) {
       settingsModule.open(tab);
     } else {
       // Fallback: click the cog directly if the module isn't loaded.
-      const cog = document.getElementById('user-bar-settings');
+      const cog = document.getElementById('tool-settings-btn');
       if (cog) cog.click();
     }
   } catch (e) {

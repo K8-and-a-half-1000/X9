@@ -27840,7 +27840,9 @@ body.theme-frosted .modal {
   backdrop-filter: none !important;
 }
 body.tool-page-view .hamburger-btn {
-  z-index: 300;
+  /* Above pages (240) AND above the mobile drawer (400) — this rule outranks
+     the mobile-block .hamburger-btn{z-index:420}, so it must not be lower. */
+  z-index: 420;
 }
 /* A page shows ONLY page components: the chat behind it (input bar, model
    picker, session title — some float above the page's z otherwise) is
@@ -27867,6 +27869,10 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   box-shadow: none !important;
   overflow-y: auto;
   overflow-x: hidden;
+  /* One page background for every tool (the Gallery/Settings shade) — half
+     the tools hardcode background:var(--bg) inline, which read as a
+     different page color. */
+  background: var(--panel) !important;
 }
 .tool-page .modal-header { cursor: default; }
 .tool-page .modal-header:active { cursor: default; }
@@ -28000,7 +28006,6 @@ body.tool-page-view .incognito-indicator { display: none !important; }
 #search-overlay.tool-page > .search-popup {
   display: flex;
   flex-direction: column;
-  background: var(--bg);
   padding: 10px 12px;
   font-size: 15px;
 }
@@ -28078,8 +28083,13 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   .modal.tool-page > .modal-content::before,
   #theme-modal.tool-page > #theme-popup::before { content: none !important; }
   /* The fixed hamburger floats top-right above the page — keep the page
-     header's row clear of it. */
-  .tool-page .modal-header { padding-right: 48px; }
+     header's row clear of it, horizontally AND vertically (the button is
+     44px tall; a short header row would put tab pills underneath it). */
+  .tool-page .modal-header {
+    padding-right: 56px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
 
   /* Settings: vertical section list first, chosen panel + back row second.
      Replaces the horizontal scrolling tab strip (media 600px + container

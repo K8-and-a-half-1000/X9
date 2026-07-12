@@ -1394,7 +1394,7 @@ const _AUTO_WIRE = {
   'memory-modal':         { rail: null,             sidebar: 'tool-memory-btn' },
   'research-overlay':     { rail: 'rail-research',  sidebar: 'tool-research-btn' },
   'theme-modal':          { rail: null,             sidebar: 'tool-theme-btn' },
-  'settings-modal':       { rail: 'rail-settings',  sidebar: 'user-bar-settings' },
+  'settings-modal':       { rail: 'rail-settings',  sidebar: 'tool-settings-btn' },
   'search-overlay':       { rail: 'rail-search-btn', sidebar: 'sidebar-search-btn' },
   'ge-shortcuts-modal':   { rail: null,             sidebar: null },
   // Prompt window opens from the overflow menu (no rail/sidebar button), but
@@ -1515,11 +1515,35 @@ document.addEventListener('click', (e) => {
 const _PAGE_IDS = ['memory-modal', 'gallery-modal', 'tasks-modal', 'doclib-modal',
                    'research-overlay', 'theme-modal', 'settings-modal', 'search-overlay'];
 
+function _pageContent(el) {
+  return el.querySelector(':scope > .modal-content, :scope > #theme-popup, :scope > .search-popup');
+}
+
 function _pageVisible(el) {
-  return !!el && document.body.contains(el)
-    && !el.classList.contains('hidden')
-    && !el.classList.contains('modal-minimized')
-    && el.style.display !== 'none';
+  if (!el || !document.body.contains(el)) return false;
+  if (el.classList.contains('hidden')
+      || el.classList.contains('modal-minimized')
+      || el.style.display === 'none') return false;
+  // Mid-dismiss (the 250ms .modal-closing animation runs on the CONTENT)
+  // counts as closed — treating it as open made quick back-and-forth
+  // navigation swallow the re-open click and drop the user back on the chat.
+  const content = _pageContent(el);
+  return !(content && content.classList.contains('modal-closing'));
+}
+
+// Complete a pending dismiss animation synchronously (mirrors app.js
+// dismissModal's end state) so a nav click during the 250ms close finds
+// clean state and the tool's open handler can run immediately.
+const _DYNAMIC_PAGE_IDS = new Set(['gallery-modal', 'tasks-modal', 'doclib-modal', 'research-overlay']);
+function _finishPendingClose(el) {
+  const content = _pageContent(el);
+  if (!content || !content.classList.contains('modal-closing')) return;
+  if (_DYNAMIC_PAGE_IDS.has(el.id)) {
+    el.remove();
+  } else {
+    el.classList.add('hidden');
+    content.classList.remove('modal-closing');
+  }
 }
 
 function _closePage(id) {
@@ -1631,9 +1655,15 @@ document.addEventListener('click', (e) => {
   if (pageId) {
     _closeMobileDrawer();
     const el = document.getElementById(pageId);
-    if (_pageVisible(el)) {
-      e.stopImmediatePropagation();
-      e.preventDefault();
+    if (el) {
+      if (_pageVisible(el)) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return;
+      }
+      // Mid-close: finish the dismiss now so the tool's open handler
+      // (running after this capture phase) starts from clean state.
+      _finishPendingClose(el);
     }
     return;
   }

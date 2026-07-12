@@ -987,11 +987,11 @@ function initializeEventListeners() {
     });
   }
 
-  // Sidebar user bar — settings entry point
-  const userBarSettings = el('user-bar-settings');
+  // Sidebar tools list — settings entry point
+  const toolSettingsBtn = el('tool-settings-btn');
 
-  if (userBarSettings) {
-    userBarSettings.addEventListener('click', () => settingsModule.open());
+  if (toolSettingsBtn) {
+    toolSettingsBtn.addEventListener('click', () => settingsModule.open());
   }
 
   // Single-user mode: the one user is the admin; no per-user privileges.
@@ -2224,7 +2224,7 @@ function initializeEventListeners() {
     'tool-memory':         '#tool-memory-btn',
     'tool-tasks':          '#tool-tasks-btn',
     'tool-theme':          '#tool-theme-btn',
-    'sidebar-settings-btn':'#user-bar-settings',
+    'sidebar-settings-btn':'#tool-settings-btn',
     'chat-meta':           '.chat-meta-overlay',
     'welcome-text':        '.welcome-name, .welcome-powered-by, .welcome-sub, #welcome-tip',
     'incognito-btn':       '.incognito-btn',
@@ -3572,8 +3572,9 @@ function startX9App() {
   // Initial icon state
   _updateSendBtnIcon();
 
-  // Auto-focus input on load
-  if (messageInput) {
+  // Auto-focus input on load — desktop only; on phones it pops the keyboard
+  // over the welcome screen before the user has done anything.
+  if (messageInput && window.innerWidth > 768) {
     setTimeout(() => messageInput.focus(), 100);
   }
 

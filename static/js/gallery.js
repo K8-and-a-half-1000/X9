@@ -2807,7 +2807,8 @@ export function openGallery() {
   //    fetch fails or takes a moment, the cached view sticks around.
   _fetchAlbums();
   _fetchLibrary(false);
-  searchInput.focus();
+  // No autofocus on phones — the keyboard would cover half the grid.
+  if (window.innerWidth > 768) searchInput.focus();
 }
 
 function _doCloseGallery() {
