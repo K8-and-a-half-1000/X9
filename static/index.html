@@ -197,8 +197,8 @@
       }, { once: true });
     })();
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=20260630mdfontsize">
-  <link rel="modulepreload" href="/static/app.js?v=20260630mdfontsize">
+  <link rel="stylesheet" href="/static/style.css?v=20260712queue">
+  <link rel="modulepreload" href="/static/app.js?v=20260712queue">
   <link rel="modulepreload" href="/static/js/chat.js">
   <link rel="modulepreload" href="/static/js/ui.js">
   <link rel="modulepreload" href="/static/js/sessions.js">
@@ -798,6 +798,20 @@
             <circle cx="9" cy="15" r="1.5" fill="currentColor"/>
           </svg>
           <span class="grow">Theme</span>
+        </div>
+
+        <div class="list-item" id="tool-queue-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            style="flex-shrink:0;opacity:0.5;">
+            <line x1="9" y1="6" x2="21" y2="6"/>
+            <line x1="9" y1="12" x2="21" y2="12"/>
+            <line x1="9" y1="18" x2="21" y2="18"/>
+            <polygon points="3,4 6.5,6 3,8" fill="currentColor" stroke="none"/>
+            <circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+          <span class="grow">Queue</span>
         </div>
 
         <div class="list-item" id="tool-settings-btn">
@@ -2275,7 +2289,7 @@
 <script type="module" src="/static/js/settings.js"></script>
 <script type="module" src="/static/js/admin.js"></script>
 <script type="module" src="/static/js/assistant.js"></script>
-<script type="module" src="/static/app.js?v=20260630mdfontsize"></script>  <!-- app.js must be LAST -->
+<script type="module" src="/static/app.js?v=20260712queue"></script>  <!-- app.js must be LAST -->
 <script type="module" src="/static/js/init.js"></script>
 <script type="module" src="/static/js/a11y.js"></script>
 <script nonce="{{CSP_NONCE}}">

@@ -45,6 +45,8 @@ from src.tools.search import do_search_chats  # noqa: F401
 from src.tools.image import do_edit_image  # noqa: F401
 # Research domain extracted to src/tools/research.py (slice 1, #4082/#4071).
 from src.tools.research import do_manage_research, do_trigger_research  # noqa: F401
+# Improvement queue lives in src/tools/queue.py.
+from src.tools.queue import do_manage_queue  # noqa: F401
 # Contacts domain extracted to src/tools/contacts.py (slice 1, #4082/#4071).
 from src.tools.contacts import do_resolve_contact, do_manage_contact  # noqa: F401
 # Vault domain extracted to src/tools/vault.py (slice 1, #4082/#4071).

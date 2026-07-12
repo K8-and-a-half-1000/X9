@@ -574,6 +574,13 @@ app.include_router(setup_chat_routes(
 from routes.research.research_routes import setup_research_routes
 app.include_router(setup_research_routes(research_handler, session_manager=session_manager))
 
+# Improvement queue (planned skill/rag/memory/test improvements, run like research)
+from src.improvement_queue import get_improvement_queue
+improvement_queue = get_improvement_queue()
+improvement_queue.configure(research_handler=research_handler, skills_manager=skills_manager)
+from routes.queue_routes import setup_queue_routes
+app.include_router(setup_queue_routes(improvement_queue))
+
 # History
 from routes.history_routes import setup_history_routes
 app.include_router(setup_history_routes(session_manager))

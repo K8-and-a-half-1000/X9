@@ -790,6 +790,26 @@ FUNCTION_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "manage_queue",
+            "description": "Plan improvements on the sidebar Queue page: add, list, remove, or skip skill/rag/memory/test improvement items. Items need a description of what should improve; new items join the BOTTOM of the queue. A 'test' improvement builds a test- prefixed skill that proves whether a feature works. The queue only RUNS when the user presses play on the Queue page — never promise to run it.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["add", "list", "remove", "skip"],
+                               "description": "add = queue a new improvement; list = show the queue top-down; remove = delete by id; skip = toggle an item's skipped state."},
+                    "type": {"type": "string", "enum": ["skill", "rag", "memory", "test"],
+                             "description": "What the improvement targets (required for add). Use 'test' for a test- skill that proves a feature works."},
+                    "description": {"type": "string", "description": "What needs to improve (required for add)."},
+                    "id": {"type": "string", "description": "Queue item id (required for remove/skip; from action='list')."},
+                    "skipped": {"type": "boolean", "description": "For skip: true parks the item (eye icon), false puts it back in line. Default true."},
+                },
+                "required": ["action"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "resolve_contact",
             "description": "Look up a contact by name. Searches the CardDAV address book. Returns email addresses (when available) or phone numbers. Use when the user says 'message [name]' or asks for someone's contact details.",
             "parameters": {

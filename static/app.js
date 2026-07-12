@@ -32,6 +32,7 @@ import themeModule from './js/theme.js';
 
 import groupModule from './js/group.js';
 import * as researchPanelModule from './js/research/panel.js?v=20260712researchformats';
+import * as queuePanelModule from './js/queue/panel.js?v=20260712queue';
 import ttsModule from './js/tts-ai.js';
 import spinnerModule from './js/spinner.js';
 import { initKeyboardShortcuts } from './js/keyboard-shortcuts.js';
@@ -817,6 +818,13 @@ function initializeEventListeners() {
   if (toolResearchBtn) {
     toolResearchBtn.addEventListener('click', () => {
       researchPanelModule.toggle();
+    });
+  }
+
+  const toolQueueBtn = el('tool-queue-btn');
+  if (toolQueueBtn) {
+    toolQueueBtn.addEventListener('click', () => {
+      queuePanelModule.toggle();
     });
   }
 
@@ -2219,6 +2227,7 @@ function initializeEventListeners() {
     // Per-tool visibility — fine-grained control over which entries show
     // inside the Tools section in the sidebar.
     'tool-research':       '#tool-research-btn',
+    'tool-queue':          '#tool-queue-btn',
     'tool-gallery':        '#tool-gallery-btn',
     'tool-library':        '#tool-library-btn',
     'tool-memory':         '#tool-memory-btn',
@@ -3207,6 +3216,7 @@ function startX9App() {
   chatModule.initListeners();
   groupModule.init(API_BASE);
   researchPanelModule.init(API_BASE, markdownModule, sessionModule);
+  queuePanelModule.init(API_BASE);
   // Initialize document editor module
   if (documentModule) {
     documentModule.init(API_BASE);

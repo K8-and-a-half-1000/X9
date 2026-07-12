@@ -1393,6 +1393,7 @@ const _AUTO_WIRE = {
   'doclib-modal':         { rail: 'rail-archive',   sidebar: 'tool-library-btn' },
   'memory-modal':         { rail: null,             sidebar: 'tool-memory-btn' },
   'research-overlay':     { rail: 'rail-research',  sidebar: 'tool-research-btn' },
+  'queue-overlay':        { rail: null,             sidebar: 'tool-queue-btn' },
   'theme-modal':          { rail: null,             sidebar: 'tool-theme-btn' },
   'settings-modal':       { rail: 'rail-settings',  sidebar: 'tool-settings-btn' },
   'search-overlay':       { rail: 'rail-search-btn', sidebar: 'sidebar-search-btn' },
@@ -1513,7 +1514,8 @@ document.addEventListener('click', (e) => {
    windowDrag.js / windowResize.js. Popups NOT reachable from the sidebar
    (prompt window, confirms, pickers…) are untouched. */
 const _PAGE_IDS = ['memory-modal', 'gallery-modal', 'tasks-modal', 'doclib-modal',
-                   'research-overlay', 'theme-modal', 'settings-modal', 'search-overlay'];
+                   'research-overlay', 'queue-overlay', 'theme-modal', 'settings-modal',
+                   'search-overlay'];
 
 function _pageContent(el) {
   return el.querySelector(':scope > .modal-content, :scope > #theme-popup, :scope > .search-popup');
@@ -1534,7 +1536,7 @@ function _pageVisible(el) {
 // Complete a pending dismiss animation synchronously (mirrors app.js
 // dismissModal's end state) so a nav click during the 250ms close finds
 // clean state and the tool's open handler can run immediately.
-const _DYNAMIC_PAGE_IDS = new Set(['gallery-modal', 'tasks-modal', 'doclib-modal', 'research-overlay']);
+const _DYNAMIC_PAGE_IDS = new Set(['gallery-modal', 'tasks-modal', 'doclib-modal', 'research-overlay', 'queue-overlay']);
 function _finishPendingClose(el) {
   const content = _pageContent(el);
   if (!content || !content.classList.contains('modal-closing')) return;

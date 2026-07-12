@@ -612,7 +612,8 @@ async def _execute_tool_block_impl(
     from src.tool_implementations import (
         do_search_chats, do_manage_tasks,
         do_manage_skills, do_api_call,
-        do_edit_image, do_trigger_research, do_manage_research, do_resolve_contact,
+        do_edit_image, do_trigger_research, do_manage_research, do_manage_queue,
+        do_resolve_contact,
         do_manage_contact,
         do_vault_search, do_vault_get, do_vault_unlock,
         do_app_api,
@@ -806,6 +807,9 @@ async def _execute_tool_block_impl(
     elif tool == "manage_research":
         desc = "manage_research"
         result = await do_manage_research(content, owner=owner)
+    elif tool == "manage_queue":
+        desc = "manage_queue"
+        result = await do_manage_queue(content, owner=owner)
     elif tool == "resolve_contact":
         desc = "resolve_contact"
         result = await do_resolve_contact(content, owner=owner)

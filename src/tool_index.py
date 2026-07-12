@@ -96,6 +96,7 @@ BUILTIN_TOOL_DESCRIPTIONS: Dict[str, str] = {
     "manage_tokens": "API token management: list, create, or delete API access tokens.",
     "manage_documents": "List, read, delete, or tidy documents in the editor panel. action='list' returns clickable rows (most-recent first) so the user can open any doc by clicking. action='read' (aka view/open/get) with document_id returns the content; supports offset=<N> + limit=<N> to page through large docs (response includes next_offset when more remains, so you can keep calling with offset=next_offset). action='delete' with document_id removes a doc (only way to delete). Use this for ANY 'show/read/list/open my documents/docs/files/notes' request — never shell or curl.",
     "manage_research": "List, read/open, or delete saved DEEP RESEARCH results from the Library. action='list' returns clickable [query](#research-<id>) rows (most-recent first). action='read' (aka open/view/get) with id returns the report + sources. action='delete' with id removes it. Use this for ANY 'open/read/find/delete my research / that report / the research on X' request. NOTE: this is for EXISTING research; to START new research use trigger_research.",
+    "manage_queue": "Plan improvements on the sidebar Queue page: add/list/remove/skip skill, rag, memory, or test improvement items. Use when the user wants to 'queue an improvement', 'plan a skill/rag/memory improvement', or 'add a test proving X works' (type='test' builds a test- prefixed skill). Every add needs a description of what should improve; new items join the bottom. The queue only runs when the USER presses play on the Queue page.",
     "manage_settings": "Change ANY real app setting (the ones the Settings panel writes) so the user never has to open it: TTS voice/provider/speed, STT, search engine + result count, default/teacher/task/utility/vision/image/research models, image quality, reminder channel (browser/ntfy), agent timeout/tool-call budget, and more. action=set with key (friendly aliases ok: voice, 'search engine', 'default model', 'teacher model', 'image quality', 'reminder channel'...) + value; get/list/reset too. Also toggles tools on/off (disable_tool/enable_tool/list_tools). Secrets/API keys are read-only. Use for any 'change my…/set my…/use X for…/turn on…' preference request.",
     "create_session": "Create a new chat with a name and model.",
     "list_sessions": "List all chats with their metadata (the UI calls these 'chats'). Use for 'list my chats', 'rename all my chats' (list first, then manage_session to rename each).",
@@ -401,6 +402,14 @@ class ToolIndex:
                    "saved research", "research library", "past research",
                    "research i did", "research about"}):
             {"manage_research", "trigger_research"},
+        # Improvement-queue intent — planning skill/rag/memory/test improvements.
+        frozenset({"improvement queue", "the queue", "queue an improvement",
+                   "queue improvement", "add to the queue", "improvement to",
+                   "plan an improvement", "improvements to perform",
+                   "queue a test", "add a test", "test skill", "prove it works",
+                   "prove that", "skill improvement", "rag improvement",
+                   "memory improvement"}):
+            {"manage_queue"},
         # Document edit/update intent
         frozenset({"edit", "change", "fix", "rewrite", "update",
                    "replace", "add a", "tweak", "modify", "rename", "paragraph",

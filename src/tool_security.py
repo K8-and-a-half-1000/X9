@@ -90,6 +90,7 @@ _PLAN_MODE_KNOWN_MUTATORS = {
     "manage_webhooks", "manage_tokens", "manage_settings", "manage_contact",
     "api_call", "app_api", "ui_control",
        "generate_image", "edit_image", "trigger_research", "manage_research",
+    "manage_queue",
     # Shell is never read-only-safe; block it explicitly so it stays out of plan
     # mode even if the schema list fails to load.
     "bash", "python",

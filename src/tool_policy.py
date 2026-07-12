@@ -41,6 +41,7 @@ _COMMON_TOOL_NAMES = {
     "manage_endpoints",
     "manage_mcp",
     "manage_memory",
+    "manage_queue",
     "manage_research",
     "manage_session",
     "manage_settings",

@@ -5037,6 +5037,7 @@ body.bg-pattern-sparkles {
       #memory-modal,
       #doclib-modal,
       #research-overlay,
+      #queue-overlay,
       #theme-modal,
       #settings-modal{
         left: calc(var(--icon-rail-w, 48px) + var(--sidebar-w, 0px));
@@ -27935,6 +27936,7 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   body:has(.sidebar.right-side) #memory-modal.tool-page,
   body:has(.sidebar.right-side) #doclib-modal.tool-page,
   body:has(.sidebar.right-side) #research-overlay.tool-page,
+  body:has(.sidebar.right-side) #queue-overlay.tool-page,
   body:has(.sidebar.right-side) #theme-modal.tool-page,
   body:has(.sidebar.right-side) #settings-modal.tool-page {
     left: 0;
@@ -28139,4 +28141,84 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   .tool-page .settings-modal-content:not(.settings-panel-active) .settings-panels { display: none; }
   .tool-page .settings-modal-content.settings-panel-active .settings-sidebar { display: none; }
   .tool-page .settings-modal-content.settings-panel-active .settings-back-row { display: flex; }
+}
+
+/* ── Queue page (improvement queue) ──
+   Reuses the research panel's card/form classes for the Deep-Research look;
+   these rules only add the queue-specific bits: compose row, type badges,
+   done checkmark, skipped dimming, test-confidence chips, inline edit. */
+#queue-pane { min-height: 0; }
+#queue-pane .queue-pane-body {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+#queue-pane .queue-items-list { flex: 0 0 auto; }
+
+.queue-compose-row {
+  display: flex; align-items: flex-end; gap: 10px; margin-top: 8px;
+}
+.queue-compose-row .research-add-btn { margin-left: auto; }
+.queue-type-setting { display: flex; flex-direction: column; gap: 3px; }
+.queue-type-setting select {
+  padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  font-family: inherit; font-size: 13px;
+}
+.queue-error {
+  margin-top: 8px; font-size: 12.5px; color: #f44336;
+}
+.queue-empty { padding: 6px 2px; }
+
+/* Type badges — tinted variants of the research category badge. */
+.queue-type-badge { flex-shrink: 0; text-transform: none; }
+.queue-type-skill  { color: #7c9eff; background: color-mix(in srgb, #7c9eff 14%, transparent); }
+.queue-type-rag    { color: #4fc38a; background: color-mix(in srgb, #4fc38a 14%, transparent); }
+.queue-type-memory { color: #d9a44f; background: color-mix(in srgb, #d9a44f 14%, transparent); }
+.queue-type-test   { color: #c77dff; background: color-mix(in srgb, #c77dff 14%, transparent); }
+
+.queue-card .research-job-query { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+/* Completed: green check pinned to the header's right edge. */
+.queue-done-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-left: auto;
+  width: 20px; height: 20px; border-radius: 50%;
+  color: var(--color-success, #34c759);
+  background: color-mix(in srgb, var(--color-success, #34c759) 14%, transparent);
+}
+.queue-done .research-job-query { opacity: 0.85; }
+
+/* Skipped: parked look, eye-off restores. */
+.queue-skipped { opacity: 0.55; }
+.queue-skip-note {
+  flex-shrink: 0; margin-left: auto; font-size: 11px;
+  color: color-mix(in srgb, var(--fg) 60%, transparent);
+  font-style: italic;
+}
+
+/* Test success-confidence chip (high / mid / low). */
+.queue-conf-chip {
+  flex-shrink: 0; font-size: 11px; font-weight: 600;
+  padding: 1px 7px; border-radius: 9px;
+}
+.queue-conf-high { color: var(--color-success, #34c759); background: color-mix(in srgb, var(--color-success, #34c759) 14%, transparent); }
+.queue-conf-mid  { color: #d9a44f; background: color-mix(in srgb, #d9a44f 14%, transparent); }
+.queue-conf-low  { color: #f44336; background: color-mix(in srgb, #f44336 14%, transparent); }
+
+.queue-test-skill {
+  flex-shrink: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px; opacity: 0.75;
+}
+.queue-result-summary {
+  margin-top: 4px; font-size: 12.5px;
+  color: color-mix(in srgb, var(--fg) 75%, transparent);
+}
+
+.queue-edit-form { display: flex; flex-direction: column; gap: 6px; }
+.queue-edit-form .queue-compose-row { align-items: center; }
+.queue-edit-form .queue-compose-row .research-job-action:first-of-type { margin-left: auto; }
+
+@media (max-width: 768px) {
+  .queue-compose-row { flex-wrap: wrap; }
 }

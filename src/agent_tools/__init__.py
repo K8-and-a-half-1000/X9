@@ -87,6 +87,7 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "manage_tokens", "manage_documents", "manage_settings",
              "resolve_contact", "manage_contact",
              "edit_image", "trigger_research", "manage_research",
+             "manage_queue",
              # Generic loopback to any UI-button endpoint (gallery,
              # etc.) — agent uses this when there's no named
              # tool wrapper for the action.

@@ -176,6 +176,66 @@ def _resolve_endpoint_runtime(ep, owner=None, model: Optional[str] = None):
     return build_chat_url(base), ep_model, build_headers(api_key, base)
 
 
+def resolve_panel_endpoint(user: str, endpoint_id: Optional[str] = None,
+                           model: Optional[str] = None) -> tuple:
+    """Resolve (ep_url, ep_model, ep_headers) for a panel-launched research job.
+
+    The exact chain /api/research/start uses: explicit endpoint_id →
+    research → utility → default → chat → first enabled endpoint visible to
+    `user`. Shared with the improvement queue so queued items run through
+    the same endpoint selection as the Deep Research panel. Raises
+    HTTPException(400/404) when nothing usable is configured.
+    """
+    if endpoint_id:
+        from src.database import SessionLocal
+        db = SessionLocal()
+        try:
+            # Owner-scoped: never resolve another user's private endpoint
+            # (and its decrypted api_key / internal base_url). A scoped miss
+            # reads as 404 so the endpoint's existence isn't revealed.
+            ep = _owned_enabled_endpoint(db, user, endpoint_id)
+            if not ep:
+                raise HTTPException(404, "Endpoint not found or disabled")
+            resolved = _resolve_endpoint_runtime(ep, owner=user, model=model)
+            if not resolved:
+                raise HTTPException(400, "Endpoint is not configured with a usable model.")
+            return resolved
+        finally:
+            db.close()
+
+    ep_url, ep_model, ep_headers = resolve_endpoint("research", owner=user)
+    if not ep_url:
+        ep_url, ep_model, ep_headers = resolve_endpoint("utility", owner=user)
+    # When neither research nor utility is configured, use the user's
+    # configured DEFAULT model (default_endpoint_id/default_model) rather
+    # than arbitrarily grabbing the first enabled endpoint's first model
+    # (which surfaced gpt-3.5). "Default" should mean the default model.
+    if not ep_url:
+        ep_url, ep_model, ep_headers = resolve_endpoint("default", owner=user)
+    if not ep_url:
+        ep_url, ep_model, ep_headers = resolve_endpoint("chat", owner=user)
+    if not ep_url:
+        from src.database import SessionLocal
+        db = SessionLocal()
+        try:
+            # Owner-scoped first-enabled fallback: the caller's own rows
+            # + legacy null-owner shared rows only — never borrow another
+            # user's private endpoint/api_key. Same fix as the
+            # /api/v1/chat fallback (webhook_routes._first_enabled_endpoint).
+            ep = _owned_enabled_endpoint(db, user)
+            if ep:
+                resolved = _resolve_endpoint_runtime(ep, owner=user)
+                if resolved:
+                    ep_url, ep_model, ep_headers = resolved
+        finally:
+            db.close()
+    if not ep_url:
+        raise HTTPException(400, "No endpoints configured. Add one in Settings first.")
+    if model:
+        ep_model = model
+    return ep_url, ep_model, ep_headers
+
+
 def setup_research_routes(research_handler, session_manager=None) -> APIRouter:
     router = APIRouter(tags=["research"])
 
@@ -473,53 +533,8 @@ def setup_research_routes(research_handler, session_manager=None) -> APIRouter:
                 user = tool_owner
         session_id = f"rp-{uuid.uuid4().hex[:12]}"
 
-        if body.endpoint_id:
-            from src.database import SessionLocal
-            db = SessionLocal()
-            try:
-                # Owner-scoped: never resolve another user's private endpoint
-                # (and its decrypted api_key / internal base_url). A scoped miss
-                # reads as 404 so the endpoint's existence isn't revealed.
-                ep = _owned_enabled_endpoint(db, user, body.endpoint_id)
-                if not ep:
-                    raise HTTPException(404, "Endpoint not found or disabled")
-                resolved = _resolve_endpoint_runtime(ep, owner=user, model=body.model)
-                if not resolved:
-                    raise HTTPException(400, "Endpoint is not configured with a usable model.")
-                ep_url, ep_model, ep_headers = resolved
-            finally:
-                db.close()
-        else:
-            ep_url, ep_model, ep_headers = resolve_endpoint("research", owner=user)
-            if not ep_url:
-                ep_url, ep_model, ep_headers = resolve_endpoint("utility", owner=user)
-            # When neither research nor utility is configured, use the user's
-            # configured DEFAULT model (default_endpoint_id/default_model) rather
-            # than arbitrarily grabbing the first enabled endpoint's first model
-            # (which surfaced gpt-3.5). "Default" should mean the default model.
-            if not ep_url:
-                ep_url, ep_model, ep_headers = resolve_endpoint("default", owner=user)
-            if not ep_url:
-                ep_url, ep_model, ep_headers = resolve_endpoint("chat", owner=user)
-            if not ep_url:
-                from src.database import SessionLocal
-                db = SessionLocal()
-                try:
-                    # Owner-scoped first-enabled fallback: the caller's own rows
-                    # + legacy null-owner shared rows only — never borrow another
-                    # user's private endpoint/api_key. Same fix as the
-                    # /api/v1/chat fallback (webhook_routes._first_enabled_endpoint).
-                    ep = _owned_enabled_endpoint(db, user)
-                    if ep:
-                        resolved = _resolve_endpoint_runtime(ep, owner=user)
-                        if resolved:
-                            ep_url, ep_model, ep_headers = resolved
-                finally:
-                    db.close()
-            if not ep_url:
-                raise HTTPException(400, "No endpoints configured. Add one in Settings first.")
-            if body.model:
-                ep_model = body.model
+        ep_url, ep_model, ep_headers = resolve_panel_endpoint(
+            user, endpoint_id=body.endpoint_id, model=body.model)
 
         # max_rounds=0 → "Auto", let AI decide; pass 20 as the safety cap.
         effective_max_rounds = body.max_rounds if body.max_rounds > 0 else 20
