@@ -28222,3 +28222,25 @@ body.tool-page-view .incognito-indicator { display: none !important; }
 @media (max-width: 768px) {
   .queue-compose-row { flex-wrap: wrap; }
 }
+
+/* ── Chat readability: AI responses render in ONE text color ──
+   Models emit colored <span style>/<font>/<mark> highlights, and code blocks
+   bring rainbow .hljs-* syntax tokens — in the chat area they all flatten to
+   the main chat text color. The sanitizer deliberately keeps style attrs, so
+   !important is what beats model-emitted inline colors. Surface backgrounds
+   (pre panels, inline-code chips, diff row tints) stay — only TEXT coloring
+   and text-highlight backgrounds go. Scoped to AI bubbles; the document
+   editor / previews keep real syntax highlighting. */
+.msg-ai .body,
+.msg-ai .body * {
+  color: var(--fg) !important;
+}
+/* Links keep an underline so they stay recognizable without a color. */
+.msg-ai .body a { text-decoration: underline; }
+/* Text highlights: <mark>, <font>, and inline background styles on text
+   elements. pre/code keep their code-surface background. */
+.msg-ai .body mark,
+.msg-ai .body font,
+.msg-ai .body *[style*="background"]:not(pre):not(code) {
+  background: none !important;
+}
