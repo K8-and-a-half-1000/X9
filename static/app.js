@@ -627,21 +627,23 @@ function initializeEventListeners() {
       content.style.transform = '';
       content.style.transition = '';
       content.classList.add('modal-closing');
-      content.addEventListener('animationend', () => {
-        if (_dynamicModalIds.includes(modal.id)) {
-          modal.remove();
-        } else {
-          modal.classList.add('hidden');
-          content.classList.remove('modal-closing');
-        }
-      }, { once: true });
-      // Fallback in case animationend doesn't fire
-      setTimeout(() => {
-        if (modal.parentElement && !modal.classList.contains('hidden')) {
-          if (_dynamicModalIds.includes(modal.id)) modal.remove();
-          else { modal.classList.add('hidden'); content.classList.remove('modal-closing'); }
-        }
-      }, 250);
+      // Complete the close only if it hasn't been SUPERSEDED by a reopen.
+      // Reopening a tool page mid-close (e.g. clicking Skills again during the
+      // 0.18s exit animation) clears .modal-closing via the tool-page nav
+      // interceptor (_finishPendingClose in modalManager). A stale
+      // animationend/fallback that still ran here would then re-hide the
+      // freshly-opened page — dropping the user back on the chat area (the
+      // intermittent "Skills closes on open" bug). Bail once .modal-closing is
+      // gone; this also makes the animationend + fallback pair idempotent
+      // (whichever fires first wins, the other no-ops).
+      const _finishClose = () => {
+        if (!content.classList.contains('modal-closing')) return;
+        if (_dynamicModalIds.includes(modal.id)) modal.remove();
+        else { modal.classList.add('hidden'); content.classList.remove('modal-closing'); }
+      };
+      content.addEventListener('animationend', _finishClose, { once: true });
+      // Fallback in case animationend doesn't fire.
+      setTimeout(_finishClose, 250);
     } else {
       if (content) content.classList.remove('sheet-ready');
       if (_dynamicModalIds.includes(modal.id)) modal.remove();
@@ -1307,6 +1309,12 @@ function initializeEventListeners() {
   const toolMemoryBtn = el('tool-memory-btn');
   if (toolMemoryBtn && memoryModal) {
     toolMemoryBtn.addEventListener('click', () => {
+      // Cancel any in-flight close animation: a deferred close (dismissModal's
+      // animationend/250ms fallback) bails once .modal-closing is gone, so
+      // clearing it here guarantees a rapid close→reopen can't re-hide the
+      // freshly-opened page.
+      const _c = memoryModal.querySelector('.modal-content');
+      if (_c) _c.classList.remove('modal-closing');
       memoryModal.classList.remove('hidden');
       // Skills is the window's default tab now — load it on open.
       import('./js/skills.js').then(m => {
