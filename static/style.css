@@ -1157,6 +1157,12 @@ body.bg-pattern-sparkles {
     .section-header-flex::after { content: none; }
     .section-header-flex h4::before { content: none; }
 
+    /* Chats is a launcher: its header opens the RAG Chats page, so the inline
+       session list + bulk bar never render in the sidebar (that content lives
+       on the RAG Chats page). Only the always-visible header row remains. */
+    #sessions-section #session-list,
+    #sessions-section #session-bulk-bar { display: none !important; }
+
     /* Section title text — same font as .list-item .grow, which itself
        tracks the chat text size (0.95em). */
     .section-header-flex h4,
@@ -13908,8 +13914,10 @@ span[id$="-logo"] svg:not([width]) {
   font-size: 14px;
   background: var(--bg);
 }
-/* Anchor doclib modal to top so only the bottom edge moves on resize */
-#doclib-modal {
+/* Anchor the FLOATING doclib window near the top so only its bottom edge moves
+   on resize. As a full tool-page it must fill the chat area instead — the
+   8vh top pad here otherwise leaves a gap exposing the chat behind the page. */
+#doclib-modal:not(.tool-page) {
   align-items: flex-start;
   padding-top: 8vh;
 }
@@ -26739,6 +26747,13 @@ body.theme-frosted .modal {
   padding: 0;
   background: none !important;
   backdrop-filter: none !important;
+  /* No slide-in on open. The chat-area offset block transitions left/width so
+     the centered floating window glides when the sidebar collapses; but a
+     dynamically-created page (Gallery / RAG / Deep Research) is appended with
+     the left-sidebar offset (left ≈ sidebar width) for one frame before
+     `.tool-page` + the right-sidebar rule pin it to left:0 — and the
+     transition animates that jump as a slide. Pages appear in place instead. */
+  transition: none !important;
 }
 body.tool-page-view .hamburger-btn {
   /* Above pages (240) AND above the mobile drawer (400) — this rule outranks
@@ -26772,6 +26787,14 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   /* One page background for every tool (the Gallery/Settings shade) — half
      the tools hardcode background:var(--bg) inline, which read as a
      different page color. */
+  background: var(--panel) !important;
+}
+/* The sticky title strip must match the unified page surface (var(--panel)).
+   Some floating windows paint their header var(--bg) — RAG (doclib) and Deep
+   Research both do via `.doclib-modal-content > .modal-header` (the research
+   pane also carries the doclib class) — which reads as a lighter/darker stripe
+   above the page body once the content is forced to var(--panel). */
+.modal.tool-page > .modal-content > .modal-header {
   background: var(--panel) !important;
 }
 .tool-page .modal-header { cursor: default; }

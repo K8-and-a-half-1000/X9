@@ -14,6 +14,11 @@ export function initSectionCollapse(Storage) {
     const section = header.closest('.section');
     if (!section || !section.id) return;
 
+    // The Chats section is a launcher — its header opens the RAG Chats page
+    // (wired in app.js) rather than collapsing an inline list. Skip the
+    // chevron + collapse/expand wiring entirely.
+    if (section.id === 'sessions-section') return;
+
     // Add chevron (always visible — rotates when collapsed)
     header.insertAdjacentHTML('beforeend', _chevronHtml);
 

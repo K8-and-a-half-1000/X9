@@ -943,6 +943,21 @@ function initializeEventListeners() {
     });
   }
 
+  // The Chats sidebar entry is a launcher: clicking its header opens the RAG
+  // Chats page (openLibrary 'chats') instead of expanding an inline list.
+  // Clear the "new chat completed" dot on open. (Collapse wiring is skipped
+  // for #sessions-section in section-management.js.)
+  const chatsHeader = document.querySelector('#sessions-section .section-header-flex');
+  if (chatsHeader) {
+    chatsHeader.style.cursor = 'pointer';
+    chatsHeader.addEventListener('click', (e) => {
+      if (e.target.closest('button, .dropdown, input')) return;
+      const dot = el('chats-notif-dot');
+      if (dot) dot.style.display = 'none';
+      if (sessionModule) sessionModule.openLibrary('chats');
+    });
+  }
+
   const toolArchiveBtn = el('tool-archive-btn');
   if (toolArchiveBtn) {
     toolArchiveBtn.addEventListener('click', () => {

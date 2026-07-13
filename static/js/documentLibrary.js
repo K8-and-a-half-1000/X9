@@ -1838,31 +1838,6 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
       grid.parentElement.appendChild(btn);
     }
 
-    // SVG markup + label for each tab — used to keep the modal header
-    // in sync with whichever sub-tab the user is on.
-    const _TAB_HEADERS = {
-      chats: {
-        label: 'Chats',
-        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-      },
-      documents: {
-        label: 'Documents',
-        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
-      },
-      research: {
-        label: 'Research',
-        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
-      },
-      memory: {
-        label: 'Memory',
-        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
-      },
-      archive: {
-        label: 'Archive',
-        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
-      },
-    };
-
     function _switchLibTab(tab) {
       _activeLibTab = tab;
       _tabBtns.forEach(b => b.classList.toggle('active', b.dataset.doclibTab === tab));
@@ -1873,14 +1848,16 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
           p.style.display = 'none';
         }
       });
-      // Sync the modal header icon + label to match the active sub-tab.
-      const hdr = _TAB_HEADERS[tab];
-      if (hdr) {
-        const ico = document.getElementById('doclib-header-icon');
-        const txt = document.getElementById('doclib-header-text');
-        if (ico) ico.innerHTML = hdr.svg;
-        if (txt) txt.textContent = hdr.label;
+      // The page title stays "RAG" (the window's name) with a fixed book
+      // icon — the sub-tab (Chats / Documents / Research / Memory / Archive) is
+      // navigation WITHIN RAG, shown by the tab strip below, not the title.
+      const ico = document.getElementById('doclib-header-icon');
+      const txt = document.getElementById('doclib-header-text');
+      if (ico && !ico.dataset.ragIconSet) {
+        ico.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6M9 11h4"/></svg>';
+        ico.dataset.ragIconSet = '1';
       }
+      if (txt) txt.textContent = 'RAG';
       if (tab === 'chats') _renderLibChats();
       else if (tab === 'archive') _renderLibArchive();
       else if (tab === 'research') _renderLibResearch();

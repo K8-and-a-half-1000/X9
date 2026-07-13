@@ -1647,12 +1647,10 @@ export async function loadSessions() {
     sessions = _normalizeSessionsList(fetched);
     renderSessionList();
 
+    // The Chats entry is a permanent launcher for the RAG Chats page, so it
+    // stays visible even with zero chats (no empty-hide).
     const sessionsSection = uiModule.el('sessions-section');
-    if (sessions.length === 0) {
-      sessionsSection.classList.add('hidden');
-    } else {
-      sessionsSection.classList.remove('hidden');
-    }
+    if (sessionsSection) sessionsSection.classList.remove('hidden');
 
     const activeSessions = sessions.filter(s => !s.archived);
     // "Transient" sessions = the singleton Assistant chat + any task-output
