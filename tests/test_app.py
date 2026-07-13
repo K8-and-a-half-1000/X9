@@ -1,5 +1,5 @@
 """
-Basic tests for the X9 application structure
+Basic tests for the AD application structure
 """
 import pytest
 import sys

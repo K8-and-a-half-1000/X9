@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""X9 — first-time setup script.
+"""AD — first-time setup script.
 
 Creates data directories, initializes the database, and sets up an
 initial admin user. Safe to re-run (skips what already exists).
@@ -134,7 +134,7 @@ def check_arch():
 
 
 def main():
-    print("\n=== X9 Setup ===\n")
+    print("\n=== AD Setup ===\n")
 
     # Load .env so deployment vars are honored on native installs, not just
     # when they are exported in the shell. Mirrors app.py: encoding="utf-8-sig"
@@ -164,13 +164,13 @@ def main():
         print("         This is OK if dependencies aren't installed yet.")
 
     print("\n=== Setup complete ===")
-    # X9 is single-user with no login flow — serve it only behind your
+    # AD is single-user with no login flow — serve it only behind your
     # Zero-Trust gateway (or on loopback).
-    if not os.getenv("X9_SKIP_RUN_HINT"):
+    if not os.getenv("AD_SKIP_RUN_HINT"):
         print(f"\nStart the server with:")
         print(f"  python -m uvicorn app:app --host 127.0.0.1 --port 7000")
         print(f"\nThen open http://localhost:7000")
-        print("\nNote: X9 has no login — keep it on loopback or behind your Zero-Trust gateway.\n")
+        print("\nNote: AD has no login — keep it on loopback or behind your Zero-Trust gateway.\n")
 
 
 if __name__ == "__main__":

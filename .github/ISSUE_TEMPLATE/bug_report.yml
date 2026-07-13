@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a reproducible bug in X9.
+description: Report a reproducible bug in AD.
 labels: ["bug"]
 
 body:

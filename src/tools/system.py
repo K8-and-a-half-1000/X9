@@ -549,7 +549,7 @@ _APP_API_BLOCKLIST_METHOD_PATH = (
 
 
 async def do_app_api(content: str, owner: Optional[str] = None) -> Dict:
-    """Generic loopback to allowed internal X9 API endpoints. Lets the
+    """Generic loopback to allowed internal AD API endpoints. Lets the
     agent reach the full UI-button surface (cookbook, email, notes,
     skills, sessions, gallery, research, etc.) without us
     landing a named tool wrapper for every one.
@@ -645,13 +645,13 @@ async def do_app_api(content: str, owner: Optional[str] = None) -> Dict:
         if "/api/cookbook/kill-pid" in path:
             return {"error": "Don't POST /api/cookbook/kill-pid via app_api — process signalling is host control. Use the dedicated Cookbook stop/diagnostic flow instead.", "exit_code": 1}
         if "/api/model/download" in path:
-            return {"error": "/api/model/download is blocked — model downloads were removed from X9.", "exit_code": 1}
+            return {"error": "/api/model/download is blocked — model downloads were removed from AD.", "exit_code": 1}
         if "/api/model/serve" in path:
-            return {"error": "/api/model/serve is blocked — model serving was removed from X9.", "exit_code": 1}
+            return {"error": "/api/model/serve is blocked — model serving was removed from AD.", "exit_code": 1}
         if "/api/research/start" in path:
             return {"error": "Don't POST /api/research/start directly — use the `trigger_research` tool (it surfaces the session in the Deep Research sidebar).", "exit_code": 1}
         if "/api/notes" in path:
-            return {"error": "/api/notes is blocked — the notes feature was removed from X9.", "exit_code": 1}
+            return {"error": "/api/notes is blocked — the notes feature was removed from AD.", "exit_code": 1}
         return {"error": f"{method} {path} is blocked.", "exit_code": 1}
 
     body = args.get("body")

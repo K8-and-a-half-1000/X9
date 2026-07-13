@@ -1,4 +1,4 @@
-// X9 UI — Initialization Scripts
+// AD UI — Initialization Scripts
 // ES6 module — extracted from index.html inline scripts
 
 import Storage from './storage.js';

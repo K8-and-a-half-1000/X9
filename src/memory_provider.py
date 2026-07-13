@@ -31,7 +31,7 @@ class MemorySearchHit:
 
 
 class MemoryProvider(ABC):
-    """Base contract for X9 memory providers.
+    """Base contract for AD memory providers.
 
     The native memory provider should always be available. External providers
     can add recall/write behavior and their own tools without replacing the
@@ -94,10 +94,10 @@ class MemoryProvider(ABC):
 
 
 class NativeMemoryProvider(MemoryProvider):
-    """Provider adapter for X9's built-in memory manager and vector store."""
+    """Provider adapter for AD's built-in memory manager and vector store."""
 
     provider_id = "native"
-    display_name = "X9 native memory"
+    display_name = "AD native memory"
 
     _CORE_FIELDS = {
         "id",

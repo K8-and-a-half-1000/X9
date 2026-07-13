@@ -23,10 +23,10 @@ def _fenced_segments(text: str):
 
 
 def test_readme_opens_with_wordmark_title():
-    # The README must still open with a recognizable X9 title: now the
+    # The README must still open with a recognizable AD title: now the
     # centered wordmark image rather than an H1 / ASCII banner.
     head = "\n".join(README.read_text(encoding="utf-8").splitlines()[:15])
-    assert "<h1 align=\"center\">X9</h1>" in head, "README must open with the X9 title"
+    assert "<h1 align=\"center\">AD</h1>" in head, "README must open with the AD title"
 
 
 def test_reintroduced_ascii_banner_stays_fenced():

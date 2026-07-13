@@ -42,7 +42,7 @@ module.exports = async ({ github, context, core }) => {
 
     case 'bug': {
       if (!section('Install Method')) {
-        failures.push('**Install Method** — select how you installed X9');
+        failures.push('**Install Method** — select how you installed AD');
       }
 
       if (!section('Operating System')) {

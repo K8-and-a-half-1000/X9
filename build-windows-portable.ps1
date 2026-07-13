@@ -1,13 +1,13 @@
 #Requires -Version 5.1
 <#
-  Build a portable Windows distribution for X9.
+  Build a portable Windows distribution for AD.
 
   Output layout:
-    dist\X9\X9.exe
-    dist\X9\static\...
-    dist\X9\scripts\...
-    dist\X9\mcp_servers\...
-    dist\X9\services\hwfit\data\...
+    dist\AD\AD.exe
+    dist\AD\static\...
+    dist\AD\scripts\...
+    dist\AD\mcp_servers\...
+    dist\AD\services\hwfit\data\...
 
   The app then keeps using its normal filesystem layout when frozen.
 
@@ -63,10 +63,10 @@ $dataArgs = @(
     "--add-data", ".env.example;.env.example"
 )
 
-& $pyExe -m PyInstaller --noconfirm --clean --onedir --noconsole --icon=static/icon.ico --name X9 @dataArgs launcher.py
+& $pyExe -m PyInstaller --noconfirm --clean --onedir --noconsole --icon=static/icon.ico --name AD @dataArgs launcher.py
 if ($LASTEXITCODE -ne 0) { Fail "PyInstaller build failed." }
 
 Write-Host ""
 Write-Host "Build complete." -ForegroundColor Green
-Write-Host "Portable app folder: $PSScriptRoot\dist\X9" -ForegroundColor Green
+Write-Host "Portable app folder: $PSScriptRoot\dist\AD" -ForegroundColor Green
 Write-Host "Distribute the whole folder (or zip it) so static assets and scripts stay with the exe." -ForegroundColor Green

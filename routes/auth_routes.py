@@ -1,6 +1,6 @@
 """App config routes (/api/auth/* kept for frontend compatibility).
 
-X9 is a single-user app served behind a Zero-Trust gateway — the login
+AD is a single-user app served behind a Zero-Trust gateway — the login
 flow (passwords, sessions, 2FA, user management) was removed. What
 remains under the historical /api/auth prefix is the app's config
 surface the SPA depends on: status, feature flags, settings, and the
@@ -186,7 +186,7 @@ def setup_auth_routes() -> APIRouter:
             api_key = integ.get("api_key", "")
             auth_type = (integ.get("auth_type") or "none").lower()
             headers = {
-                "Title": "X9 connectivity test",
+                "Title": "AD connectivity test",
                 "Tags": "white_check_mark",
                 "Priority": "default",
             }
@@ -199,7 +199,7 @@ def setup_auth_routes() -> APIRouter:
                 async with httpx.AsyncClient(timeout=8.0) as client:
                     r = await client.post(
                         full_url,
-                        content="Connectivity test from X9. If you see this on your phone, ntfy is wired up correctly.",
+                        content="Connectivity test from AD. If you see this on your phone, ntfy is wired up correctly.",
                         headers=headers,
                     )
                 if r.is_success:
@@ -230,7 +230,7 @@ def setup_auth_routes() -> APIRouter:
                 return {"ok": False, "message": "No webhook URL set — paste the full Discord webhook URL into the Base URL field."}
             payload = {
                 "embeds": [{
-                    "title": "X9 connectivity test",
+                    "title": "AD connectivity test",
                     "description": "If you see this, your Discord Webhook integration is wired up correctly.",
                     "color": 5793266,
                 }]

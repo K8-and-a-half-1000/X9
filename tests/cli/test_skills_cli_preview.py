@@ -15,7 +15,7 @@ def _load_cli(monkeypatch):
     mod = types.ModuleType("services.memory.skills")
     mod.SkillsManager = MagicMock()
     monkeypatch.setitem(sys.modules, "services.memory.skills", mod)
-    return load_script("x9-skills")
+    return load_script("ad-skills")
 
 
 def test_preview_text_ignores_non_string(monkeypatch):

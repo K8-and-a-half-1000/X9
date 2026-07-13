@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-  X9 - native Windows launcher.
+  AD - native Windows launcher.
 
   One command to: create a virtualenv, install dependencies, run first-time
   setup (prints an admin password on first run), and start the server.
@@ -163,7 +163,7 @@ if (Test-Path $cudaBase) {
 }
 
 # 7. Start the server (use `python -m uvicorn` - bare `uvicorn` may not be on PATH)
-Write-Step ("Starting X9 at http://{0}:{1}" -f $BindHost, $Port)
+Write-Step ("Starting AD at http://{0}:{1}" -f $BindHost, $Port)
 Write-Host "Press Ctrl+C to stop."
 Write-Host ""
 & $venvPy -m uvicorn app:app --host $BindHost --port $Port

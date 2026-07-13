@@ -146,7 +146,7 @@ def is_public_blocked_tool(tool_name: Optional[str]) -> bool:
 
 
 def owner_is_admin_or_single_user(owner: Optional[str]) -> bool:
-    """Always True: X9 runs in permanent single-user mode (no login flow);
+    """Always True: AD runs in permanent single-user mode (no login flow);
     the single owner has full access to their own box."""
     return True
 

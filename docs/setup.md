@@ -1,4 +1,4 @@
-# X9 Setup Guide
+# AD Setup Guide
 
 This page keeps the detailed install, deployment, troubleshooting, and configuration notes out of the front README.
 
@@ -16,7 +16,7 @@ pull request guidelines.
 ### Native Linux
 ```bash
 git clone https://github.com/K8-and-a-half-1000/X9.git
-cd X9
+cd AD
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -32,7 +32,7 @@ connect to API or remote model servers instead. Use `--host 0.0.0.0` only when y
 <summary>Cookbook, GPU, Ollama, and troubleshooting notes</summary>
 
 **Remote servers.** In **Cookbook -> Settings -> Servers**, generate the
-X9 SSH key and add the public key to the remote server's
+AD SSH key and add the public key to the remote server's
 `~/.ssh/authorized_keys`. From the host you can also run:
 
 ```bash
@@ -54,7 +54,7 @@ http://localhost:11434/v1
 ```
 
 Cookbook **Serve** is a separate workflow for serving downloaded models
-through X9/llama.cpp, so users with an existing Ollama install usually
+through AD/llama.cpp, so users with an existing Ollama install usually
 only need to add the endpoint in Settings.
 
 </details>
@@ -66,7 +66,7 @@ server; safe to re-run):
 
 ```powershell
 git clone https://github.com/K8-and-a-half-1000/X9.git
-cd X9
+cd AD
 powershell -ExecutionPolicy Bypass -File .\launch-windows.ps1
 ```
 
@@ -74,7 +74,7 @@ Or do it by hand:
 
 ```powershell
 git clone https://github.com/K8-and-a-half-1000/X9.git
-cd X9
+cd AD
 py -3.11 -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -86,7 +86,7 @@ If `python` points at an older interpreter, use `py -3.12` (or another installed
 3.11+ version) for the venv step.
 
 **Exposing on a LAN/Tailscale (Windows):** the launcher binds to `127.0.0.1` and
-does **not** read `APP_BIND` / `X9_HOST` from `.env`, so editing `.env`
+does **not** read `APP_BIND` / `AD_HOST` from `.env`, so editing `.env`
 alone leaves the native Windows server on loopback. Pass the launcher's
 `-BindHost` flag instead:
 
@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File .\launch-windows.ps1 -BindHost 0.0.0.0
 
 The manual `uvicorn` command takes the same address as `--host 0.0.0.0`. Bind
 outside loopback only for a trusted LAN/VPN such as Tailscale, and do not
-expose the port directly to the public internet — X9 has no login flow.
+expose the port directly to the public internet — AD has no login flow.
 
 **Requirements:** Python 3.11+. The core app (chat, agent, memory, documents,
 calendar, deep research) runs fully native. For **Cookbook** background
@@ -104,7 +104,7 @@ model downloads, also install
 [Git for Windows](https://git-scm.com/download/win) (provides `bash.exe`);
 the agent shell tool runs PowerShell natively.
 Local GPU *serving* of vLLM/SGLang needs Linux/WSL2; for a local model on Windows,
-[Ollama](https://ollama.com/download) is the easiest path — point X9 at
+[Ollama](https://ollama.com/download) is the easiest path — point AD at
 `http://localhost:11434/v1` in Settings.
 
 Open `http://localhost:7000` and configure everything else inside **Settings**.
@@ -112,7 +112,7 @@ Open `http://localhost:7000` and configure everything else inside **Settings**.
 ## Troubleshooting & Advanced Setup
 
 ### `chromadb-client` conflicts with embedded ChromaDB
-If `chromadb-client` (the lightweight HTTP-only package) is installed alongside the full `chromadb` package, X9 starts but ChromaDB silently falls back to HTTP-only mode and fails.
+If `chromadb-client` (the lightweight HTTP-only package) is installed alongside the full `chromadb` package, AD starts but ChromaDB silently falls back to HTTP-only mode and fails.
 
 **Fix:** uninstall `chromadb-client` and force-reinstall the full package:
 ```bash
@@ -121,8 +121,8 @@ If `chromadb-client` (the lightweight HTTP-only package) is installed alongside 
 ```
 
 ### HTTPS + LAN/Tailscale exposure
-To expose X9 on a local network or Tailscale with HTTPS:
-1. Change the bind address to `0.0.0.0` in `.env` (`APP_BIND=0.0.0.0` or `X9_HOST=0.0.0.0`).
+To expose AD on a local network or Tailscale with HTTPS:
+1. Change the bind address to `0.0.0.0` in `.env` (`APP_BIND=0.0.0.0` or `AD_HOST=0.0.0.0`).
 2. Generate a locally-trusted cert for your LAN/Tailscale IPs using [mkcert](https://github.com/FiloSottile/mkcert):
    ```bash
    mkcert -install
@@ -132,15 +132,15 @@ To expose X9 on a local network or Tailscale with HTTPS:
    ```bash
    python -m uvicorn app:app --host 0.0.0.0 --port 7000 --ssl-certfile=cert.pem --ssl-keyfile=key.pem
    ```
-4. Install the `mkcert` CA on any other device you want to access X9 from (e.g., for iOS, email the `rootCA.pem` to yourself, install the profile, and trust it in Certificate Trust Settings).
+4. Install the `mkcert` CA on any other device you want to access AD from (e.g., for iOS, email the `rootCA.pem` to yourself, install the profile, and trust it in Certificate Trust Settings).
 
 ### Common self-host traps (30-second fixes)
 A grab-bag of small gotchas that otherwise turn into long debugging sessions.
 
-- **The first `.env` setting is silently ignored (Windows).** If you edited `.env` in Notepad it may have saved a UTF-8 **BOM**, turning the first key into `﻿APP_PORT` (etc.) so it is never matched. X9 loads `.env` with `encoding="utf-8-sig"` to tolerate a leading BOM, but the safe fix is to re-save `.env` as **UTF-8 without BOM** (VS Code: *Save with Encoding → UTF-8*).
+- **The first `.env` setting is silently ignored (Windows).** If you edited `.env` in Notepad it may have saved a UTF-8 **BOM**, turning the first key into `﻿APP_PORT` (etc.) so it is never matched. AD loads `.env` with `encoding="utf-8-sig"` to tolerate a leading BOM, but the safe fix is to re-save `.env` as **UTF-8 without BOM** (VS Code: *Save with Encoding → UTF-8*).
 - **Copy buttons do nothing over a plain-HTTP Tailscale/LAN URL.** Browsers only expose the clipboard API (`navigator.clipboard`) on **secure origins** — HTTPS, or `localhost`. Over `http://100.x.y.z:7860` it is blocked. Serve over HTTPS (see *HTTPS + LAN/Tailscale exposure* above); `localhost` is exempt, so copy still works on the host itself.
-- **Self-hosted ntfy reminders don't reach your phone.** Two things: (1) a loopback-bound ntfy is unreachable from your phone — bind ntfy to your host/Tailscale IP and use that same server URL in X9 reminder settings; (2) in the ntfy **Android** app, subscribe to the topic with **Instant delivery** enabled — non-`ntfy.sh` servers don't get instant push otherwise.
-- **Calendar/contacts (Radicale) won't sync.** Point X9 at the **full collection URL** with its trailing slash — e.g. `http://host:5232/<user>/<collection-id>/` — not just the server root. Radicale shows this address for each calendar/address book in its web UI.
+- **Self-hosted ntfy reminders don't reach your phone.** Two things: (1) a loopback-bound ntfy is unreachable from your phone — bind ntfy to your host/Tailscale IP and use that same server URL in AD reminder settings; (2) in the ntfy **Android** app, subscribe to the topic with **Instant delivery** enabled — non-`ntfy.sh` servers don't get instant push otherwise.
+- **Calendar/contacts (Radicale) won't sync.** Point AD at the **full collection URL** with its trailing slash — e.g. `http://host:5232/<user>/<collection-id>/` — not just the server root. Radicale shows this address for each calendar/address book in its web UI.
 
 ### Optional Dependencies
 `requirements-optional.txt` contains packages that unlock extra features. It is not installed by default.
@@ -172,33 +172,33 @@ uv pip sync requirements.lock                          # reproduce it exactly la
 `requirements.lock` is gitignored and platform-specific (compile it on the OS you deploy to). Regenerate it deliberately when you want to take upgrades. The plain `uv pip install -r requirements.txt` keeps following the unpinned requirements like pip does.
 
 ## Security Notes
-X9 is a self-hosted workspace with powerful local tools: shell access, file uploads, model downloads, web research, calendar integrations, and API tokens. Treat it like an admin console.
+AD is a self-hosted workspace with powerful local tools: shell access, file uploads, model downloads, web research, calendar integrations, and API tokens. Treat it like an admin console.
 
-- X9 has **no login flow** (single-user). Keep it bound to loopback and serve it exclusively through your Zero-Trust gateway.
+- AD has **no login flow** (single-user). Keep it bound to loopback and serve it exclusively through your Zero-Trust gateway.
 - Do not expose it directly to the public internet without HTTPS and a trusted reverse proxy or private access layer.
 - Keep `.env`, `data/`, `logs/`, databases, uploads, generated media, backups, session files, API keys, and model/provider tokens out of Git and private shares. They are ignored by default.
 - Rotate any API keys or tokens that were ever pasted into a shared chat, demo, screenshot, or log.
 - If you enable API tokens or webhooks, create separate tokens per integration and delete unused ones.
 - Prefer binding manual development runs to `127.0.0.1`; bind to `0.0.0.0` only when you intentionally want LAN/reverse-proxy access.
-- Keep ChromaDB, SearXNG, ntfy, Ollama, vLLM, llama.cpp, databases, and raw model/provider APIs internal-only. Expose only the authenticated X9 web/API entrypoint through your trusted proxy or private access layer.
+- Keep ChromaDB, SearXNG, ntfy, Ollama, vLLM, llama.cpp, databases, and raw model/provider APIs internal-only. Expose only the authenticated AD web/API entrypoint through your trusted proxy or private access layer.
 - Before publishing a fork, run `git status --short` and confirm no private files from `.env`, `data/`, `logs/`, uploads, backups, or local databases are staged.
 
 ### Private or proxied deployments
-X9 serves plain HTTP on its app port and binds to `127.0.0.1` by default, so a typical production/private setup is:
+AD serves plain HTTP on its app port and binds to `127.0.0.1` by default, so a typical production/private setup is:
 
-1. Keep X9 on localhost, for example `127.0.0.1:7000`.
+1. Keep AD on localhost, for example `127.0.0.1:7000`.
 2. Terminate HTTPS and authentication at a trusted reverse proxy or private access gateway.
-3. Put the X9 web/API entrypoint behind that layer.
+3. Put the AD web/API entrypoint behind that layer.
 4. Keep raw service and model ports internal-only.
 
-Cloudflare Access, Tailscale, Caddy, nginx, and Traefik can all fit this pattern; none are required by X9.
+Cloudflare Access, Tailscale, Caddy, nginx, and Traefik can all fit this pattern; none are required by AD.
 `ALLOWED_ORIGINS` lists exact permitted origins for cross-origin browser/API clients; ordinary same-origin reverse-proxy access usually does not need a special CORS entry.
 
 Common internal-only ports from the default setup:
 
 | Port | Service |
 |---|---|
-| `7000` | X9 raw app port |
+| `7000` | AD raw app port |
 | `8080` | SearXNG |
 | `8091` | ntfy |
 | `8100` | ChromaDB host port for manual/compose access |
@@ -223,19 +223,19 @@ Key settings:
 | `CHROMADB_HOST` | `localhost` | ChromaDB host for vector memory. |
 | `CHROMADB_PORT` | `8100` | ChromaDB port. |
 | `EMBEDDING_URL` | -- | OpenAI-compatible embeddings endpoint |
-| `X9_CHAT_UPLOAD_MAX_BYTES` | `10485760` | Chat/agent attachment cap in bytes. Raise for larger local PDFs or text documents. |
-| `X9_GALLERY_UPLOAD_MAX_BYTES` | `104857600` | Gallery image upload cap in bytes (100 MB). |
-| `X9_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES` | `26214400` | Gallery transform input cap in bytes (25 MB). |
-| `X9_MEMORY_IMPORT_MAX_BYTES` | `10485760` | Memory import file cap in bytes (10 MB). |
-| `X9_PERSONAL_UPLOAD_MAX_BYTES` | `26214400` | Personal document upload cap in bytes (25 MB). |
-| `X9_STT_MAX_AUDIO_BYTES` | `26214400` | Speech-to-text audio cap in bytes (25 MB). |
-| `X9_ICS_MAX_BYTES` | `10485760` | Calendar `.ics` import cap in bytes (10 MB). |
+| `AD_CHAT_UPLOAD_MAX_BYTES` | `10485760` | Chat/agent attachment cap in bytes. Raise for larger local PDFs or text documents. |
+| `AD_GALLERY_UPLOAD_MAX_BYTES` | `104857600` | Gallery image upload cap in bytes (100 MB). |
+| `AD_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES` | `26214400` | Gallery transform input cap in bytes (25 MB). |
+| `AD_MEMORY_IMPORT_MAX_BYTES` | `10485760` | Memory import file cap in bytes (10 MB). |
+| `AD_PERSONAL_UPLOAD_MAX_BYTES` | `26214400` | Personal document upload cap in bytes (25 MB). |
+| `AD_STT_MAX_AUDIO_BYTES` | `26214400` | Speech-to-text audio cap in bytes (25 MB). |
+| `AD_ICS_MAX_BYTES` | `10485760` | Calendar `.ics` import cap in bytes (10 MB). |
 
 All upload-limit vars are validated (must be a positive integer) and optional; an invalid value fails fast at startup.
 
 ### Built-in MCP servers (optional setup)
 
-X9 auto-registers a few built-in MCP servers at startup. The npx-based ones (currently the browser server, `@playwright/mcp`) only start when their npm package is already in the local npx cache. If a package isn't cached, that server is skipped with a startup log message explaining what to do, so a fresh install does not block on a multi-minute npm download or hang if Playwright system deps are missing.
+AD auto-registers a few built-in MCP servers at startup. The npx-based ones (currently the browser server, `@playwright/mcp`) only start when their npm package is already in the local npx cache. If a package isn't cached, that server is skipped with a startup log message explaining what to do, so a fresh install does not block on a multi-minute npm download or hang if Playwright system deps are missing.
 
 To enable the browser MCP (page navigation, screenshots, vision), run once:
 
@@ -243,7 +243,7 @@ To enable the browser MCP (page navigation, screenshots, vision), run once:
 npx -y @playwright/mcp@latest --version
 ```
 
-That installs `@playwright/mcp` plus Playwright (~300MB total). Restart X9 and the server will register at startup.
+That installs `@playwright/mcp` plus Playwright (~300MB total). Restart AD and the server will register at startup.
 
 ## Architecture
 ```

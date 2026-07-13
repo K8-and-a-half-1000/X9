@@ -1,8 +1,8 @@
-# X9 Testing Standard & Taxonomy
+# AD Testing Standard & Taxonomy
 
 ## Purpose
 
-This document defines *how we write and refactor tests* in X9. It is the
+This document defines *how we write and refactor tests* in AD. It is the
 standard that the incremental test-suite refactor (issue #2523) works toward,
 and it applies to both human contributors and coding agents.
 

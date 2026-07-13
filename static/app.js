@@ -1,5 +1,5 @@
 // ============================================
-// X9 UI — Main Application Orchestrator
+// AD UI — Main Application Orchestrator
 // ES6 module — entry point, no exports (wires all modules together)
 // ============================================
 import Storage from './js/storage.js';
@@ -393,7 +393,7 @@ function initializeEventListeners() {
       e.stopPropagation();
       exportMenu.classList.remove('open');
       const meta = sessionModule.getSessions().find(s => s.id === sessionModule.getCurrentSessionId());
-      const sessionName = meta ? meta.name : 'X9 Chat';
+      const sessionName = meta ? meta.name : 'AD Chat';
       const originalTitle = document.title;
       document.title = sessionName;
       const chatHistory = document.getElementById('chat-history');
@@ -1941,7 +1941,7 @@ function initializeEventListeners() {
       // Keep a prompt inside the composer even when the picker crowds the row.
       // A blank placeholder makes the mobile/compact empty state feel broken.
       if (textarea) {
-        textarea.setAttribute('placeholder', w < PLACEHOLDER_COMPACT_WIDTH ? 'Message...' : 'Message X9...');
+        textarea.setAttribute('placeholder', w < PLACEHOLDER_COMPACT_WIDTH ? 'Message...' : 'Message AD...');
       }
       // Hide entire bottom toolbar (tools, mode toggle) — only send button remains
       if (inputBottom) {
@@ -3167,7 +3167,7 @@ function initializeEventListeners() {
 // ============================================
 // INITIALIZATION ON PAGE LOAD
 // ============================================
-function startX9App() {
+function startADApp() {
   if (window.__odysseusAppStarted) return;
   window.__odysseusAppStarted = true;
   const _bumpChatPriority = (ms = 10000) => {
@@ -3843,7 +3843,7 @@ function startX9App() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startX9App, { once: true });
+  document.addEventListener('DOMContentLoaded', startADApp, { once: true });
 } else {
-  startX9App();
+  startADApp();
 }

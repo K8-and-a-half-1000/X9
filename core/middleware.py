@@ -13,8 +13,8 @@ from starlette.responses import Response
 # routes via HTTP loopback (the agent's tool calls don't carry the
 # admin user's session cookie). Set once at import; tools read the
 # same value from this module. Never persisted or exposed externally.
-INTERNAL_TOOL_TOKEN = os.environ.get("X9_INTERNAL_TOKEN") or secrets.token_hex(32)
-INTERNAL_TOOL_HEADER = "X-X9-Internal-Token"
+INTERNAL_TOOL_TOKEN = os.environ.get("AD_INTERNAL_TOKEN") or secrets.token_hex(32)
+INTERNAL_TOOL_HEADER = "X-AD-Internal-Token"
 # Pseudo-username on in-process tool-loopback requests; require_admin trusts it and it is reserved.
 INTERNAL_TOOL_USER = "internal-tool"
 
@@ -31,12 +31,12 @@ def is_cors_preflight(method: str, headers) -> bool:
 def require_admin(request: Request):
     """Gate admin routes in single-user mode.
 
-    X9 has no login flow — the (single) browser user IS the admin, so browser
+    AD has no login flow — the (single) browser user IS the admin, so browser
     requests always pass. The only callers still rejected are scoped bearer
     API tokens, which must stay confined to their scope-aware routes.
     """
     # In-process bypass for tool-layer loopback calls. Two paths:
-    # (a) header-direct (caller set X-X9-Internal-Token), or
+    # (a) header-direct (caller set X-AD-Internal-Token), or
     # (b) the identity middleware already validated the token and stamped
     #     request.state.current_user = "internal-tool".
     try:

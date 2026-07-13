@@ -1,7 +1,7 @@
-<h1 align="center">X9</h1>
+<h1 align="center">AD</h1>
 
 <p align="center">
-  <em>powered by Archdeamon</em>
+  <em>Archdeamon</em>
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/odysseus-browser.jpg" alt="X9 interface">
+  <img src="docs/odysseus-browser.jpg" alt="AD interface">
 </p>
 
 ---
@@ -27,7 +27,7 @@
 
 ```bash
 git clone https://github.com/K8-and-a-half-1000/X9.git
-cd X9
+cd AD
 cp .env.example .env
 python -m venv venv && . venv/bin/activate   # Windows: launch-windows.ps1 does all of this
 pip install -r requirements.txt
@@ -58,7 +58,7 @@ Help is welcome. The best entry points are fresh-install testing, provider setup
 
 ## Security
 
-X9 is a self-hosted workspace with powerful local tools. Keep auth enabled, keep private data out of Git, and do not expose raw model/service ports publicly. Deployment details are in the [setup guide](docs/setup.md#security-notes).
+AD is a self-hosted workspace with powerful local tools. Keep auth enabled, keep private data out of Git, and do not expose raw model/service ports publicly. Deployment details are in the [setup guide](docs/setup.md#security-notes).
 
 ## Star History
 

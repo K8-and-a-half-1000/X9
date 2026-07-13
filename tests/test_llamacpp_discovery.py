@@ -142,7 +142,7 @@ class TestLlamaCppFingerprint:
 
 class TestScanHosts:
     def test_no_container_gateway_host_in_scan_hosts(self, monkeypatch):
-        """X9 runs natively: the scan list must not include container-gateway
+        """AD runs natively: the scan list must not include container-gateway
         pseudo-hosts like host.docker.internal (regression guard for the
         Docker feature strip)."""
         monkeypatch.delenv("LLM_HOSTS", raising=False)

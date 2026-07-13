@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""x9 — one entrypoint for every x9-* CLI.
+"""ad — one entrypoint for every ad-* CLI.
 
-Discovers `scripts/x9-<name>` siblings and dispatches to them, the
+Discovers `scripts/ad-<name>` siblings and dispatches to them, the
 same way `git` finds `git-foo`. Pure passthrough: any flags after the
-subcommand name are forwarded as-is, so `x9 notes list --pretty`
-behaves exactly like `x9-notes list --pretty`.
+subcommand name are forwarded as-is, so `ad notes list --pretty`
+behaves exactly like `ad-notes list --pretty`.
 
-    x9                       # list every subcommand + short help
-    x9 <name>                # run x9-<name>
-    x9 <name> <args...>      # run x9-<name> <args...>
-    x9 help                  # alias for `x9` (the listing)
-    x9 help <name>           # show the subcommand's own --help
-    x9 --version             # print version
+    ad                       # list every subcommand + short help
+    ad <name>                # run ad-<name>
+    ad <name> <args...>      # run ad-<name> <args...>
+    ad help                  # alias for `ad` (the listing)
+    ad help <name>           # show the subcommand's own --help
+    ad --version             # print version
 
 Designed to live in `scripts/`. Symlink it onto `$PATH` (`ln -s
-$PWD/scripts/x9 ~/.local/bin/x9`) to use it without typing
+$PWD/scripts/ad ~/.local/bin/ad`) to use it without typing
 the full path.
 """
 from __future__ import annotations
@@ -31,15 +31,15 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 
 
 def _list_subcommands() -> list[Path]:
-    """Find every executable `x9-*` next to this file (excluding
+    """Find every executable `ad-*` next to this file (excluding
     the dispatcher itself + any .bak / .pre-* migration leftovers)."""
     out = []
     for p in sorted(SCRIPTS_DIR.iterdir()):
         if not p.is_file():
             continue
-        if p.name == "x9":
+        if p.name == "ad":
             continue
-        if not p.name.startswith("x9-"):
+        if not p.name.startswith("ad-"):
             continue
         if any(p.name.endswith(suf) for suf in (".bak", ".pre-cli-refactor", ".pyc")):
             continue
@@ -64,7 +64,7 @@ def _short_help(path: Path) -> str:
         return ""
     # First non-blank line, strip the leading "name — " noise.
     first = next((ln for ln in body.splitlines() if ln.strip()), "")
-    first = re.sub(r"^x9-\w+\s*—\s*", "", first).strip()
+    first = re.sub(r"^ad-\w+\s*—\s*", "", first).strip()
     return first
 
 
@@ -73,18 +73,18 @@ def _is_runnable_subcommand(path: Path) -> bool:
 
 
 def _print_listing() -> None:
-    """`x9` with no args (or `x9 help`) — print the table."""
-    sys.stdout.write(f"x9 {VERSION} — every feature, on the shell.\n\n")
-    sys.stdout.write("Usage:  x9 <subcommand> [args...]\n\n")
+    """`ad` with no args (or `ad help`) — print the table."""
+    sys.stdout.write(f"ad {VERSION} — every feature, on the shell.\n\n")
+    sys.stdout.write("Usage:  ad <subcommand> [args...]\n\n")
     sys.stdout.write("Available subcommands:\n")
     subs = _list_subcommands()
-    width = max((len(p.name[len("x9-"):]) for p in subs), default=10)
+    width = max((len(p.name[len("ad-"):]) for p in subs), default=10)
     for p in subs:
-        name = p.name[len("x9-"):]
+        name = p.name[len("ad-"):]
         desc = _short_help(p)
         sys.stdout.write(f"  {name:<{width + 2}}{desc}\n")
     sys.stdout.write(
-        "\nRun `x9 help <subcommand>` for that tool's own --help.\n"
+        "\nRun `ad help <subcommand>` for that tool's own --help.\n"
     )
 
 
@@ -96,27 +96,27 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if argv[0] in ("-v", "--version"):
-        sys.stdout.write(f"x9 {VERSION}\n")
+        sys.stdout.write(f"ad {VERSION}\n")
         return 0
 
     if argv[0] == "help":
-        # `x9 help foo` → `x9-foo --help`
+        # `ad help foo` → `ad-foo --help`
         if len(argv) < 2:
             _print_listing()
             return 0
-        sub = SCRIPTS_DIR / f"x9-{argv[1]}"
+        sub = SCRIPTS_DIR / f"ad-{argv[1]}"
         if not _is_runnable_subcommand(sub):
-            sys.stderr.write(f"x9: unknown subcommand {argv[1]!r}\n")
+            sys.stderr.write(f"ad: unknown subcommand {argv[1]!r}\n")
             return 1
         return subprocess.call([str(sub), "--help"])
 
-    # `x9 foo ...` → exec `x9-foo ...` under the project venv.
+    # `ad foo ...` → exec `ad-foo ...` under the project venv.
     name = argv[0]
-    sub = SCRIPTS_DIR / f"x9-{name}"
+    sub = SCRIPTS_DIR / f"ad-{name}"
     if not _is_runnable_subcommand(sub):
         sys.stderr.write(
-            f"x9: unknown subcommand {name!r}. "
-            f"Try `x9 help` to see available ones.\n"
+            f"ad: unknown subcommand {name!r}. "
+            f"Try `ad help` to see available ones.\n"
         )
         return 1
     # Run the subcommand with the project's venv Python so dependencies

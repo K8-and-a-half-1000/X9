@@ -1,6 +1,6 @@
 """Cross-platform OS compatibility helpers.
 
-X9 began as a Linux/macOS-only app. This module centralizes the
+AD began as a Linux/macOS-only app. This module centralizes the
 small set of OS differences needed to run it *natively* on Windows so the rest
 of the codebase can stay platform-agnostic. Import from here instead of
 sprinkling ``os.name == "nt"`` checks (and POSIX-only calls) across modules.

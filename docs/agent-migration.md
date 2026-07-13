@@ -1,6 +1,6 @@
 # Agent migration manifests
 
-X9 should be able to learn from another agent without blindly trusting
+AD should be able to learn from another agent without blindly trusting
 that agent's whole state. The safe migration path is:
 
 ```text
@@ -8,7 +8,7 @@ source agent export -> source adapter -> agent-migration.v1 manifest -> preview 
 ```
 
 The manifest is intentionally source-neutral. OpenClaw, Hermes, a folder of
-Markdown notes, or any other agent can have its own adapter, but X9 only
+Markdown notes, or any other agent can have its own adapter, but AD only
 needs to understand the normalized manifest.
 
 ## Why not import everything as memory?
@@ -20,9 +20,9 @@ memories. A good migration keeps two layers separate:
 - **Archive documents** preserve source material for search, reading, and later
   extraction.
 - **Memory candidates** are short facts or preferences that can be reviewed
-  before being saved into X9 memory.
+  before being saved into AD memory.
 
-This keeps X9's existing memory-review flow intact while giving it better
+This keeps AD's existing memory-review flow intact while giving it better
 source material to review.
 
 ## Manifest shape
@@ -82,7 +82,7 @@ python3 scripts/agent_migration_manifest.py \
   --output /tmp/agent-migration.json
 ```
 
-The helper does not write to `data/`, call an LLM, import X9 modules, or
+The helper does not write to `data/`, call an LLM, import AD modules, or
 modify the source. It only writes JSON.
 
 Memory JSON may be:
@@ -165,7 +165,7 @@ the same `conversation_thread` manifest item.
 
 ## Recommended apply behavior
 
-A future X9 importer should treat the manifest as untrusted user-provided
+A future AD importer should treat the manifest as untrusted user-provided
 data and apply it in stages:
 
 1. Show a dry-run summary with counts, warnings, duplicates, and sample items.
@@ -191,4 +191,4 @@ and image attachment directories. A Claude adapter may know about Claude's
 export shape and project boundaries. A generic adapter may only know about
 memory JSON, conversation JSON, `SKILL.md`, and Markdown folders.
 
-Nonstandard folders should be adapter details, not required X9 concepts.
+Nonstandard folders should be adapter details, not required AD concepts.

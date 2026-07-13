@@ -2,7 +2,7 @@
 memory_server.py
 
 MCP server exposing memory management (list, add, edit, delete, search).
-Imports MemoryManager and MemoryVectorStore from the X9 codebase.
+Imports MemoryManager and MemoryVectorStore from the AD codebase.
 """
 
 import asyncio
@@ -24,10 +24,10 @@ _memory_manager = None
 _memory_vector = None
 _initialized = False
 
-_OWNER_ENV_KEYS = ("X9_MCP_MEMORY_OWNER", "X9_MEMORY_OWNER")
+_OWNER_ENV_KEYS = ("AD_MCP_MEMORY_OWNER", "AD_MEMORY_OWNER")
 _OWNER_SCOPE_ERROR = (
     "Error: Memory MCP owner is not configured for an owner-scoped memory store. "
-    "Set X9_MCP_MEMORY_OWNER for this server or use the owner-aware native memory tool."
+    "Set AD_MCP_MEMORY_OWNER for this server or use the owner-aware native memory tool."
 )
 
 

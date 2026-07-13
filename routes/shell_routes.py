@@ -210,7 +210,7 @@ def _package_pip_update_status(
 
     if pkg.get("kind") == "system" or not pkg.get("pip"):
         return PackageUpdateStatus(
-            False, "Update this system dependency outside X9."
+            False, "Update this system dependency outside AD."
         )
 
     name = pkg.get("name")
@@ -233,7 +233,7 @@ def _package_pip_update_status(
     if name == "vllm" and binaries.get("vllm") and not dists.get("vllm"):
         return PackageUpdateStatus(
             False,
-            "Using a vLLM CLI on PATH without Python package metadata; update it outside X9.",
+            "Using a vLLM CLI on PATH without Python package metadata; update it outside AD.",
         )
 
     return PackageUpdateStatus(
@@ -582,10 +582,10 @@ async def _generate_tmux(cmd: str, request: Request):
     script_path = TMUX_LOG_DIR / f"{session_id}.sh"
     script_path.write_text(
         f"#!/bin/bash\n"
-        f'X9_USER_SHELL="${{SHELL:-}}"\n'
-        f'if [ -n "$X9_USER_SHELL" ] && [ -x "$X9_USER_SHELL" ]; then\n'
-        f'  X9_USER_PATH="$("$X9_USER_SHELL" -ic \'printf "__X9_PATH__%s\\n" "$PATH"\' 2>/dev/null | sed -n \'s/^__X9_PATH__//p\' | tail -n 1 || true)"\n'
-        f'  if [ -n "$X9_USER_PATH" ]; then export PATH="$X9_USER_PATH:$PATH"; fi\n'
+        f'AD_USER_SHELL="${{SHELL:-}}"\n'
+        f'if [ -n "$AD_USER_SHELL" ] && [ -x "$AD_USER_SHELL" ]; then\n'
+        f'  AD_USER_PATH="$("$AD_USER_SHELL" -ic \'printf "__AD_PATH__%s\\n" "$PATH"\' 2>/dev/null | sed -n \'s/^__AD_PATH__//p\' | tail -n 1 || true)"\n'
+        f'  if [ -n "$AD_USER_PATH" ]; then export PATH="$AD_USER_PATH:$PATH"; fi\n'
         f"fi\n"
         f"{cmd} 2>&1 | tee '{log_path}'\n"
         f"EC=${{PIPESTATUS[0]}}\n"

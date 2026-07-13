@@ -5,7 +5,7 @@ import uiModule from './ui.js';
 import settingsModule from './settings.js';
 import { providerLogo, providerLogoFromUrl } from './providers.js';
 import { sortModelObjects } from './modelSort.js';
-// Cloud provider device-auth (Copilot / ChatGPT Subscription) removed — X9 is
+// Cloud provider device-auth (Copilot / ChatGPT Subscription) removed — AD is
 // local-only. Empty registry keeps the (now-unreachable) device-auth branches inert.
 const PROVIDER_DEVICE_FLOWS = {};
 const formatDeviceFlowError = (e) => (e && e.message) ? e.message : String(e || 'error');

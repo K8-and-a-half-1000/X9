@@ -1,6 +1,6 @@
 {
-  "name": "X9",
-  "short_name": "X9",
+  "name": "AD",
+  "short_name": "AD",
   "description": "Self-hosted AI chat with memory, documents, and tools",
   "start_url": "/",
   "scope": "/",

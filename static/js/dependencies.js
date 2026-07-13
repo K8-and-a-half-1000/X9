@@ -1,11 +1,11 @@
 // dependencies.js — Settings ▸ Dependencies panel.
 //
-// Local machine only: optional pip packages that extend X9 (app features
+// Local machine only: optional pip packages that extend AD (app features
 // and local model serving). Status comes from /api/cookbook/packages and
 // installs run through /api/cookbook/packages/install — a synchronous,
 // allowlisted `python -m pip install` in the app's own environment.
 //
-// Layout mirrors the Agent Tools tab: two top-level admin-cards ("X9 app"
+// Layout mirrors the Agent Tools tab: two top-level admin-cards ("AD app"
 // and "Server"), each with its own description — no wrapping section.
 
 import uiModule from './ui.js';
@@ -120,8 +120,8 @@ export async function renderDependenciesPanel(container) {
   if (!container) return;
   container.innerHTML =
     `<div class="admin-card" style="margin-bottom:12px;">`
-    + `<h2>${_BOX_ICON}X9 app</h2>`
-    + `<div class="admin-toggle-sub" style="margin-bottom:8px">Optional packages for features that run inside the X9 app itself.</div>`
+    + `<h2>${_BOX_ICON}AD app</h2>`
+    + `<div class="admin-toggle-sub" style="margin-bottom:8px">Optional packages for features that run inside the AD app itself.</div>`
     + `<div class="deps-list" id="deps-app-list"><div class="dep-loading">Loading packages…</div></div>`
     + `</div>`
     + `<div class="admin-card" style="margin-bottom:12px;">`

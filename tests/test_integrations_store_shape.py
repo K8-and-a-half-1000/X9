@@ -23,7 +23,7 @@ def integrations_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(integrations, "DATA_FILE", str(tmp_path / "integrations.json"))
     monkeypatch.setattr(auth_routes, "migrate_from_settings", lambda: None)
 
-    # X9 is single-user (no login) — setup_auth_routes takes no auth manager.
+    # AD is single-user (no login) — setup_auth_routes takes no auth manager.
     router = auth_routes.setup_auth_routes()
 
     def endpoint(path, method):

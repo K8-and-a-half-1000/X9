@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""x9-theme — shell wrapper for the theme system.
+"""ad-theme — shell wrapper for the theme system.
 
 Built-in preset definitions live in `static/js/theme.js` (the `THEMES`
 export). Each user's chosen preset + custom-color overrides persist
 in `data/user_prefs.json` under that user's key, so we can read/write
 themes from the shell without needing the browser.
 
-    x9-theme list                          # built-in preset names
-    x9-theme users                         # users with a saved theme
-    x9-theme get --user alice@example.com  # one user's theme blob
-    x9-theme set --user alice@example.com --preset chatgpt
-    x9-theme export --user alice@example.com --pretty > theme.json
+    ad-theme list                          # built-in preset names
+    ad-theme users                         # users with a saved theme
+    ad-theme get --user alice@example.com  # one user's theme blob
+    ad-theme set --user alice@example.com --preset chatgpt
+    ad-theme export --user alice@example.com --pretty > theme.json
 
 `set --preset NAME` clears any custom-color overrides — pass
 `--keep-colors` to preserve them (useful when switching presets but
@@ -168,7 +168,7 @@ def cmd_export(args):
 def _build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--pretty", action="store_true")
-    p = argparse.ArgumentParser(prog="x9-theme", parents=[common])
+    p = argparse.ArgumentParser(prog="ad-theme", parents=[common])
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pl = sub.add_parser("list", parents=[common])

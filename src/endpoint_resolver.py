@@ -239,7 +239,7 @@ def build_headers(api_key: Optional[str], base: str) -> Dict[str, str]:
         headers["Authorization"] = f"Bearer {api_key}"
     if provider == "openrouter":
         headers.setdefault("HTTP-Referer", "https://github.com/K8-and-a-half-1000/X9")
-        headers.setdefault("X-OpenRouter-Title", "X9")
+        headers.setdefault("X-OpenRouter-Title", "AD")
     if _is_kimi_code_url(base):
         headers.setdefault("User-Agent", KIMI_CODE_USER_AGENT)
     return headers

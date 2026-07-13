@@ -102,7 +102,7 @@ async def test_webhook_delivery_uses_naive_utc_timestamps(monkeypatch):
 
         async def post(self, _url, content, headers):
             self.content = content
-            assert headers["X-X9-Event"] == "webhook.test"
+            assert headers["X-AD-Event"] == "webhook.test"
             return _Response()
 
     db = _Db()

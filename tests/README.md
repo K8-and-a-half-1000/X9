@@ -105,20 +105,20 @@ invoking Python interpreter.
 A generated-seed run starts with output like:
 
 ```text
-[order-report] working directory: /path/to/X9
+[order-report] working directory: /path/to/AD
 [order-report] shuffling test order with seed 284734921
 [order-report] reproduce from this working directory with the same test environment:
-[order-report] reproduce with: /path/to/X9/venv/bin/python /path/to/X9/tests/run_order_report.py --seed 284734921 -- tests/cli/ -q
+[order-report] reproduce with: /path/to/AD/venv/bin/python /path/to/AD/tests/run_order_report.py --seed 284734921 -- tests/cli/ -q
 ```
 
 Run the printed command from the reported working directory to reproduce the
 same fixed-seed order:
 
 ```text
-[order-report] working directory: /path/to/X9
+[order-report] working directory: /path/to/AD
 [order-report] shuffling test order with seed 284734921
 [order-report] reproduce from this working directory with the same test environment:
-[order-report] reproduce with: /path/to/X9/venv/bin/python /path/to/X9/tests/run_order_report.py --seed 284734921 -- tests/cli/ -q
+[order-report] reproduce with: /path/to/AD/venv/bin/python /path/to/AD/tests/run_order_report.py --seed 284734921 -- tests/cli/ -q
 ```
 
 Pytest output remains visible between the report header and footer. A failing

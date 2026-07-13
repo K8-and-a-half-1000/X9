@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""x9-memory — shell wrapper for the AI memory store.
+"""ad-memory — shell wrapper for the AI memory store.
 
 The chat assistant accumulates durable facts about the user (name,
 projects, preferences, contacts) into `data/memory.json`. This CLI
 lets you inspect, search, and prune them from the shell.
 
-    x9-memory list                          # all entries (paged)
-    x9-memory list --category preference
-    x9-memory search "tokyo"                # substring match
-    x9-memory show MEMORY_ID
-    x9-memory add "User lives in Tokyo" --category fact
-    x9-memory delete MEMORY_ID
-    x9-memory categories                    # counts per category
+    ad-memory list                          # all entries (paged)
+    ad-memory list --category preference
+    ad-memory search "tokyo"                # substring match
+    ad-memory show MEMORY_ID
+    ad-memory add "User lives in Tokyo" --category fact
+    ad-memory delete MEMORY_ID
+    ad-memory categories                    # counts per category
 
 Reads/writes the same `data/memory.json` the web UI uses via the
 `MemoryManager` helper. Atomic — the manager handles the temp-file
@@ -118,7 +118,7 @@ def cmd_categories(args):
 def _build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--pretty", action="store_true")
-    p = argparse.ArgumentParser(prog="x9-memory", parents=[common])
+    p = argparse.ArgumentParser(prog="ad-memory", parents=[common])
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pl = sub.add_parser("list", parents=[common])

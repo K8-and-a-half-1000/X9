@@ -5,7 +5,7 @@ import os
 from fastapi import HTTPException, UploadFile
 
 DEFAULT_CHAT_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
-CHAT_UPLOAD_MAX_BYTES_ENV = "X9_CHAT_UPLOAD_MAX_BYTES"
+CHAT_UPLOAD_MAX_BYTES_ENV = "AD_CHAT_UPLOAD_MAX_BYTES"
 
 
 def format_byte_limit(limit: int) -> str:
@@ -35,26 +35,26 @@ def get_chat_upload_max_bytes() -> int:
 
 # Per-route upload byte-limits, single-sourced here (issue #3364). Each is
 # validated + env-overridable via read_byte_limit_env: set the matching
-# X9_*_MAX_BYTES env var to an integer byte count to tune it; an invalid
+# AD_*_MAX_BYTES env var to an integer byte count to tune it; an invalid
 # value fails fast at import rather than crashing mid-request. Defaults match
 # the prior per-route values, so behavior is unchanged unless an env var is set.
 GALLERY_UPLOAD_MAX_BYTES = read_byte_limit_env(
-    "X9_GALLERY_UPLOAD_MAX_BYTES", 100 * 1024 * 1024
+    "AD_GALLERY_UPLOAD_MAX_BYTES", 100 * 1024 * 1024
 )
 GALLERY_TRANSFORM_UPLOAD_MAX_BYTES = read_byte_limit_env(
-    "X9_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
+    "AD_GALLERY_TRANSFORM_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
 )
 MEMORY_IMPORT_MAX_BYTES = read_byte_limit_env(
-    "X9_MEMORY_IMPORT_MAX_BYTES", 10 * 1024 * 1024
+    "AD_MEMORY_IMPORT_MAX_BYTES", 10 * 1024 * 1024
 )
 PERSONAL_UPLOAD_MAX_BYTES = read_byte_limit_env(
-    "X9_PERSONAL_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
+    "AD_PERSONAL_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
 )
 EMAIL_COMPOSE_UPLOAD_MAX_BYTES = read_byte_limit_env(
-    "X9_EMAIL_COMPOSE_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
+    "AD_EMAIL_COMPOSE_UPLOAD_MAX_BYTES", 25 * 1024 * 1024
 )
 STT_MAX_AUDIO_BYTES = read_byte_limit_env(
-    "X9_STT_MAX_AUDIO_BYTES", 25 * 1024 * 1024
+    "AD_STT_MAX_AUDIO_BYTES", 25 * 1024 * 1024
 )
 
 

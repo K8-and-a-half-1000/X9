@@ -825,7 +825,7 @@ def _ping_endpoint(base_url: str, api_key: str = None, timeout: float = 1.5) -> 
                 return {
                     "reachable": False,
                     "status_code": r.status_code,
-                    "error": "That is X9, not a model server. Use the Ollama URL, usually http://localhost:11434/v1.",
+                    "error": "That is AD, not a model server. Use the Ollama URL, usually http://localhost:11434/v1.",
                 }
             return {"reachable": False, "status_code": r.status_code, "error": f"HTTP {r.status_code} redirect"}
         if 200 <= r.status_code < 300:
@@ -1304,7 +1304,7 @@ def setup_model_routes(model_discovery):
         result = _fetch_models(owner=owner, is_admin=_is_admin)
         _models_cache[_cache_key] = {"data": result, "time": now}
         # Kick off background refresh to update caches from live endpoints.
-        # Page boot can opt out with background=false so opening X9 does
+        # Page boot can opt out with background=false so opening AD does
         # not start endpoint probes against slow/offline model servers.
         if background or refresh:
             _refresh_caches_bg(force=refresh)

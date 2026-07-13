@@ -2712,10 +2712,10 @@ const AGENT_CONFIGS = {
     defaultName: 'Codex Agent',
     pluginPath: '/api/codex/plugin.zip',
     setupDescription: 'Downloads a plugin bundle and registers it.',
-    buildSetup: (origin, token) => `export X9_URL=${origin}
-export X9_API_TOKEN='${token}'
+    buildSetup: (origin, token) => `export AD_URL=${origin}
+export AD_API_TOKEN='${token}'
 mkdir -p ~/plugins
-curl -fsSL -H "Authorization: Bearer $X9_API_TOKEN" "$X9_URL/api/codex/plugin.zip" -o /tmp/odysseus-codex-plugin.zip
+curl -fsSL -H "Authorization: Bearer $AD_API_TOKEN" "$AD_URL/api/codex/plugin.zip" -o /tmp/odysseus-codex-plugin.zip
 python3 -m zipfile -e /tmp/odysseus-codex-plugin.zip ~/plugins
 python3 - <<'PY'
 import json
@@ -2750,10 +2750,10 @@ python3 ~/plugins/odysseus/scripts/odysseus_api.py capabilities`,
     defaultName: 'Claude Agent',
     pluginPath: '/api/claude/plugin.zip',
     setupDescription: 'Downloads a plugin bundle and registers it.',
-    buildSetup: (origin, token) => `export X9_URL=${origin}
-export X9_API_TOKEN='${token}'
+    buildSetup: (origin, token) => `export AD_URL=${origin}
+export AD_API_TOKEN='${token}'
 mkdir -p ~/.claude
-curl -fsSL -H "Authorization: Bearer $X9_API_TOKEN" "$X9_URL/api/claude/plugin.zip" -o /tmp/odysseus-claude-skill.zip
+curl -fsSL -H "Authorization: Bearer $AD_API_TOKEN" "$AD_URL/api/claude/plugin.zip" -o /tmp/odysseus-claude-skill.zip
 python3 -m zipfile -e /tmp/odysseus-claude-skill.zip ~/.claude/
 python3 ~/.claude/skills/odysseus/scripts/odysseus_api.py capabilities`,
   },
@@ -3067,7 +3067,7 @@ async function initUnifiedIntegrations() {
       if (ntfyHint) {
         ntfyHint.style.display = isNtfy ? 'block' : 'none';
         if (isNtfy) {
-          ntfyHint.innerHTML = 'Enter the ntfy server URL X9 can reach. Examples: <code>http://127.0.0.1:8091</code>, <code>http://100.x.y.z:8091</code>, or <code>https://ntfy.example.com</code>.';
+          ntfyHint.innerHTML = 'Enter the ntfy server URL AD can reach. Examples: <code>http://127.0.0.1:8091</code>, <code>http://100.x.y.z:8091</code>, or <code>https://ntfy.example.com</code>.';
         }
       }
       if (url) {
@@ -3857,7 +3857,7 @@ async function initUnifiedIntegrations() {
               </button>
             </div>
             <div id="uf-codex-config-body" style="display:none;">
-              <div style="font-size:14px;opacity:0.62;margin:4px 0 6px;">Toggle which X9 tools this agent can use. New agents start with chat only.</div>
+              <div style="font-size:14px;opacity:0.62;margin:4px 0 6px;">Toggle which AD tools this agent can use. New agents start with chat only.</div>
               <div id="uf-codex-inline-scopes"></div>
             </div>
           </div>

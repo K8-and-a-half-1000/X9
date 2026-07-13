@@ -241,13 +241,13 @@ HOUSEKEEPING_DEFAULTS = {
 }
 
 RETIRED_HOUSEKEEPING_ACTIONS = frozenset({
-    # Calendar feature removed from X9 — retire previously seeded calendar
+    # Calendar feature removed from AD — retire previously seeded calendar
     # tasks so existing installs clean them up on boot.
     "tidy_calendar",
     "classify_events",
     "tidy_email_inbox",
     "mark_email_boundaries",
-    # Email feature removed from X9 — retire any previously seeded email tasks
+    # Email feature removed from AD — retire any previously seeded email tasks
     # so existing installs clean them up on boot.
     "summarize_emails",
     "draft_email_replies",
@@ -255,7 +255,7 @@ RETIRED_HOUSEKEEPING_ACTIONS = frozenset({
     "extract_email_events",
     "check_email_urgency",
     "learn_sender_signatures",
-    # Notes + cookbook features removed from X9 — retire their tasks too.
+    # Notes + cookbook features removed from AD — retire their tasks too.
     "ping_notes",
     "daily_brief",
     "cookbook_serve",
@@ -727,7 +727,7 @@ class TaskScheduler:
             if gate_foreground:
                 waiting = db.query(TaskRun).filter(TaskRun.id == run_id).first()
                 if waiting and waiting.status == "queued":
-                    waiting.result = "Queued — waiting for X9 to be idle…"
+                    waiting.result = "Queued — waiting for AD to be idle…"
                     db.commit()
                 from src.interactive_gate import wait_for_interactive_quiet
                 await wait_for_interactive_quiet(f"scheduled task {task.name}")
@@ -777,7 +777,7 @@ class TaskScheduler:
                         await asyncio.sleep(1.0)
                         if has_foreground_activity():
                             foreground_cancel["hit"] = True
-                            logger.info("Task '%s' interrupted because X9 became active", task.name)
+                            logger.info("Task '%s' interrupted because AD became active", task.name)
                             if current_task:
                                 current_task.cancel()
                             return
@@ -823,7 +823,7 @@ class TaskScheduler:
                 return
             except asyncio.CancelledError:
                 msg = (
-                    "Paused because X9 became active"
+                    "Paused because AD became active"
                     if foreground_cancel.get("hit")
                     else "Stopped by user"
                 )
@@ -1873,9 +1873,9 @@ class TaskScheduler:
             "subject": f"[Task] {task.name}",
             "body": result,
             "headers": {
-                "X-X9-Origin": "x9-ui",
-                "X-X9-Kind": "task",
-                "X-X9-Ref": str(task.id),
+                "X-AD-Origin": "ad-ui",
+                "X-AD-Kind": "task",
+                "X-AD-Ref": str(task.id),
             },
         }
         if recipient:

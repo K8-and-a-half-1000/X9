@@ -1,6 +1,6 @@
 // Accessibility enhancements for keyboard + screen-reader users.
 //
-// Several primary controls in X9 are authored as click-only <div>s
+// Several primary controls in AD are authored as click-only <div>s
 // (most notably the whole sidebar navigation: New Chat, Search, Brain,
 // Deep Research, Gallery, Library,
 // Tasks, Theme, plus the account row). <div>s are not in the tab order and
@@ -56,7 +56,7 @@
   }
 
   // ---- Modal dialogs -----------------------------------------------------
-  // X9 modals are plain <div class="modal-content"> boxes. Marking
+  // AD modals are plain <div class="modal-content"> boxes. Marking
   // them as ARIA dialogs lets screen readers announce them as dialogs and
   // exempts their content from the "all content in landmarks" rule. We also
   // normalize the modal title to heading level 2 (one below the page <h1>)

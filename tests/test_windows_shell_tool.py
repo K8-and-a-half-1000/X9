@@ -55,9 +55,9 @@ def test_native_exit_code_propagates():
 
 @WINDOWS_ONLY
 def test_temp_script_is_cleaned_up():
-    before = {f for f in os.listdir(tempfile.gettempdir()) if f.startswith("x9_shell_")}
+    before = {f for f in os.listdir(tempfile.gettempdir()) if f.startswith("ad_shell_")}
     _run_bash("Write-Output done")
-    after = {f for f in os.listdir(tempfile.gettempdir()) if f.startswith("x9_shell_")}
+    after = {f for f in os.listdir(tempfile.gettempdir()) if f.startswith("ad_shell_")}
     assert after <= before
 
 
@@ -119,5 +119,5 @@ def test_tool_path_roots_include_platform_tempdir():
 
     tmp_real = os.path.realpath(tempfile.gettempdir())
     assert tmp_real in _tool_path_roots()
-    resolved = _resolve_tool_path(os.path.join(tmp_real, "x9_probe.txt"))
+    resolved = _resolve_tool_path(os.path.join(tmp_real, "ad_probe.txt"))
     assert resolved.startswith(tmp_real)

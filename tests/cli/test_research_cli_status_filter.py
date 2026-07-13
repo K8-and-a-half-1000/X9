@@ -1,4 +1,4 @@
-"""`x9-research list --status complete` was returning nothing.
+"""`ad-research list --status complete` was returning nothing.
 
 The CLI's `--status` argparse choice is "complete" — that is the user-facing
 label — but the writer in `services/research/research_handler.py` stores
@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_cli():
-    path = ROOT / "scripts" / "x9-research"
+    path = ROOT / "scripts" / "ad-research"
     loader = importlib.machinery.SourceFileLoader("odysseus_research_cli", str(path))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)

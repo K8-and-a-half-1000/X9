@@ -53,7 +53,7 @@ def require_authenticated_request(request: Request) -> str:
 
 
 def _auth_disabled() -> bool:
-    """Always True: X9 runs as a single-user app behind a Zero-Trust gateway.
+    """Always True: AD runs as a single-user app behind a Zero-Trust gateway.
     The login flow was removed; the app permanently operates in the
     anonymous single-user mode the rest of the codebase already supports."""
     return True
@@ -62,7 +62,7 @@ def _auth_disabled() -> bool:
 def require_user(request: Request) -> str:
     """FastAPI dependency: resolve the caller for owner-scoped routes.
 
-    X9 is single-user — anonymous browser requests resolve to "" (the
+    AD is single-user — anonymous browser requests resolve to "" (the
     single-user owner), which owner_filter treats as "no scoping". Requests
     stamped by the identity middleware (internal-tool loopback) keep their
     stamped identity. Bearer API tokens must use scope-aware routes.

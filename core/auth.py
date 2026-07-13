@@ -1,6 +1,6 @@
 """Reserved synthetic-owner sentinels.
 
-X9 is a single-user app served behind a Zero-Trust gateway — the multi-user
+AD is a single-user app served behind a Zero-Trust gateway — the multi-user
 password/session/2FA AuthManager was removed with the login flow. What
 remains is the reserved-username set that the middleware and task layers
 still use to recognize synthetic (non-human) owners.

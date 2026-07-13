@@ -192,7 +192,7 @@ class BashTool:
             # multi-line commands and quoting intact, and PowerShell is the
             # dialect the prompt tells the model to write on Windows.
             script_path = os.path.join(
-                tempfile.gettempdir(), f"x9_shell_{uuid.uuid4().hex}.ps1"
+                tempfile.gettempdir(), f"ad_shell_{uuid.uuid4().hex}.ps1"
             )
             with open(script_path, "w", encoding="utf-8-sig") as f:
                 f.write(powershell_script_text(content))

@@ -3165,7 +3165,7 @@ function _openCookbookForDependency(pkgName) {
   tryTab();
 }
 
-// Async check whether `rembg` is installed on the X9 server.
+// Async check whether `rembg` is installed on the AD server.
 // Toggles the "install rembg" notice + the Bg Remove run button. The
 // `/api/cookbook/packages` endpoint is cheap (importlib calls only).
 async function _checkRembgInstalled() {
@@ -3197,7 +3197,7 @@ async function _checkRembgInstalled() {
 }
 
 function _openCookbookForImg2img() {
-  // Model serving was removed from X9 — point the user at endpoint setup.
+  // Model serving was removed from AD — point the user at endpoint setup.
   if (uiModule) uiModule.showToast('No image model endpoint — add one in Settings \u2192 Services.', 8000);
   document.getElementById('tool-settings-btn')?.click();
 }

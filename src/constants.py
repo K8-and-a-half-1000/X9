@@ -9,11 +9,11 @@ APP_VERSION = "1.0.1"
 # Base paths
 BASE_DIR = os.path.join(get_app_root(), "")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-DATA_DIR = os.getenv("X9_DATA_DIR", get_default_data_dir())
+DATA_DIR = os.getenv("AD_DATA_DIR", get_default_data_dir())
 
 # Data file paths
 # Single source of truth: every persisted file/dir lives under DATA_DIR, which
-# is the ONLY place X9_DATA_DIR is read. Import these constants instead of
+# is the ONLY place AD_DATA_DIR is read. Import these constants instead of
 # re-deriving paths from __file__ or a relative "data" literal.
 SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
 MEMORY_FILE = os.path.join(DATA_DIR, "memory.json")
@@ -105,11 +105,11 @@ DEFAULT_MAX_TOKENS = 0
 
 
 def internal_api_base() -> str:
-    """Base URL for in-process loopback calls to X9's own API.
+    """Base URL for in-process loopback calls to AD's own API.
 
     Agent tools and background jobs reach admin-gated routes by calling the
     running server over HTTP. Resolution order:
-      1. X9_INTERNAL_BASE  - explicit override (e.g. behind a TLS proxy).
+      1. AD_INTERNAL_BASE  - explicit override (e.g. behind a TLS proxy).
       2. APP_PORT                - http://127.0.0.1:$APP_PORT.
       3. Fallback http://127.0.0.1:7000 - legacy default.
 
@@ -117,7 +117,7 @@ def internal_api_base() -> str:
     call. Without this, loopback tools fail with "All connection attempts
     failed" whenever the server is not on port 7000.
     """
-    override = os.environ.get("X9_INTERNAL_BASE")
+    override = os.environ.get("AD_INTERNAL_BASE")
     if override:
         return override.rstrip("/")
     return f"http://127.0.0.1:{os.environ.get('APP_PORT', '7000')}"
