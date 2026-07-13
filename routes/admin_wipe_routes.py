@@ -21,8 +21,6 @@ from core.database import (
     Session as DbSession,
     ChatMessage as DbChatMessage,
     Memory,
-    ScheduledTask,
-    TaskRun,
     Document,
     DocumentVersion,
     GalleryImage,
@@ -118,14 +116,6 @@ def setup_admin_wipe_routes(session_manager):
                         os.remove(legacy)
                     except OSError:
                         pass
-                return {"status": "deleted", "kind": kind, "count": count}
-
-            if kind == "tasks":
-                # TaskRun rows reference tasks via FK — clear them first.
-                db.query(TaskRun).delete()
-                count = db.query(ScheduledTask).count()
-                db.query(ScheduledTask).delete()
-                db.commit()
                 return {"status": "deleted", "kind": kind, "count": count}
 
             if kind == "documents":

@@ -274,11 +274,9 @@ def ntfy_health(integrations: List[Dict[str, Any]], settings: Dict[str, Any],
     without publishing to a topic. The request keeps whatever credentials the
     configured base_url carries, but `meta.base` is sanitized.
     """
-    channel = settings.get("reminder_channel") or "browser"
     intg = _ntfy_integration(integrations)
     if not intg:
-        return _svc("ntfy", DISABLED, "No ntfy integration configured.",
-                    reminder_channel=channel)
+        return _svc("ntfy", DISABLED, "No ntfy integration configured.")
     raw = (intg.get("base_url") or "").strip()
     parsed = urlparse(raw)
     probe_base = (f"{parsed.scheme}://{parsed.netloc}"
@@ -289,13 +287,13 @@ def ntfy_health(integrations: List[Dict[str, Any]], settings: Dict[str, Any],
         code = getattr(r, "status_code", 0)
         if code and code < 500:
             return _svc("ntfy", OK, f"Reachable (HTTP {code}).",
-                        base=safe_base, reminder_channel=channel, http_status=code)
+                        base=safe_base, http_status=code)
         return _svc("ntfy", DOWN, "Server returned an error response.",
-                    base=safe_base, reminder_channel=channel, error="http_error")
+                    base=safe_base, error="http_error")
     except Exception as e:
         category = _classify_error(e)
         return _svc("ntfy", DOWN, f"Unreachable ({_detail_for(category)}).",
-                    base=safe_base, reminder_channel=channel, error=category)
+                    base=safe_base, error=category)
 
 
 # ── Provider endpoints ──

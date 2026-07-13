@@ -81,13 +81,12 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "pipeline",
              "manage_session", "manage_memory", "list_models",
              "ui_control", "generate_image", "ask_user", "update_plan",
-             "manage_tasks", "api_call", "ask_teacher", "manage_skills",
+             "api_call", "ask_teacher", "manage_skills",
              "suggest_document",
              "manage_endpoints", "manage_mcp", "manage_webhooks",
              "manage_tokens", "manage_documents", "manage_settings",
              "resolve_contact", "manage_contact",
              "edit_image", "trigger_research", "manage_research",
-             "manage_queue",
              # Generic loopback to any UI-button endpoint (gallery,
              # etc.) — agent uses this when there's no named
              # tool wrapper for the action.
@@ -133,6 +132,5 @@ from .document_tools import (
 from src.tool_implementations import (  # noqa: E402, F401
     do_search_chats,
     do_manage_skills,
-    do_manage_tasks,
     do_api_call,
 )

@@ -603,11 +603,6 @@ def setup_history_routes(session_manager) -> APIRouter:
                 # edit/delete-by-id on the original conversation.
                 meta = dict(msg.metadata) if isinstance(msg.metadata, dict) else None
                 new_session.add_message(ChatMessage(msg.role, msg.content, meta))
-            try:
-                from src.event_bus import fire_event
-                fire_event("session_created", getattr(source, 'owner', None))
-            except Exception:
-                logger.debug("session_created event dispatch failed", exc_info=True)
 
             return {
                 "status": "ok",

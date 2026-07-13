@@ -83,7 +83,6 @@ _AGENT_RULES = """\
 - AFTER A TOOL FAILS (timeout, error, "Unknown action", "not found"), DO NOT GO SILENT. The user expects a follow-up: either retry with a fix (e.g. correct args, longer-running form, run `tail -f /tmp/foo.log` to see progress, split into smaller steps), OR explicitly tell them "this didn't work, want me to try X instead?". A failed tool is not a stopping condition — only a successful one is.
 - YOU DECLARE WHEN THE JOB IS DONE — not a timer. Keep taking concrete steps while the task still needs them; you have plenty of rounds, so don't rush to quit just because you've made a few calls. There are exactly three ways to end a turn: (1) DONE — before you declare it, sanity-check that every concrete thing the user asked for actually exists or succeeded (file written, edit applied, command exited clean); then stop calling tools and write the final answer (that IS your "done" signal); (2) BLOCKED — you genuinely can't proceed (a capability is missing, permission denied, or data you can't obtain), so say plainly what's blocking you, in a sentence or two, and stop; (3) keep going with the single most useful next step. The only wrong moves are trailing off mid-task without one of these, and repeating a call you already ran.
 - User identity facts/preferences ("my name is <name>", "I live in <place>", "I prefer concise replies", "call me <name>") → use `manage_memory` with action=add. NEVER use `manage_contact` for facts about the user unless the user explicitly says to create/update a contact and provides contact details such as an email or phone.
-- "Do X every morning / daily / on a schedule / automatically" (e.g. "summarize my inbox every morning") → this is a request to CREATE A SCHEDULED TASK, not to do X once right now. Call `manage_tasks` with action=create (prompt = what to do, schedule + cron/time). Do NOT just perform the action inline this turn — the user wants it to recur. After creating, return a clickable `[Task name](#task-<id>)` link and tell them it'll run on schedule and show in the Tasks panel. If you also want to show a sample of this run, do that AFTER creating the task, not instead of it.
 
 ## UI conventions
 - When you reference an entity by ID in your reply, render it as a STANDARD markdown link with a hash-prefixed anchor. The frontend converts these into clickable jump buttons:
@@ -195,9 +194,6 @@ _DOMAIN_RULES = {
 - If an active document is open, "fix this", "add X", "change Y", etc. usually refers to that document.
 - Use `edit_document` for targeted changes. Use `update_document` only for genuine full rewrites.
 - For feedback/review/suggestions on an open document, use `suggest_document`.""",
-    "notes_tasks": """\
-## Tasks rules
-- Recurring/automatic/scheduled requests create a `manage_tasks` task; do not just perform the action once.""",
     "ui": """\
 ## UI rules
 - "Open/show <panel>" uses `ui_control open_panel <name>`.
@@ -230,7 +226,6 @@ _DOMAIN_RULES = {
 _DOMAIN_TOOL_MAP = {
     "web": {"web_search", "web_fetch", "trigger_research", "manage_research"},
     "documents": {"create_document", "edit_document", "update_document", "suggest_document", "manage_documents"},
-    "notes_tasks": {"manage_tasks"},
     "ui": {"ui_control"},
     "sessions": {"create_session", "list_sessions", "manage_session", "send_to_session", "search_chats"},
     "files": {"bash", "python", "read_file", "write_file", "edit_file", "grep", "glob", "ls", "get_workspace", "manage_bg_jobs"},
@@ -245,7 +240,7 @@ def _domain_rules_for_tools(tool_names: set) -> list[str]:
     for domain, domain_tools in _DOMAIN_TOOL_MAP.items():
         if names & domain_tools:
             rules.append(_DOMAIN_RULES[domain])
-    if names & {"create_session", "list_sessions", "manage_session", "manage_documents", "manage_tasks", "manage_skills", "manage_research"}:
+    if names & {"create_session", "list_sessions", "manage_session", "manage_documents", "manage_skills", "manage_research"}:
         rules.append(_LINK_RULES)
     return rules
 
@@ -388,15 +383,13 @@ Generate an image. Line 1 = description, line 2 = model name, line 3 = WxH (e.g.
     "manage_session": "- ```manage_session``` — Rename, archive, delete, fork, switch, or `list` chats (the UI calls them 'chats'; 'session' is internal). Line 1 = action (list/switch/rename/archive/unarchive/delete/important/unimportant/truncate/fork), Line 2 = exact chat id from `list_sessions` (or `current` where supported). For delete/archive/truncate, always list first and reuse the exact id; never invent placeholder ids. `switch`/`open` returns a clickable anchor link the user can tap to open the chat — use for \"open my X chat\".",
     "manage_memory": "- ```manage_memory``` — Manage the user's persistent memory (facts about the USER themselves, their preferences, context that persists across chats). Line 1 = action (list/add/edit/delete/search), rest = content. Use when user says 'remember this' about themselves, states identity facts like 'my name is <name>' / 'call me <name>' / 'I live in <place>', or asks about stored memories. DO NOT use for info about another person (their address, phone, email, birthday) — that goes in `manage_contact`. If the user pastes an address/phone with a name and says 'save this for <person>', use `manage_contact add` with the address arg, NOT manage_memory.",
     "manage_skills": "- ```manage_skills``` — Skill registry (SKILL.md format). Args (JSON): {\"action\": \"list|view|view_ref|search|add|edit|patch|publish|delete\", ...}. `list` returns the index of available skills (published + teacher-escalation drafts); `view name=foo` fetches the full SKILL.md; `view_ref name=foo path=...` loads a reference file under the skill directory. For `add`, provide an explicit kebab-case `name` and only report the exact returned name, because storage may normalize or dedupe it. Use this BEFORE doing domain work — there may already be a procedure (published or draft) that prescribes the correct steps. Drafts written by the teacher loop are authoritative guidance even though they're not yet published.",
-    "manage_tasks": "- ```manage_tasks``` — Create and manage scheduled background tasks (recurring AI jobs). Args (JSON): {\"action\": \"list|create|edit|delete|pause|resume|run\", ...}",
     "manage_endpoints": "- ```manage_endpoints``` — Add, remove, or configure AI model API endpoints. Args (JSON): {\"action\": \"list|add|delete|enable|disable\", ...}. Use when user wants to add a new AI provider.",
     "manage_mcp": "- ```manage_mcp``` — Manage MCP (Model Context Protocol) tool servers — external tools that extend your capabilities. Args (JSON): {\"action\": \"list|add|delete|reconnect|list_tools\", ...}",
     "manage_webhooks": "- ```manage_webhooks``` — Configure outgoing webhooks (HTTP notifications on events like chat completion). Args (JSON): {\"action\": \"list|add|delete|enable|disable\", ...}",
     "manage_tokens": "- ```manage_tokens``` — Generate or revoke API access tokens for external integrations. Args (JSON): {\"action\": \"list|create|delete\", ...}",
     "manage_documents": "- ```manage_documents``` — List, read/open, delete, or tidy documents in the editor panel. Args (JSON): {\"action\": \"list|read|delete|tidy\", ...}. `list` returns rows like `[Title](#document-<id>) — lang, size, updated 5m ago` sorted MOST-RECENT FIRST; the user clicks the anchor to open. `read` (aliases: view/open/get) takes `document_id` and returns the content. When the user asks \"what documents do I have\", use this — do NOT shell out, do NOT curl.",
     "manage_research": "- ```manage_research``` — List, read/open, or delete saved DEEP RESEARCH results from the Library. Args (JSON): {\"action\": \"list|read|delete\", \"id\": \"<id>\", \"search\": \"...\"}. `list` returns rows like `[query](#research-<id>) — N sources` MOST-RECENT FIRST; the user clicks to open. `read` (aliases: open/view/get) takes `id` and returns the report text + sources. Use when the user says \"open/read/find/delete my research\" or \"that report\". This IS how you read a finished report: when the user refers to a just-completed deep-research job (\"check it out\", \"read that report\", \"summarize the research\") WITHOUT giving an id, call `manage_research` with `action:list` to get the most-recent id, then `action:read` with that id, and answer from the returned text. Do NOT `web_fetch`/`app_api` the `/api/research/report/{id}` URL — that endpoint renders HTML for the browser, not clean text — and do NOT start a fresh `web_search`/`trigger_research` just to read an existing report. To START new research, use trigger_research instead.",
-    "manage_queue": "- ```manage_queue``` — Plan improvements on the sidebar Queue page. Args (JSON): {\"action\": \"add|list|remove|skip\", \"type\": \"skill|rag|memory|test\", \"description\": \"...\", \"id\": \"...\"}. `add` needs type + a description of what should improve; the item joins the BOTTOM of the queue. type='test' builds a test- prefixed skill that proves whether a feature works (it reports a success confidence %). Use when deciding improvement points to the skill/RAG/memory system with the user. The queue only RUNS when the user presses play on the Queue page — never claim you started it.",
-    "manage_settings": "- ```manage_settings``` — View/change the REAL app settings (same ones the Settings panel writes) AND turn tools on/off. Change a setting: `{\"action\":\"set\",\"key\":\"...\",\"value\":\"...\"}` — keys accept friendly aliases, e.g. voice→tts_voice, \"search engine\"→search_provider, \"default model\"→default_model, \"teacher model\"→teacher_model, \"task/background model\"→task_model, \"image quality\"→image_quality, \"reminder channel\"→reminder_channel (browser|ntfy), \"agent timeout\"/\"max tool calls\"/\"token budget\". Read: `{\"action\":\"get\",\"key\":\"...\"}`; see all: `{\"action\":\"list\"}`; reset one: `{\"action\":\"reset\",\"key\":\"...\"}`. Use this when the user asks to change ANY preference instead of making them open Settings. Secrets/API keys are read-only (tell them to set those in the panel). Tool toggles: `{\"action\":\"disable_tool|enable_tool\",\"tool\":\"shell\"}` (aliases: shell/search/browser/documents/memory/skills/images/tasks), list disabled: `{\"action\":\"list_tools\"}`.",
+    "manage_settings": "- ```manage_settings``` — View/change the REAL app settings (same ones the Settings panel writes) AND turn tools on/off. Change a setting: `{\"action\":\"set\",\"key\":\"...\",\"value\":\"...\"}` — keys accept friendly aliases, e.g. voice→tts_voice, \"search engine\"→search_provider, \"default model\"→default_model, \"teacher model\"→teacher_model, \"task/background model\"→task_model, \"image quality\"→image_quality, \"agent timeout\"/\"max tool calls\"/\"token budget\". Read: `{\"action\":\"get\",\"key\":\"...\"}`; see all: `{\"action\":\"list\"}`; reset one: `{\"action\":\"reset\",\"key\":\"...\"}`. Use this when the user asks to change ANY preference instead of making them open Settings. Secrets/API keys are read-only (tell them to set those in the panel). Tool toggles: `{\"action\":\"disable_tool|enable_tool\",\"tool\":\"shell\"}` (aliases: shell/search/browser/documents/memory/skills/images/tasks), list disabled: `{\"action\":\"list_tools\"}`.",
     "resolve_contact": "- ```resolve_contact``` — Look up a contact's email or phone by name. Searches the CardDAV address book. Args (JSON): {\"name\": \"...\"}.",
     "manage_contact": "- ```manage_contact``` — Create/update/delete/list CardDAV contacts. Args (JSON): {\"action\": \"list|add|update|delete\", \"name\": \"...\", \"email\": \"...\", \"phones\": [...], \"address\": \"...\", \"uid\": \"...\"}. Use for info about another person: email, phone, postal address. For 'save this for <person>' / address paste / phone next to a name, use this — NOT manage_memory. Do NOT use for user identity facts ('my name is X'); those are manage_memory. For update/delete, call action=list first for the uid.",
     "create_session": "- ```create_session``` — Create a new chat. Line 1 = chat name, line 2 = model name. Use for background/parallel work.",
@@ -420,7 +413,6 @@ GENERIC LOOPBACK to allowed AD internal endpoints. Use this whenever the user wa
 - Library / Documents: list all via `/api/documents/library`; docs in a session via `/api/documents/{session_id}`; a single doc via `/api/document/{id}` (singular) and its history via `/api/document/{id}/versions` (singular). Note the plural `/api/documents/...` vs singular `/api/document/{id}` split.
 - Memory: `/api/memory`, `/api/memory/{id}`, `/api/memory/search`
 - Notes: `/api/notes`, `/api/notes/{id}`
-- Tasks: `/api/tasks`, `/api/tasks/{id}/run`, `/api/tasks/notifications`
 - Sessions: `/api/sessions`, `/api/session/{id}`, `/api/session/{id}/truncate`
 - Themes: `/api/prefs/themes`, `/api/prefs/custom-themes`
 - Settings: `/api/settings`, `/api/prefs/{key}`
@@ -430,7 +422,7 @@ GENERIC LOOPBACK to allowed AD internal endpoints. Use this whenever the user wa
 
 Body for POST/PUT/PATCH goes in `body` (object). Query params in `query` (object). Returns the parsed JSON of the response.
 
-**When to prefer named tools over app_api:** if a named wrapper exists (manage_tasks, manage_memory, etc.) USE IT — it has nicer output formatting and clearer schema. Reach for `app_api` only when there's no wrapper for what you need.
+**When to prefer named tools over app_api:** if a named wrapper exists (manage_memory, manage_documents, etc.) USE IT — it has nicer output formatting and clearer schema. Reach for `app_api` only when there's no wrapper for what you need.
 
 Blocked paths/routes (refused for safety): /api/auth/, /api/users/, /api/tokens/, /api/admin/, /api/shell/, /api/backup/restore, POST /api/cookbook/packages/install.""",
 }
@@ -564,7 +556,7 @@ _API_HOSTS = frozenset([
 _MCP_KEYWORDS = frozenset(["mcp", "browse", "browser", "website", "event",
                            "screenshot", "navigate", "click", "miniflux", "rss", "feed"])
 _ADMIN_SCHEMA_NAMES = frozenset([
-    "manage_session", "manage_skills", "manage_tasks",
+    "manage_session", "manage_skills",
     "manage_endpoints", "manage_mcp", "manage_webhooks", "manage_tokens",
     "create_session", "list_sessions", "send_to_session", "pipeline",
     "ask_teacher", "list_models", "search_chats",
@@ -877,8 +869,6 @@ def _classify_agent_request(messages: List[Dict], last_user: str) -> Dict[str, o
     def has(*patterns: str) -> bool:
         return any(re.search(p, q) for p in patterns)
 
-    if has(r"\b(every day|every morning|every evening|recurring|automatically|cron|scheduled task|background task)\b"):
-        domains.add("notes_tasks")
     _code_write_intent = has(
         r"\b(?:python|javascript|typescript|java|c\+\+|cpp|c#|csharp|rust|go|golang|"
         r"ruby|php|swift|kotlin|bash|shell|html|css|sql)\b",
@@ -886,7 +876,7 @@ def _classify_agent_request(messages: List[Dict], last_user: str) -> Dict[str, o
     )
     if has(r"\b(documents?|docs?|draft|compose|poem|story|essay|outline|letter|edit|rewrite|proofread|suggest|feedback|review this|make a file)\b"):
         domains.add("documents")
-    if "notes_tasks" not in domains and has(r"\bwrite\b"):
+    if has(r"\bwrite\b"):
         domains.add("documents")
     if has(r"\b(search|web|google|look up|latest|news|current|weather|forecast|stock price|price of|website|url|https?://|www\.)\b"):
         domains.add("web")
@@ -1153,7 +1143,7 @@ def _recent_context_for_retrieval(messages: List[Dict], max_user: int = 3, max_c
     A contextless follow-up ("yes", "and?", "do it in November") carries no
     tool signal on its own, so RAG/keyword retrieval drops the tools the
     conversation is actually about — the model then "forgets" it has e.g.
-    manage_tasks and improvises with bash/app_api. Concatenating the recent
+    a just-used tool and improvises with bash/app_api. Concatenating the recent
     user turns lets the follow-up inherit the topic so just-used tools stay
     surfaced. Newest-first, so the latest turn survives the length cap."""
     collected = []
@@ -1562,7 +1552,7 @@ def _build_system_prompt(
 
 
 _ADMIN_TOOLS = {
-    "manage_session", "manage_skills", "manage_tasks",
+    "manage_session", "manage_skills",
     "manage_endpoints", "manage_mcp", "manage_webhooks", "manage_tokens",
     "manage_documents", "manage_settings", "create_session", "list_sessions",
     "send_to_session", "pipeline", "ask_teacher", "list_models",

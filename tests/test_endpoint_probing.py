@@ -37,7 +37,7 @@ with preserve_import_state("core.database", "src.database", "core.session_manage
         for _name in [
             "SessionLocal", "ModelEndpoint", "Session", "ChatMessage", "Document",
             "DocumentVersion", "GalleryImage", "GalleryAlbum", "Note",
-            "CalendarCal", "CalendarEvent", "ScheduledTask", "TaskRun", "McpServer",
+            "CalendarCal", "CalendarEvent", "McpServer",
             "ProviderAuthSession", "Base",
         ]:
             setattr(_core_db, _name, MagicMock())

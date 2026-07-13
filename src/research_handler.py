@@ -695,11 +695,6 @@ class ResearchHandler:
             }
             path.write_text(json.dumps(data), encoding="utf-8")
             logger.info(f"Research result saved to {path}")
-            try:
-                from src.event_bus import fire_event
-                fire_event("research_completed", entry.get("owner") or None)
-            except Exception:
-                logger.debug("research_completed event dispatch failed", exc_info=True)
         except Exception as e:
             logger.error(f"Failed to save research result: {e}")
 

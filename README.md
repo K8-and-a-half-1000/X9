@@ -45,7 +45,6 @@ Native install details, GPU notes, Windows instructions, HTTPS, and configuratio
 - **Cookbook** — hardware-aware model recommendations, downloads, and serving.
 - **Deep Research** — multi-step web research with source reading and report generation.
 - **Documents** — writing-first editor with AI edits, suggestions, Markdown, HTML, CSV, and syntax highlighting.
-- **Notes, Tasks + Calendar** — reminders, todos, scheduled agent tasks, and CalDAV sync.
 - **Extras** — gallery/image editor, themes, uploads, web search, presets, and sessions.
 
 ## Demo

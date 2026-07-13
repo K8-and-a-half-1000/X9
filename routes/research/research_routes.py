@@ -725,11 +725,6 @@ def setup_research_routes(research_handler, session_manager=None) -> APIRouter:
         if ep_headers:
             new_sess.headers = ep_headers
             session_manager.save_sessions()
-        try:
-            from src.event_bus import fire_event
-            fire_event("session_created", user)
-        except Exception:
-            logger.debug("session_created event dispatch failed", exc_info=True)
 
         # Build the priming system message — report only, no sources injected.
         # The user can open the visual report for source details; keeping sources

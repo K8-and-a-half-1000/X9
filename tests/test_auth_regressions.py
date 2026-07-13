@@ -2,11 +2,6 @@
 don't regress. Specifically:
 
 - All `/api/research/*` endpoints reject anonymous callers.
-- Task `create_task` blocks shell-executing action types for
-  non-admins (`run_local`, `run_script`, `ssh_command`).
-- `pop_notifications(owner)` returns only the calling user's
-  notifications; ownerless legacy notifications are drained only by
-  anonymous/no-owner callers.
 """
 
 import os
@@ -69,7 +64,7 @@ def _ensure_stub(name: str, **attrs):
 @pytest.fixture(autouse=True)
 def _auth_regressions_stubs(monkeypatch):
     db = _ensure_stub("core.database",
-        SessionLocal=MagicMock(), ScheduledTask=MagicMock(), TaskRun=MagicMock(),
+        SessionLocal=MagicMock(),
         ModelEndpoint=MagicMock(), Session=MagicMock(), ChatMessage=MagicMock(),
         CalendarCal=MagicMock(), CalendarEvent=MagicMock(),
         Document=MagicMock(), DocumentVersion=MagicMock(),
@@ -182,87 +177,3 @@ def test_research_spinoff_rejects_wrong_owner():
     sm.create_session.assert_not_called()
 
 
-# ---------------------------------------------------------------------------
-# pop_notifications owner filter
-# ---------------------------------------------------------------------------
-
-def test_pop_notifications_owner_filtered():
-    """pop_notifications(owner='alice') must return only alice's items.
-    bob's and legacy ownerless items stay behind in the queue."""
-    # Build a minimal scheduler instance that we can hit directly.
-    # Reuse the real class so the test catches future regressions of
-    # the filter logic.
-    import sys, types
-    from unittest.mock import MagicMock as _MM
-    # `task_scheduler` pulls in lots of helpers — stub the ones it uses.
-    for s in ["src.builtin_actions", "src.ai_interaction", "src.endpoint_resolver",
-              "src.agent_loop", "src.session_manager"]:
-        if s not in sys.modules:
-            mod = types.ModuleType(s)
-            sys.modules[s] = mod
-    from src.task_scheduler import TaskScheduler
-    sch = TaskScheduler.__new__(TaskScheduler)  # bypass __init__ network etc.
-    sch._pending_notifications = []
-    sch.add_notification("t1", "success", "id1", owner="alice")
-    sch.add_notification("t2", "error",   "id2", owner="bob")
-    sch.add_notification("t3", "success", "id3", owner=None)
-    sch.add_notification("t4", "success", "id4", owner="alice")
-    alice = sch.pop_notifications(owner="alice")
-    alice_names = {n["task_name"] for n in alice}
-    # alice gets only her own rows; bob's row and legacy null-owner rows stay.
-    assert alice_names == {"t1", "t4"}
-    # bob's row and the legacy ownerless row are still queued.
-    remaining = sch._pending_notifications
-    assert {n["task_name"] for n in remaining} == {"t2", "t3"}
-    # Anonymous caller (owner=None) drains everything that's left.
-    rest = sch.pop_notifications(owner=None)
-    assert {n["task_name"] for n in rest} == {"t2", "t3"}
-    assert sch._pending_notifications == []
-
-
-# ---------------------------------------------------------------------------
-# Task action allowlist
-# ---------------------------------------------------------------------------
-
-def test_admin_only_actions_set_contains_shell_runners():
-    """The constant defining shell-executing action types must include
-    the three risky entries. Catches accidental removal."""
-    from routes import task_routes
-    # `_ADMIN_ONLY_ACTIONS` is a closure constant. Easiest pin: re-read
-    # the source and check for the three risky entries + the admin gate
-    # wording.
-    src = open(task_routes.__file__, encoding="utf-8").read()
-    assert '"run_local"' in src
-    assert '"run_script"' in src
-    assert '"ssh_command"' in src
-    # And the gate is wired into both create and update paths.
-    assert "Action '" in src and "requires admin privileges" in src
-
-
-def test_task_create_notification_default_allows_action_specific_defaults():
-    """Omitted notifications_enabled should stay None so create_task can
-    default noisy/quiet built-ins differently."""
-    from routes.task_routes import TaskCreate
-
-    req = TaskCreate(task_type="action", action="classify_events", schedule="cron", cron_expression="*/15 * * * *")
-    assert req.notifications_enabled is None
-
-
-def test_ship_paused_housekeeping_mechanism_is_wired():
-    """The ship_paused opt-in mechanism stays wired so a built-in can ship
-    paused. (No built-in currently sets it — the calendar-classify task that
-    used it was removed with the calendar feature.)"""
-    from routes import task_routes
-    from src import task_scheduler
-
-    route_src = open(task_routes.__file__, encoding="utf-8").read()
-    scheduler_src = open(task_scheduler.__file__, encoding="utf-8").read()
-    assert 'defs.get("ship_paused")' in scheduler_src
-    assert 'defs.get("ship_paused")' in route_src
-
-
-def test_task_payload_exposes_crew_member_id_for_ui_category():
-    from routes import task_routes
-
-    src = open(task_routes.__file__, encoding="utf-8").read()
-    assert '"crew_member_id"' in src

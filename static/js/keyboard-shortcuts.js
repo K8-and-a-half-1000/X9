@@ -5,13 +5,13 @@
 import { IS_MAC, isAltGrEvent } from './platform.js';
 
 const _defaultKeybinds = {
-  search: 'ctrl+k', toggle_sidebar: 'ctrl+alt+b', new_session: 'ctrl+alt+n',
+  toggle_sidebar: 'ctrl+alt+b', new_session: 'ctrl+alt+n',
   fav_session: 'ctrl+alt+f', delete_session: 'ctrl+alt+d',
   cancel: 'escape', tts: 'alt+shift+t',
   incognito: 'ctrl+alt+i', settings: 'ctrl+,', focus_input: 'ctrl+/',
   // Open-tool shortcuts (all unbound by default).
   open_research: '', open_gallery: '', open_library: '', open_memory: '',
-  open_tasks: '', open_theme: '',
+  open_theme: '',
 };
 
 export function _matchesCombo(e, combo, isMac = IS_MAC) {
@@ -40,14 +40,13 @@ export function _matchesCombo(e, combo, isMac = IS_MAC) {
  * @param {Object} modules.chatModule
  * @param {Object} modules.adminModule
  * @param {Object} modules.settingsModule
- * @param {Object} modules.searchChatModule
  * @param {Function} modules._deactivateIncognito
  * @param {string} modules.API_BASE
  */
 export function initKeyboardShortcuts(modules) {
   const {
     el, Storage, sessionModule, uiModule, chatModule,
-    adminModule, settingsModule, searchChatModule,
+    adminModule, settingsModule,
     _deactivateIncognito, API_BASE
   } = modules;
 
@@ -96,7 +95,6 @@ export function initKeyboardShortcuts(modules) {
   const _WINDOW_TRIGGERS = {
     'settings-modal':         'tool-settings-btn',
     'theme-modal':            'tool-theme-btn',
-    'tasks-modal':            'tool-tasks-btn',
     'memory-modal':           'tool-memory-btn',
     'doclib-modal':           'tool-library-btn',
     'gallery-modal':          'tool-gallery-btn',
@@ -137,13 +135,6 @@ export function initKeyboardShortcuts(modules) {
   document.addEventListener('keydown', (e) => {
     const kb = window._odysseusKeybinds;
 
-    if (_matchesCombo(e, kb.search)) {
-      e.preventDefault();
-      if (searchChatModule) {
-        searchChatModule.isOpen() ? searchChatModule.closeSearch() : searchChatModule.openSearch();
-      }
-      return;
-    }
     if (_matchesCombo(e, kb.toggle_sidebar)) {
       e.preventDefault();
       var sb = document.getElementById('sidebar');
@@ -259,7 +250,6 @@ export function initKeyboardShortcuts(modules) {
       open_gallery:  'tool-gallery-btn',
       open_library:  'tool-library-btn',
       open_memory:   'tool-memory-btn',
-      open_tasks:    'tool-tasks-btn',
       open_theme:    'tool-theme-btn',
     };
     for (const action in _toolBtns) {

@@ -15,16 +15,6 @@ def test_registered_manual_compaction_uses_session_owner_for_utility_endpoint():
     assert 'resolve_endpoint("utility", owner=owner)' in session_src
 
 
-def test_task_name_generation_uses_owner_scoped_session_endpoint():
-    src = _src("routes/task_routes.py")
-
-    assert "async def _generate_task_name(prompt: str, owner: Optional[str] = None)" in src
-    assert "q = q.filter(DbSession.owner == owner)" in src
-    assert "headers = recent.headers or {}" in src
-    assert "headers=headers" in src
-    assert "await _generate_task_name(req.prompt, owner=user)" in src
-
-
 def test_auto_compaction_utility_endpoint_keeps_chat_owner():
     helper_src = _src("routes/chat_helpers.py")
     compact_src = _src("src/context_compactor.py")
@@ -38,19 +28,6 @@ def test_background_session_sort_uses_owner_task_endpoint():
     src = _src("src/session_actions.py")
 
     assert "resolve_task_endpoint(owner=owner or None)" in src
-
-
-def test_scheduler_fallbacks_and_research_headers_are_owner_scoped():
-    src = _src("src/task_scheduler.py")
-
-    assert "resolve_task_candidates(" in src
-    assert "owner=task.owner or None" in src
-    assert 'resolve_endpoint(\n                    "research",' in src
-    assert "owner=task.owner or None" in src
-    assert "headers_from_resolver = False" in src
-    assert "headers_from_resolver = True" in src
-    assert "from src.auth_helpers import owner_filter" in src
-    assert "owner_filter(ep_q, ModelEndpoint, task.owner or None)" in src
 
 
 def test_research_routes_fallbacks_are_owner_scoped():

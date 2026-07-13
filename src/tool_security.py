@@ -25,7 +25,6 @@ NON_ADMIN_BLOCKED_TOOLS = {
     "search_chats",
     "manage_memory",
     "manage_skills",
-    "manage_tasks",
     "manage_endpoints",
     "manage_mcp",
     "manage_webhooks",
@@ -86,11 +85,10 @@ _PLAN_MODE_KNOWN_MUTATORS = {
     "write_file", "create_document", "edit_document", "update_document",
     "suggest_document", "manage_documents", "create_session", "manage_session",
     "send_to_session", "pipeline", "manage_memory", "manage_skills",
-    "manage_tasks", "manage_endpoints", "manage_mcp",
+    "manage_endpoints", "manage_mcp",
     "manage_webhooks", "manage_tokens", "manage_settings", "manage_contact",
     "api_call", "app_api", "ui_control",
        "generate_image", "edit_image", "trigger_research", "manage_research",
-    "manage_queue",
     # Shell is never read-only-safe; block it explicitly so it stays out of plan
     # mode even if the schema list fails to load.
     "bash", "python",

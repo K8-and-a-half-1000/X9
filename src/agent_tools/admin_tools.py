@@ -508,7 +508,7 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
     try:
         # set/get/list/delete operate on the REAL app settings (the same store
         # the Settings panel writes), so changing a model / voice / search
-        # engine / reminder channel from chat actually takes effect.
+        # engine from chat actually takes effect.
         from src.settings import load_settings, save_settings, DEFAULT_SETTINGS
 
         # Secrets/credentials the agent must NOT write: kept read-only (masked)
@@ -544,10 +544,6 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
             "vision model": "vision_model", "vision": "vision_enabled",
             "image model": "image_model", "image quality": "image_quality",
             "image gen": "image_gen_enabled", "image generation": "image_gen_enabled",
-            "reminder channel": "reminder_channel", "reminders": "reminder_channel",
-            "ntfy topic": "reminder_ntfy_topic",
-            "webhook integration": "reminder_webhook_integration_id",
-            "webhook template": "reminder_webhook_payload_template", "webhook payload": "reminder_webhook_payload_template",
             "agent tool calls": "agent_max_tool_calls", "max tool calls": "agent_max_tool_calls",
             "agent timeout": "agent_stream_timeout_seconds", "stream timeout": "agent_stream_timeout_seconds",
             "token budget": "agent_input_token_budget", "input budget": "agent_input_token_budget",
@@ -563,7 +559,6 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
 
         _ENUMS = {
             "image_quality": ["low", "medium", "high"],
-            "reminder_channel": ["browser", "email", "ntfy", "webhook"],
         }
         def _coerce(value, default):
             if isinstance(default, bool):
@@ -703,7 +698,6 @@ async def do_manage_settings(content: str, owner: Optional[str] = None) -> Dict:
                 "skills": ["manage_skills"],
                 "images": ["generate_image"],
                 "image": ["generate_image"],
-                "tasks": ["manage_tasks"],
                 "research": ["web_search", "web_fetch"],  # research is a per-request flag, not a tool (closest analog)
             }
 

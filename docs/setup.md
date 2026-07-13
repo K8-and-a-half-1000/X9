@@ -139,7 +139,6 @@ A grab-bag of small gotchas that otherwise turn into long debugging sessions.
 
 - **The first `.env` setting is silently ignored (Windows).** If you edited `.env` in Notepad it may have saved a UTF-8 **BOM**, turning the first key into `﻿APP_PORT` (etc.) so it is never matched. AD loads `.env` with `encoding="utf-8-sig"` to tolerate a leading BOM, but the safe fix is to re-save `.env` as **UTF-8 without BOM** (VS Code: *Save with Encoding → UTF-8*).
 - **Copy buttons do nothing over a plain-HTTP Tailscale/LAN URL.** Browsers only expose the clipboard API (`navigator.clipboard`) on **secure origins** — HTTPS, or `localhost`. Over `http://100.x.y.z:7860` it is blocked. Serve over HTTPS (see *HTTPS + LAN/Tailscale exposure* above); `localhost` is exempt, so copy still works on the host itself.
-- **Self-hosted ntfy reminders don't reach your phone.** Two things: (1) a loopback-bound ntfy is unreachable from your phone — bind ntfy to your host/Tailscale IP and use that same server URL in AD reminder settings; (2) in the ntfy **Android** app, subscribe to the topic with **Instant delivery** enabled — non-`ntfy.sh` servers don't get instant push otherwise.
 - **Calendar/contacts (Radicale) won't sync.** Point AD at the **full collection URL** with its trailing slash — e.g. `http://host:5232/<user>/<collection-id>/` — not just the server root. Radicale shows this address for each calendar/address book in its web UI.
 
 ### Optional Dependencies

@@ -48,7 +48,7 @@ alongside it. They are not modified — just consumed over their APIs.
 |---|---|---|
 | [SearXNG](https://github.com/searxng/searxng) | Default metasearch backend | AGPL-3.0 |
 | [ChromaDB](https://github.com/chroma-core/chroma) | Vector store for memory / RAG | Apache-2.0 |
-| [ntfy](https://github.com/binwiederhier/ntfy) | Push notifications (self-hosted reminders) | Apache-2.0 / GPL-2.0 |
+| [ntfy](https://github.com/binwiederhier/ntfy) | Push notifications (self-hosted) | Apache-2.0 / GPL-2.0 |
 
 ## Bundled front-end libraries
 

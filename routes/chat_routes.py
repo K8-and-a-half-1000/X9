@@ -20,7 +20,6 @@ from src import agent_runs
 from src.model_context import estimate_tokens
 from src.chat_helpers import coerce_message_and_session
 from src.endpoint_resolver import normalize_base as _normalize_base, build_chat_url
-from src.session_search import search_session_messages
 from src.prompt_security import untrusted_context_message
 from core.exceptions import SessionNotFoundError
 from src.auth_helpers import effective_user, get_current_user
@@ -1330,30 +1329,6 @@ def setup_chat_routes(
             return {"status": "context_injected"}
         except KeyError:
             raise HTTPException(404, "Session not found")
-
-    # ------------------------------------------------------------------ #
-    # GET /api/search — search across chat messages
-    # ------------------------------------------------------------------ #
-    @router.get("/api/search")
-    async def search_messages(
-        request: Request,
-        q: str = Query("", min_length=0),
-        limit: int = Query(20, ge=1, le=100),
-    ) -> List[Dict[str, Any]]:
-        if not q or not q.strip():
-            return []
-
-        _user = effective_user(request)
-        return [
-            result.to_dict()
-            for result in search_session_messages(
-                q,
-                limit=limit,
-                owner=_user,
-                restrict_owner=_user is not None,
-                include_legacy_owner=False,
-            )
-        ]
 
     # ------------------------------------------------------------------ #
     # POST /api/rewrite — lightweight rewrite of last AI message (no tools)

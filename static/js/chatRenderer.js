@@ -1179,11 +1179,7 @@ document.addEventListener('click', function(e) {
       if (open) open(id);
     }).catch(() => {});
   } else if (kind === 'task') {
-    import('./tasks.js').then(mod => {
-      const open = mod.openTasks || (mod.default && mod.default.openTasks);
-      if (open) open(id);
-      else { const b = document.getElementById('tasks-btn'); if (b) b.click(); }
-    }).catch(() => { const b = document.getElementById('tasks-btn'); if (b) b.click(); });
+    // Tasks feature removed — task deep-links are inert.
   } else if (kind === 'skill') {
     import('./skills.js').then(mod => {
       const open = mod.openSkill || (mod.default && mod.default.openSkill);

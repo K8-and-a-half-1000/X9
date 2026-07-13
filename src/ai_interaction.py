@@ -353,11 +353,6 @@ async def do_manage_memory(content: str, session_id: Optional[str] = None, owner
                 _memory_vector.add(entry["id"], text)
             except Exception:
                 pass
-        try:
-            from src.event_bus import fire_event
-            fire_event("memory_added", owner)
-        except Exception:
-            logger.debug("memory_added event dispatch failed", exc_info=True)
 
         return {"action": "add", "memory_id": entry["id"],
                 "results": f"Memory added: [{category}] {text}"}

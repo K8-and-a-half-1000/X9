@@ -490,78 +490,6 @@ class UserToolData(Base):
     )
 
 
-class CrewMember(TimestampMixin, Base):
-    """A custom AI persona ('crew member') with its own personality, model, tools, and memory scope."""
-    __tablename__ = "crew_members"
-
-    id            = Column(String, primary_key=True, index=True)
-    owner         = Column(String, nullable=True, index=True)
-    name          = Column(String, nullable=False)
-    avatar        = Column(String, nullable=True)
-    user_name     = Column(String, nullable=True)          # what they call the user
-    personality   = Column(Text, nullable=True)             # system prompt
-    model         = Column(String, nullable=True)
-    endpoint_url  = Column(String, nullable=True)
-    greeting      = Column(Text, nullable=True)
-    enabled_tools = Column(Text, nullable=True)             # JSON array or "all"
-    session_id    = Column(String, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
-    is_active     = Column(Boolean, default=True)
-    sort_order    = Column(Integer, default=0)
-    is_default_assistant = Column(Boolean, default=False)   # singleton per-owner "personal assistant"
-    timezone      = Column(String, nullable=True)           # IANA tz name (e.g. "America/New_York") for scheduled check-ins
-
-    session = relationship("Session", foreign_keys=[session_id],
-                           backref=backref("crew_member", uselist=False))
-
-
-class ScheduledTask(TimestampMixin, Base):
-    """A recurring or one-off task — LLM-powered or direct action, time or event triggered."""
-    __tablename__ = "scheduled_tasks"
-
-    id             = Column(String, primary_key=True, index=True)
-    owner          = Column(String, nullable=True, index=True)
-    name           = Column(String, nullable=False, default="Untitled Task")
-    prompt         = Column(Text, nullable=True)              # LLM prompt (for task_type="llm")
-    task_type      = Column(String, default="llm")            # "llm" | "action"
-    action         = Column(String, nullable=True)            # builtin action name (for task_type="action")
-    schedule       = Column(String, nullable=True)            # "once", "daily", "weekly", "monthly"
-    scheduled_time = Column(String, nullable=True)            # "HH:MM" (24h, stored UTC)
-    scheduled_day  = Column(Integer, nullable=True)           # day-of-week 0=Mon for weekly, day-of-month for monthly
-    scheduled_date = Column(DateTime, nullable=True)          # exact datetime for "once"
-    trigger_type   = Column(String, default="schedule")       # "schedule" | "event"
-    trigger_event  = Column(String, nullable=True)            # e.g. "session_created", "message_sent"
-    trigger_count  = Column(Integer, nullable=True)           # fire every N events
-    trigger_counter = Column(Integer, default=0)              # current count toward trigger_count
-    next_run       = Column(DateTime, nullable=True, index=True)
-    last_run       = Column(DateTime, nullable=True)
-    status         = Column(String, default="active")         # "active", "paused", "completed"
-    output_target  = Column(String, default="session")        # "session" (extensible later)
-    session_id     = Column(String, ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
-    model          = Column(String, nullable=True)
-    endpoint_url   = Column(String, nullable=True)
-    run_count      = Column(Integer, default=0)
-
-    cron_expression = Column(String, nullable=True)           # cron string e.g. "*/5 * * * *"
-    then_task_id   = Column(String, ForeignKey("scheduled_tasks.id", ondelete="SET NULL"), nullable=True)
-    webhook_token  = Column(String, nullable=True, unique=True)
-    crew_member_id = Column(String, nullable=True)     # optional link to crew_members.id
-    # character_id historically referenced an agent_characters table that was
-    # never actually created. Keep the column for schema compatibility but
-    # drop the ForeignKey so SQLAlchemy table sort doesn't fail on flush.
-    character_id   = Column(String, nullable=True)
-    max_steps      = Column(Integer, nullable=True)       # max agent loop iterations (null=unlimited)
-    email_results  = Column(Boolean, default=True)        # email results to character.email_to
-    notifications_enabled = Column(Boolean, default=True) # per-task on/off for completion notifications
-
-    session = relationship("Session", backref=backref("scheduled_tasks", cascade="save-update, merge"))
-    then_task = relationship("ScheduledTask", remote_side=[id], foreign_keys=[then_task_id])
-
-    __table_args__ = (
-        Index('ix_scheduled_tasks_due', 'status', 'next_run'),
-        Index('ix_scheduled_tasks_event', 'trigger_type', 'trigger_event', 'status'),
-    )
-
-
 class EditorDraft(TimestampMixin, Base):
     """Persisted in-progress gallery-editor session — layered project state
     that the user can close and reopen later. Stores the full layer payload
@@ -593,28 +521,6 @@ class EditorDraft(TimestampMixin, Base):
         Index('ix_editor_drafts_owner_updated', 'owner', 'is_active', 'updated_at'),
     )
 
-
-class TaskRun(Base):
-    """Record of a single execution of a ScheduledTask."""
-    __tablename__ = "task_runs"
-
-    id          = Column(String, primary_key=True, index=True)
-    task_id     = Column(String, ForeignKey("scheduled_tasks.id", ondelete="CASCADE"), nullable=False)
-    started_at  = Column(DateTime, nullable=False, default=utcnow_naive)
-    finished_at = Column(DateTime, nullable=True)
-    status      = Column(String, default="running")  # "running", "success", "error"
-    result      = Column(Text, nullable=True)
-    error       = Column(Text, nullable=True)
-    tokens_used = Column(Integer, nullable=True)
-    steps       = Column(Text, nullable=True)             # JSON log of agent tool calls
-    model       = Column(String, nullable=True)           # model that actually ran (resolved at execution)
-
-    task = relationship("ScheduledTask", backref=backref("runs", cascade="all, delete-orphan",
-                        order_by="TaskRun.started_at.desc()"))
-
-    __table_args__ = (
-        Index('ix_task_runs_task', 'task_id', 'started_at'),
-    )
 
 
 class Memory(Base):

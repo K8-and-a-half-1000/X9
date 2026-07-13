@@ -1257,7 +1257,7 @@ async function _cmdToggleSidebar(args, ctx) {
 async function _cmdOpen(args, ctx) {
   const target = (args[0] || '').trim().toLowerCase();
   if (!target) {
-    slashReply('Open what? Try /open Settings, /open Gallery, /open Tasks, /open Library, or /open Research.');
+    slashReply('Open what? Try /open Settings, /open Gallery, /open Library, or /open Research.');
     return true;
   }
   const clickFirst = (...ids) => {
@@ -1275,17 +1275,23 @@ async function _cmdOpen(args, ctx) {
     }
     const targets = {
       gallery: ['tool-gallery-btn', 'rail-gallery'],
-      tasks: ['tool-tasks-btn', 'rail-tasks'],
       library: ['tool-library-btn', 'rail-archive'],
+      rag: ['tool-library-btn', 'rail-archive'],
       documents: ['tool-library-btn', 'rail-archive'],
       docs: ['tool-library-btn', 'rail-archive'],
       archive: ['tool-library-btn', 'rail-archive'],
       brain: ['tool-memory-btn', 'rail-memory'],
-      memory: ['tool-memory-btn', 'rail-memory'],
-      memories: ['tool-memory-btn', 'rail-memory'],
+      skills: ['tool-memory-btn', 'rail-memory'],
       research: ['tool-research-btn', 'rail-research'],
       theme: ['tool-theme-btn', 'rail-theme'],
     };
+    if (target === 'memory' || target === 'memories') {
+      // Memories live in the RAG window's Memory tab now.
+      if (window.documentModule && window.documentModule.openLibrary) {
+        window.documentModule.openLibrary({ tab: 'memory' });
+        return true;
+      }
+    }
     const ids = targets[target];
     if (ids && clickFirst(...ids)) return true;
   } catch (e) {
@@ -1688,24 +1694,6 @@ async function _cmdWebSearch(args, ctx) {
 
 // ── Search ──
 
-async function _cmdSearch(args, ctx) {
-  const query = args.join(' ');
-  if (!query) { slashReply('Usage: /find &lt;query&gt;'); return true; }
-  const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=20`, { credentials: 'same-origin' });
-  if (res.ok) {
-    const data = await res.json();
-    const results = Array.isArray(data) ? data : (data.results || []);
-    if (!results.length) { slashReply(`No results for "${ctx.esc(query)}"`); return true; }
-    const lines = results.slice(0, 20).map(r => {
-      const name = ctx.esc(r.session_name || r.name || 'Untitled');
-      const snippet = ctx.esc((r.content_snippet || r.content || r.snippet || '').slice(0, 100));
-      const sid = r.session_id || '';
-      return `<a href="#${sid}" style="color:var(--red);text-decoration:none">${name}</a>  ${snippet}`;
-    });
-    slashReply(`<pre>${lines.join('\n')}</pre>`);
-  } else { slashReply('Search failed'); }
-  return true;
-}
 
 // ── Stats ──
 
@@ -3127,12 +3115,9 @@ async function _cmdTourBrain(args, ctx) {
   const _tab = (name) => document.querySelector(`.memory-tab[data-memory-tab="${name}"]`)?.click();
   const steps = [
     { sel: '#memory-modal .memory-modal-content',
-      text: '<b>Brain</b> is where your memories are. You can edit them, or add new ones under <b>Add</b>. Wow.',
-      before: () => _tab('browse'),
+      text: '<b>Skills</b> are reusable procedures the AI can call — browse, audit, and curate them here. (Memories moved to RAG.)',
+      before: () => _tab('skills'),
       placement: 'center-above' },
-    { sel: '#memory-tidy-btn',
-      text: '<b>Tidy</b> runs your model to clear out irrelevant memories and duplicates. It also triggers automatically from Tasks.',
-      before: () => _tab('browse') },
     { sel: '.memory-tab-panel[data-memory-panel="skills"]',
       text: '<b>Skills</b> are basically your AI’s memory for improving its abilities.',
       before: () => _tab('skills') },
@@ -3154,248 +3139,8 @@ async function _cmdTourBrain(args, ctx) {
   }
 
   _clear();
-  await typewriterReply('That’s Brain — memories, skills, tidy, and settings in one place.');
+  await typewriterReply('That’s Skills — your AI’s reusable procedures, audits, and settings.');
   return true;
-}
-
-// ── Task tours ──
-async function _openTasksForTour() {
-  let modal = document.getElementById('tasks-modal');
-  if (!modal) {
-    const opener = document.getElementById('tool-tasks-btn') || document.getElementById('rail-tasks');
-    if (opener) opener.click();
-    for (let i = 0; i < 25; i++) {
-      await new Promise(r => setTimeout(r, 80));
-      modal = document.getElementById('tasks-modal');
-      if (modal) break;
-    }
-  }
-  return modal;
-}
-
-async function _runTaskTour(steps, doneText, opts) {
-  opts = opts || {};
-  // When `continueLabel` is set, the tour ends with a centered "continue?"
-  // tooltip instead of going straight to doneText. The user can pick to
-  // keep going (returns 'continue') or stop here.
-  const _msgEl = document.getElementById('message');
-  if (_msgEl) {
-    _msgEl.value = '';
-    _msgEl.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-  if (!document.getElementById('tour-styles')) {
-    const s = document.createElement('style');
-    s.id = 'tour-styles';
-    s.textContent =
-      '#tour-tooltip{position:fixed;z-index:10001;background:var(--bg);color:var(--fg);' +
-      'border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;' +
-      'font-family:inherit;font-size:max(0.8rem, 14px);line-height:1.5;' +
-      'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:auto;' +
-      'opacity:0;transform:translateY(4px);transition:opacity 0.3s ease-out,transform 0.3s ease-out}' +
-      '#tour-tooltip.tour-fade-in{opacity:1;transform:translateY(0)}' +
-      '#tour-tooltip .tour-text{margin-bottom:8px;opacity:0.8}' +
-      '.tour-nav{display:flex;align-items:center;justify-content:space-between}' +
-      '.tour-nav button{background:none;border:1px solid var(--border);color:var(--fg);' +
-      'cursor:pointer;font-family:inherit;border-radius:4px;transition:all .1s}' +
-      '.tour-nav button:hover{background:color-mix(in srgb,var(--fg) 8%,transparent)}' +
-      '.tour-btn-arrow{font-size:1rem;padding:4px 12px;opacity:0.6}' +
-      '.tour-btn-arrow:hover{opacity:1}' +
-      '.tour-btn-arrow.disabled{opacity:0.15;pointer-events:none}' +
-      '.tour-btn-skip{font-size:max(0.72rem, 14px);padding:3px 10px;opacity:0.35;border-color:transparent!important}' +
-      '.tour-btn-skip:hover{opacity:0.6}';
-    document.head.appendChild(s);
-  }
-
-  const modal = await _openTasksForTour();
-  if (!modal) {
-    slashReply('Could not open Tasks. Try clicking the Tasks tool first.');
-    return true;
-  }
-
-  document.body.classList.add('tour-active');
-  const tooltip = document.createElement('div');
-  tooltip.id = 'tour-tooltip';
-  document.body.appendChild(tooltip);
-  let halos = [];
-
-  function clearHalos() {
-    halos.forEach(h => h.destroy());
-    halos = [];
-    document.querySelectorAll('.tour-halo').forEach(e => e.remove());
-  }
-  function makeHalo(target) {
-    const halo = document.createElement('div');
-    halo.className = 'tour-halo';
-    document.body.appendChild(halo);
-    const update = () => {
-      const r = target.getBoundingClientRect();
-      halo.style.top = (r.top - 4) + 'px';
-      halo.style.left = (r.left - 4) + 'px';
-      halo.style.width = (r.width + 8) + 'px';
-      halo.style.height = (r.height + 8) + 'px';
-    };
-    update();
-    // The tasks modal-content runs a 250ms `modal-enter` scale animation
-    // when it first opens. A one-shot getBoundingClientRect() captures
-    // the mid-animation (scaled-down) rect and the halo gets locked to
-    // a "cropped" version. Re-sync every animation frame for ~500ms so
-    // we track the entrance to its final size.
-    const _tStart = performance.now();
-    let _rafId = 0;
-    const tick = () => {
-      update();
-      if (performance.now() - _tStart < 500) _rafId = requestAnimationFrame(tick);
-    };
-    _rafId = requestAnimationFrame(tick);
-    window.addEventListener('resize', update);
-    window.addEventListener('scroll', update, true);
-    requestAnimationFrame(() => halo.classList.add('tour-fade-in'));
-    return { destroy() {
-      if (_rafId) cancelAnimationFrame(_rafId);
-      window.removeEventListener('resize', update);
-      window.removeEventListener('scroll', update, true);
-      halo.remove();
-    } };
-  }
-  function clear() {
-    clearHalos();
-    tooltip.remove();
-    document.body.classList.remove('tour-active');
-  }
-  function positionTooltip(target) {
-    tooltip.style.visibility = 'hidden';
-    tooltip.style.display = '';
-    const tw = tooltip.offsetWidth || 260;
-    const th = tooltip.offsetHeight || 100;
-    const r = target.getBoundingClientRect();
-    const gap = 12;
-    let top = r.bottom + gap;
-    let left = r.left + r.width / 2 - tw / 2;
-    if (top + th > window.innerHeight - 10) top = r.top - gap - th;
-    if (top < 10) top = 10;
-    if (left + tw > window.innerWidth - 10) left = window.innerWidth - tw - 10;
-    if (left < 10) left = 10;
-    tooltip.style.top = top + 'px';
-    tooltip.style.left = left + 'px';
-    tooltip.style.visibility = '';
-  }
-  function showStep(step, i) {
-    return new Promise(resolve => {
-      clearHalos();
-      if (step.before) { try { step.before(); } catch (_) {} }
-      setTimeout(() => {
-        const target = document.querySelector(step.sel);
-        if (!target) return resolve('skip');
-        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        halos.push(makeHalo(target));
-        tooltip.classList.remove('tour-fade-in');
-        tooltip.innerHTML =
-          '<div class="tour-text">' + step.text + '</div>' +
-          '<div class="tour-nav">' +
-            '<button class="tour-btn-arrow' + (i === 0 ? ' disabled' : '') + '" data-act="back">←</button>' +
-            '<button class="tour-btn-skip" data-act="skip">' + (i === steps.length - 1 ? 'done' : 'skip tour') + '</button>' +
-            '<button class="tour-btn-arrow" data-act="next">' + (i === steps.length - 1 ? '✓' : '→') + '</button>' +
-          '</div>';
-        requestAnimationFrame(() => {
-          positionTooltip(target);
-          tooltip.classList.add('tour-fade-in');
-        });
-        const onClick = (e) => {
-          const hit = e.target.closest && e.target.closest('[data-act]');
-          if (!hit) return;
-          tooltip.removeEventListener('click', onClick);
-          // Always fire step.after when leaving the step, regardless of
-          // direction — it's the symmetric pair to `before` (undo the
-          // temporary state change), and a user clicking "back" on the
-          // chat-input step still needs the tasks modal restored.
-          if (step.after) { try { step.after(); } catch (_) {} }
-          resolve(hit.dataset.act);
-        };
-        tooltip.addEventListener('click', onClick);
-      }, step.before ? 160 : 0);
-    });
-  }
-
-  for (let i = 0; i < steps.length; i++) {
-    const res = await showStep(steps[i], i);
-    if (res === 'skip') { clear(); return 'skipped'; }
-    if (res === 'back' && i > 0) i -= 2;
-  }
-  // Optional "Continue to part X?" prompt — show a centered tooltip
-  // with two buttons before tearing down the tour overlay.
-  if (opts.continueLabel) {
-    clearHalos();
-    tooltip.classList.remove('tour-fade-in');
-    tooltip.innerHTML =
-      '<div class="tour-text">' + (opts.continueText || 'Want to keep going?') + '</div>' +
-      '<div class="tour-nav">' +
-        '<button class="tour-btn-skip" data-act="stop">no thanks</button>' +
-        '<button class="tour-btn-arrow" data-act="continue">' + opts.continueLabel + '</button>' +
-      '</div>';
-    // Centered in the upper third of the viewport.
-    tooltip.style.visibility = 'hidden';
-    requestAnimationFrame(() => {
-      const tw = tooltip.offsetWidth || 260;
-      const th = tooltip.offsetHeight || 100;
-      tooltip.style.top = Math.max(10, window.innerHeight * 0.32 - th / 2) + 'px';
-      tooltip.style.left = Math.max(10, window.innerWidth / 2 - tw / 2) + 'px';
-      tooltip.style.visibility = '';
-      tooltip.classList.add('tour-fade-in');
-    });
-    const choice = await new Promise(resolve => {
-      const onClick = (e) => {
-        const hit = e.target.closest && e.target.closest('[data-act]');
-        if (!hit) return;
-        tooltip.removeEventListener('click', onClick);
-        resolve(hit.dataset.act);
-      };
-      tooltip.addEventListener('click', onClick);
-    });
-    clear();
-    if (choice === 'continue') return 'continue';
-  } else {
-    clear();
-  }
-  if (doneText) await typewriterReply(doneText);
-  return 'done';
-}
-
-async function _cmdTourTask1(args, ctx) {
-  const result = await _runTaskTour([
-    { sel: '#tasks-modal .modal-content',
-      text: '<b>Welcome to Tasks.</b> Manage all your AI background work here.' },
-    { sel: '#tasks-pause-all-btn',
-      text: 'Tasks are <b>paused by default</b> — resume whichever ones make sense for you. (Or pause anything that\'s running.)' },
-    { sel: '#tasks-modal .modal-body',
-      text: 'When enabled, Tasks use the <b>utility model configured in Settings</b> for cleanup and organization jobs.' },
-  ], 'Use Tasks when you want AD to handle background housekeeping.', {
-    continueLabel: 'continue →',
-    continueText: '<b>Part 1 done.</b> Want to keep going into <b>adding & managing tasks</b>?',
-  });
-  if (result === 'continue') return _cmdTourTask2(args, ctx);
-  return true;
-}
-
-async function _cmdTourTask2(args, ctx) {
-  return _runTaskTour([
-    { sel: '#tasks-modal .tasks-tab[data-tab="new"]',
-      text: '<b>Add</b> creates scheduled prompts, research jobs, actions, event triggers, or webhooks.',
-      before: () => document.querySelector('#tasks-modal .tasks-tab[data-tab="new"]')?.click() },
-    { sel: '#task-ai-input',
-      text: 'You can just describe the task in plain chat language. Example: “weekday mornings summarize the news”.' },
-    { sel: '#tasks-modal .memory-item[data-idx="0"]',
-      text: 'Or pick a template and fill out the form manually.' },
-    { sel: '#task-form-save, #tasks-modal .tasks-tab[data-tab="tasks"]',
-      text: 'Tasks can be edited, paused, resumed, run now, or deleted from their cards.',
-      before: () => document.querySelector('#tasks-modal .tasks-tab[data-tab="tasks"]')?.click() },
-    // Tuck the modal out of the way so the chatbox is unmistakable, then
-    // re-show it when the user moves past this step so the tour lands
-    // back where it started.
-    { sel: '#message',
-      text: 'You can also <b>just ask in chat</b> — say "every weekday at 9am summarize the news" and the app will create the task for you.',
-      before: () => document.getElementById('tasks-modal')?.classList.add('hidden'),
-      after:  () => document.getElementById('tasks-modal')?.classList.remove('hidden') },
-  ], 'That\'s Tasks. Have it run the background bits so you can stay in chat.');
 }
 
 // ── Tour: Deep Research ──
@@ -4170,7 +3915,6 @@ async function _cmdSetup(args, ctx) {
 async function _cmdShortcuts(args, ctx) {
   // Try to load user keybinds from settings
   let keybinds = {
-    search: 'ctrl+k',
     toggle_sidebar: 'ctrl+b',
     new_session: 'ctrl+alt+n',
     star_session: 'ctrl+alt+s',
@@ -4196,7 +3940,6 @@ async function _cmdShortcuts(args, ctx) {
   }).join('+');
 
   const entries = [
-    [formatCombo(keybinds.search), 'Search conversations'],
     [formatCombo(keybinds.toggle_sidebar), 'Toggle sidebar'],
     [formatCombo(keybinds.new_session), 'New session'],
     [formatCombo(keybinds.star_session), 'Star / unstar session'],
@@ -4875,20 +4618,6 @@ const COMMANDS = {
     handler: _cmdTourBrain,
     usage: '/tour-brain'
   },
-  'tour-task-1': {
-    alias: ['tour-task', 'tour-tasks', 'tour-tasks-1', 'tasks-tour', 'tasks-tour-1'],
-    category: 'Tours',
-    help: 'Tasks tour: built-ins, runs, pause controls',
-    handler: _cmdTourTask1,
-    usage: '/tour-task-1'
-  },
-  'tour-task-2': {
-    alias: ['tour-tasks-2', 'tasks-tour-2'],
-    category: 'Tours',
-    help: 'Tasks tour: adding and managing tasks',
-    handler: _cmdTourTask2,
-    usage: '/tour-task-2'
-  },
   prompt: {
     alias: [],
     category: 'Getting started',
@@ -4918,24 +4647,17 @@ const COMMANDS = {
     handler: _cmdOpen,
     usage: '/open Gallery'
   },
-  tasks: {
-    alias: [],
-    category: 'Tools',
-    help: 'Open Tasks',
-    handler: (args, ctx) => _cmdToolPanel('tasks', args, ctx),
-    usage: '/tasks'
-  },
   brain: {
     alias: ['memories'],
     category: 'Tools',
-    help: 'Open Brain',
+    help: 'Open Skills',
     handler: (args, ctx) => _cmdToolPanel('brain', args, ctx),
     usage: '/brain'
   },
   library: {
     alias: ['docs', 'documents'],
     category: 'Tools',
-    help: 'Open Library',
+    help: 'Open RAG',
     handler: (args, ctx) => _cmdToolPanel('library', args, ctx),
     usage: '/library'
   },
@@ -4982,14 +4704,6 @@ const COMMANDS = {
     handler: _cmdWebSearch,
     noUserBubble: true,
     usage: '/search query'
-  },
-  find: {
-    alias: ['search-history'],
-    category: 'Utility',
-    hidden: true,
-    help: 'Search all conversations',
-    handler: _cmdSearch,
-    usage: '/find query'
   },
   stats: {
     alias: ['df'],

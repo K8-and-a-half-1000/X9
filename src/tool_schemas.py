@@ -523,42 +523,6 @@ FUNCTION_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
-            "name": "manage_tasks",
-            "description": "Manage scheduled/automated tasks: list, create, edit, delete, pause, resume, or run tasks. Use this for ANY recurring/scheduled request ('every morning…', 'each day at 7:30', 'daily summarize…') — create a task rather than doing it once. Task types: llm (AI runs a prompt), research (runs the deep-research pipeline on a question), or action (built-in automation). Triggers can be time-based or event-based.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ["list", "create", "edit", "delete", "pause", "resume", "run"],
-                               "description": "The action to perform"},
-                    "task_id": {"type": "string", "description": "Task ID (for edit/delete/pause/resume/run)"},
-                    "name": {"type": "string", "description": "Task name"},
-                    "prompt": {"type": "string", "description": "The instruction (for task_type=llm) or the research question (for task_type=research). Required for both."},
-                    "task_type": {"type": "string", "enum": ["llm", "research", "action"],
-                                  "description": "llm = AI runs your prompt; research = runs the deep-research pipeline on the prompt as a question; action = direct built-in function"},
-                    "action_name": {"type": "string", "enum": [
-                        "tidy_sessions", "tidy_documents", "consolidate_memory", "tidy_research",
-                        "classify_events",
-                        "test_skills", "audit_skills"
-                    ],
-                                    "description": "Built-in action (for task_type=action)"},
-                    "trigger_type": {"type": "string", "enum": ["schedule", "event"],
-                                     "description": "schedule = time-based, event = count-based"},
-                    "schedule": {"type": "string", "enum": ["once", "daily", "weekly", "monthly"],
-                                 "description": "Schedule frequency (for trigger_type=schedule)"},
-                    "scheduled_time": {"type": "string", "description": "HH:MM in UTC (for schedule triggers). Convert the user's stated local time using the UTC offset given in the 'Current date and time' context."},
-                    "scheduled_day": {"type": "integer", "description": "Day of week 0=Mon (weekly) or day of month (monthly)"},
-                    "trigger_event": {"type": "string", "enum": ["session_created", "message_sent", "document_created", "memory_added", "research_completed", "skill_added"],
-                                      "description": "Event name (for trigger_type=event)"},
-                    "trigger_count": {"type": "integer", "description": "Fire every N events (for trigger_type=event)"},
-                    "output_target": {"type": "string", "description": "Where results go. Defaults to 'session' (results land in a dedicated chat session the user reads) — this is the right choice for 'summarize for me' / 'send to me'."}
-                },
-                "required": ["action"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "api_call",
             "description": "Call a registered API integration (RSS reader, git forge, bookmark manager, smart home, etc.). Check the system context for available integrations and their endpoints.",
             "parameters": {
@@ -784,26 +748,6 @@ FUNCTION_TOOL_SCHEMAS = [
                     "topic": {"type": "string", "description": "Research question or topic"},
                 },
                 "required": ["topic"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "manage_queue",
-            "description": "Plan improvements on the sidebar Queue page: add, list, remove, or skip skill/rag/memory/test improvement items. Items need a description of what should improve; new items join the BOTTOM of the queue. A 'test' improvement builds a test- prefixed skill that proves whether a feature works. The queue only RUNS when the user presses play on the Queue page — never promise to run it.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ["add", "list", "remove", "skip"],
-                               "description": "add = queue a new improvement; list = show the queue top-down; remove = delete by id; skip = toggle an item's skipped state."},
-                    "type": {"type": "string", "enum": ["skill", "rag", "memory", "test"],
-                             "description": "What the improvement targets (required for add). Use 'test' for a test- skill that proves a feature works."},
-                    "description": {"type": "string", "description": "What needs to improve (required for add)."},
-                    "id": {"type": "string", "description": "Queue item id (required for remove/skip; from action='list')."},
-                    "skipped": {"type": "boolean", "description": "For skip: true parks the item (eye icon), false puts it back in line. Default true."},
-                },
-                "required": ["action"]
             }
         }
     },
@@ -1110,7 +1054,7 @@ def function_call_to_tool_block(name: str, arguments: str) -> Optional[ToolBlock
                     content += f" {ak}={colors[ak]}"
         else:
             content = action
-    elif tool_type in ("manage_tasks", "manage_skills", "api_call",
+    elif tool_type in ("manage_skills", "api_call",
                         "manage_endpoints", "manage_mcp", "manage_webhooks",
                         "manage_tokens", "manage_documents", "manage_settings"):
         content = json.dumps(args)

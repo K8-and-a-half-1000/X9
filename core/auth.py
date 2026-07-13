@@ -13,6 +13,5 @@ from core.middleware import INTERNAL_TOOL_USER
 # "internal-tool": `core.middleware.require_admin` treats any request whose
 # `current_user == "internal-tool"` as the in-process tool loopback. "api" is
 # the bearer-token owner-attribution sentinel. "demo"/"system" round out the
-# synthetic-owner set the rest of the codebase special-cases (see
-# routes/assistant_routes.py and src/task_scheduler.py).
+# synthetic-owner set the rest of the codebase special-cases.
 RESERVED_USERNAMES = frozenset({INTERNAL_TOOL_USER, "api", "demo", "system"})

@@ -55,7 +55,6 @@ def _condition() -> asyncio.Condition:
 
 _PASSIVE_EXACT_PATHS = {
     "/api/activity/heartbeat",
-    "/api/tasks/notifications",
     "/api/research/active",
     "/api/email/urgency-state",
 }

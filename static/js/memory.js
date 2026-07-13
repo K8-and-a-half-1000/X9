@@ -225,7 +225,7 @@ async function syncToggles() {
 }
 
 function reflectMemoryToggleInSidebar(enabled) {
-  const btn = document.getElementById('tool-memory-btn');
+  const btn = document.getElementById('tool-library-btn');
   if (btn) btn.classList.toggle('tool-disabled', !enabled);
 }
 

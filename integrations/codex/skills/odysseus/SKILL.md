@@ -18,8 +18,8 @@ If either value is missing, do not guess credentials. Tell the user to create a 
 
 ## When to use what
 
-- **Reminder ("remind me at 5pm to do X")** → TODO with `due_date`. The due_date IS the reminder — it fires a notification automatically via the user's configured channel (browser/email/ntfy). **Do NOT create a calendar event for a reminder.** Creating a calendar event named "Reminder" does NOT trigger a notification — it's just a time block on the calendar.
-- **Calendar event ("meeting at 3pm", "dentist Tuesday 10am")** → calendar event. Use for scheduled time blocks, meetings, appointments, recurring schedules. These show up on the calendar grid; reminders for them are configured separately in Odysseus settings.
+- **Reminder ("remind me at 5pm to do X")** → TODO with `due_date`. **Do NOT create a calendar event for a reminder** — a calendar event named "Reminder" is just a time block on the calendar.
+- **Calendar event ("meeting at 3pm", "dentist Tuesday 10am")** → calendar event. Use for scheduled time blocks, meetings, appointments, recurring schedules. These show up on the calendar grid.
 - **Note / freeform info ("note that the wifi password is ...")** → memory or todo without a due_date (depending on whether it's a fact about the user or an action item).
 - **Persistent fact / preference about the user** → memory.
 
@@ -52,7 +52,7 @@ python3 integrations/codex/scripts/odysseus_api.py todos add "Follow up"
 
 Supported todo actions are `list`, `add`, `update`, `delete`, and `toggle_item`.
 
-**Reminders (todos with a due date)** — the backend parses natural language. Send `due_date` in the body via the generic POST so the time becomes a structured reminder, NOT a literal substring inside the title. The `todos add TITLE` shortcut only sets the title, so use the POST form for anything with a time:
+**Todos with a due date** — the backend parses natural language. Send `due_date` in the body via the generic POST so the time becomes a structured due date, NOT a literal substring inside the title. The `todos add TITLE` shortcut only sets the title, so use the POST form for anything with a time:
 
 ```bash
 python3 integrations/codex/scripts/odysseus_api.py POST /api/codex/todos '{"action":"add","title":"Call dentist","due_date":"tomorrow at 5pm"}'

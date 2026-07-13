@@ -1101,13 +1101,6 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
         if skill.get("owner") != user:
             raise HTTPException(404, "Skill not found")
 
-    def _fire_skill_added(user: Optional[str]):
-        try:
-            from src.event_bus import fire_event
-            fire_event("skill_added", user)
-        except Exception:
-            logger.debug("skill_added event dispatch failed", exc_info=True)
-
     @router.get("")
     async def list_skills(request: Request):
         user = _owner(request)
@@ -1279,7 +1272,6 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
             logger.error("skill import failed: %s", e)
             raise HTTPException(500, "Skill import failed") from e
 
-        _fire_skill_added(user)
         return {"ok": True, "skill": entry, "files": len(files)}
 
     @router.post("/add")
@@ -1311,8 +1303,6 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
             solution=body.solution or "",
             steps=body.steps,
         )
-        if not entry.get("_deduped"):
-            _fire_skill_added(user)
         return {"ok": True, "deduped": bool(entry.get("_deduped")), "skill": entry}
 
     @router.post("/{skill_id}/invoke")
@@ -1609,11 +1599,6 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
         }, owner=user)
         if not ok:
             raise HTTPException(500, "Update failed")
-        # Manual markdown edits can create or substantially rewrite a draft
-        # skill without going through /add. Treat unaudited saves as new audit
-        # candidates so the event-driven Skills Audit pipeline still runs.
-        if not match.get("audit_verdict"):
-            _fire_skill_added(user)
         return {"ok": True, "name": sk.name}
 
     @router.put("/{skill_id}")
@@ -1631,8 +1616,6 @@ def setup_skills_routes(skills_manager: SkillsManager) -> APIRouter:
         ok = skills_manager.update_skill(match.get("name"), updates, owner=user)
         if not ok:
             raise HTTPException(404, "Skill not found")
-        if not match.get("audit_verdict"):
-            _fire_skill_added(user)
         return {"ok": True}
 
     @router.delete("/{skill_id}")

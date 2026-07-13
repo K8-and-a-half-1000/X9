@@ -285,11 +285,6 @@ async def maybe_extract_skill(
             owner=owner,
             status=_initial_status,
         )
-        try:
-            from src.event_bus import fire_event
-            fire_event("skill_added", owner)
-        except Exception:
-            logger.debug("skill_added event dispatch failed", exc_info=True)
         logger.info("Auto-extracted skill: %s (id=%s)", title, entry["id"])
         return entry
 

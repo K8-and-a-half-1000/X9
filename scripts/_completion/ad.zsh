@@ -1,4 +1,4 @@
-#compdef ad ad-backup ad-calendar ad-contacts ad-cookbook ad-docs ad-gallery ad-mail ad-mcp ad-memory ad-notes ad-personal ad-preset ad-research ad-sessions ad-signature ad-skills ad-tasks ad-theme ad-webhook
+#compdef ad ad-backup ad-calendar ad-contacts ad-cookbook ad-docs ad-gallery ad-mail ad-mcp ad-memory ad-notes ad-personal ad-preset ad-research ad-sessions ad-signature ad-skills ad-theme
 # Zsh tab-completion for the ad umbrella + sub-CLIs.
 #
 # Drop in any directory on $fpath, e.g.:

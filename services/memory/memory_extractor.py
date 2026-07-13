@@ -461,12 +461,6 @@ async def extract_and_store(
 
         if added > 0:
             memory_manager.save(existing)
-            try:
-                from src.event_bus import fire_event
-                for _ in range(added):
-                    fire_event("memory_added", _owner)
-            except Exception:
-                logger.debug("memory_added event dispatch failed", exc_info=True)
             logger.info(f"Auto-extracted {added} memories from session")
 
             global _extractions_since_audit

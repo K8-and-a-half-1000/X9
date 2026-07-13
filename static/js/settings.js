@@ -1855,7 +1855,6 @@ function syncPrivacyCheckboxes() {
    ═══════════════════════════════════════════ */
 
 const SHORTCUT_DEFAULTS = {
-  search:         'ctrl+k',
   toggle_sidebar: 'ctrl+b',
   new_session:    'ctrl+alt+n',
   fav_session:    'ctrl+alt+f',
@@ -1871,12 +1870,10 @@ const SHORTCUT_DEFAULTS = {
   open_gallery:   '',
   open_library:   '',
   open_memory:    '',
-  open_tasks:     '',
   open_theme:     '',
 };
 
 const SHORTCUT_ICONS = {
-  search:         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg>',
   toggle_sidebar: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
   new_session:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   fav_session:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
@@ -1890,12 +1887,10 @@ const SHORTCUT_ICONS = {
   open_gallery:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   open_library:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   open_memory:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
-  open_tasks:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>',
   open_theme:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20 5 5 0 0 0 5-5 3 3 0 0 0-3-3h-2a3 3 0 0 1-3-3 5 5 0 0 1 5-5"/></svg>',
 };
 
 const SHORTCUT_LABELS = {
-  search:         'Search conversations',
   toggle_sidebar: 'Toggle sidebar',
   new_session:    'New session',
   fav_session:    'Favorite session',
@@ -1907,9 +1902,8 @@ const SHORTCUT_LABELS = {
   focus_input:    'Focus chat input',
   open_research:  'Open Deep Research',
   open_gallery:   'Open Gallery',
-  open_library:   'Open Library',
-  open_memory:    'Open Memory',
-  open_tasks:     'Open Tasks',
+  open_library:   'Open RAG',
+  open_memory:    'Open Skills',
   open_theme:     'Open Theme',
 };
 
@@ -1917,7 +1911,7 @@ const SHORTCUT_CATEGORIES = [
   { name: 'Navigation', keys: ['search', 'toggle_sidebar', 'focus_input', 'settings'] },
   { name: 'Sessions', keys: ['new_session', 'fav_session', 'delete_session'] },
   { name: 'Tools', keys: ['incognito', 'tts', 'cancel'] },
-  { name: 'Open Tools', keys: ['open_research', 'open_gallery', 'open_library', 'open_memory', 'open_tasks', 'open_theme'] },
+  { name: 'Open Tools', keys: ['open_research', 'open_gallery', 'open_library', 'open_memory', 'open_theme'] },
 ];
 
 function _formatKeyCaps(combo) {
@@ -2170,7 +2164,6 @@ function initAll() {
   initAppearance();
   initShortcuts();
   initIntegrations();
-  initReminderSettings();
   initUnifiedIntegrations();
 }
 
@@ -2178,310 +2171,6 @@ function notifyIntegrationsChanged() {
   try {
     window.dispatchEvent(new CustomEvent('odysseus-integrations-changed'));
   } catch (_) {}
-}
-
-async function initReminderSettings() {
-  const root = el('settings-modal');
-  if (!root || !root.querySelector('[data-settings-panel="reminders"]')) return;
-
-  // Public URL field (used for deep-links in outgoing reminders)
-  const pubUrlIn = el('set-app-public-url');
-  const pubUrlMsg = el('set-app-public-url-msg');
-  if (pubUrlIn) {
-    try {
-      const r = await fetch('/api/auth/settings', { credentials: 'same-origin' });
-      const s = await r.json();
-      pubUrlIn.value = s.app_public_url || '';
-    } catch (_) {}
-    let pubDebounce;
-    pubUrlIn.addEventListener('input', () => {
-      clearTimeout(pubDebounce);
-      pubDebounce = setTimeout(async () => {
-        try {
-          const val = pubUrlIn.value.trim().replace(/\/+$/, '');
-          await fetch('/api/auth/settings', {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ app_public_url: val }),
-          });
-          if (pubUrlMsg) {
-            pubUrlMsg.textContent = val ? 'Saved' : 'Cleared (deep-links disabled)';
-            pubUrlMsg.style.color = 'var(--green,#50fa7b)';
-            setTimeout(() => { pubUrlMsg.textContent = ''; }, 2000);
-          }
-        } catch (_) {
-          if (pubUrlMsg) { pubUrlMsg.textContent = 'Save failed'; pubUrlMsg.style.color = 'var(--red)'; }
-        }
-      }, 600);
-    });
-  }
-
-  const channelSel = el('set-reminder-channel');
-  const ntfyOpt = el('set-reminder-channel-ntfy-opt');
-  const webhookOpt = el('set-reminder-channel-webhook-opt');
-  const hint = el('set-reminder-channel-hint');
-  const llmToggle = el('set-reminder-llm-toggle');
-  // "Integrations" link in the channel-hint copy. Jumps to the
-  // Integrations tab so the user can configure the underlying services
-  // (ntfy server, webhooks) the channel dropdown depends on. Idempotent.
-  const openIntgBtn = el('set-reminders-open-integrations');
-  if (openIntgBtn && !openIntgBtn.dataset.wired) {
-    openIntgBtn.dataset.wired = '1';
-    openIntgBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const target = modalEl?.querySelector('[data-settings-tab="integrations"]');
-      if (target) target.click();
-    });
-  }
-  if (!channelSel || !llmToggle) return;
-
-  // Detect whether ntfy integration exists — try admin endpoint, fall back to
-  // checking if an ntfy integration was saved in settings (non-admin users).
-  let ntfyConfigured = false;
-  try {
-    const res = await fetch('/api/auth/integrations', { credentials: 'same-origin' });
-    if (res.ok) {
-      const data = await res.json();
-      ntfyConfigured = (data.integrations || []).some(
-        i => (i.preset === 'ntfy' || (i.name || '').toLowerCase() === 'ntfy') && i.enabled !== false && i.base_url
-      );
-    }
-  } catch (_) {}
-  // If admin check failed, check if ntfy was previously selected (trust the saved setting)
-  if (!ntfyConfigured) {
-    try {
-      const res = await fetch('/api/auth/settings', { credentials: 'same-origin' });
-      const s = await res.json();
-      if (s.reminder_channel === 'ntfy') ntfyConfigured = true;
-    } catch (_) {}
-  }
-
-  if (!ntfyConfigured && ntfyOpt) {
-    ntfyOpt.disabled = true;
-    ntfyOpt.textContent = 'ntfy (add in Integrations first)';
-  }
-
-  // Webhook: available whenever at least one integration with a base_url exists.
-  // The user picks which integration to target and supplies a payload template.
-  let allIntegrations = [];
-  let webhookConfigured = false;
-  try {
-    const res = await fetch('/api/auth/integrations', { credentials: 'same-origin' });
-    if (res.ok) {
-      const data = await res.json();
-      allIntegrations = (data.integrations || []).filter(i => i.base_url && i.enabled !== false);
-      webhookConfigured = allIntegrations.length > 0;
-    }
-  } catch (_) {}
-  if (!webhookConfigured && webhookOpt) {
-    webhookOpt.disabled = true;
-    webhookOpt.textContent = 'Webhook (add an Integration first)';
-  }
-
-  const ntfyTopicRow = el('set-reminder-ntfy-topic-row');
-  const ntfyTopicIn = el('set-reminder-ntfy-topic');
-  const webhookIntgRow = el('set-reminder-webhook-intg-row');
-  const webhookIntgSel = el('set-reminder-webhook-intg');
-  const webhookTemplateRow = el('set-reminder-webhook-template-row');
-  const webhookTemplateIn = el('set-reminder-webhook-template');
-
-  function populateWebhookIntegrations(selectedId = '') {
-    if (!webhookIntgSel) return;
-    webhookIntgSel.innerHTML = allIntegrations.length
-      ? allIntegrations.map(i => `<option value="${esc(i.id)}">${esc(i.name || i.id)}</option>`).join('')
-      : '<option value="">No integrations configured</option>';
-    if (selectedId && allIntegrations.some(i => i.id === selectedId)) webhookIntgSel.value = selectedId;
-  }
-
-  function applyReminderChannelAvailability() {
-    if (ntfyOpt) {
-      ntfyOpt.disabled = !ntfyConfigured;
-      ntfyOpt.textContent = ntfyConfigured ? 'ntfy' : 'ntfy (add in Integrations first)';
-    }
-    if (webhookOpt) {
-      webhookOpt.disabled = !webhookConfigured;
-      webhookOpt.textContent = webhookConfigured ? 'Webhook' : 'Webhook (add an Integration first)';
-    }
-  }
-
-  async function refreshReminderChannelAvailability() {
-    const currentChannel = channelSel.value || 'browser';
-    const currentWebhookIntg = webhookIntgSel?.value || '';
-
-    ntfyConfigured = false;
-    try {
-      const res = await fetch('/api/auth/integrations', { credentials: 'same-origin' });
-      if (res.ok) {
-        const data = await res.json();
-        ntfyConfigured = (data.integrations || []).some(
-          i => (i.preset === 'ntfy' || (i.name || '').toLowerCase() === 'ntfy') && i.enabled !== false && i.base_url
-        );
-        allIntegrations = (data.integrations || []).filter(i => i.base_url && i.enabled !== false);
-        webhookConfigured = allIntegrations.length > 0;
-      }
-    } catch (_) {}
-    if (!ntfyConfigured) {
-      try {
-        const res = await fetch('/api/auth/settings', { credentials: 'same-origin' });
-        const s = await res.json();
-        if (s.reminder_channel === 'ntfy') ntfyConfigured = true;
-      } catch (_) {}
-    }
-
-    applyReminderChannelAvailability();
-    populateWebhookIntegrations(currentWebhookIntg);
-    if (currentChannel === 'ntfy' && !ntfyConfigured) channelSel.value = 'browser';
-    else if (currentChannel === 'webhook' && !webhookConfigured) channelSel.value = 'browser';
-    else channelSel.value = currentChannel;
-    if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
-    syncChannelRows();
-  }
-
-  function syncChannelRows() {
-    const isWebhook = channelSel.value === 'webhook';
-    if (ntfyTopicRow) ntfyTopicRow.style.display = channelSel.value === 'ntfy' ? 'flex' : 'none';
-    if (webhookIntgRow) webhookIntgRow.style.display = isWebhook ? 'flex' : 'none';
-    if (webhookTemplateRow) webhookTemplateRow.style.display = isWebhook ? 'flex' : 'none';
-  }
-
-  // Browser notifications fire on EVERY reminder (see
-  // routes/note_routes.py — the in-app notif is always queued
-  // regardless of channel). The hint should make that clear so
-  // users don't think they have to choose between channels.
-  const CHANNEL_HINTS = {
-    browser: 'Reminders appear as browser notifications inside the app.',
-    ntfy: 'Reminders are pushed via ntfy AND shown as a browser notification.',
-    webhook: 'Reminders are POSTed to the selected integration AND shown as a browser notification. Use {{title}} and {{message}} in the payload template.',
-  };
-
-  applyReminderChannelAvailability();
-  if (!channelSel.dataset.integrationRefreshWired) {
-    channelSel.dataset.integrationRefreshWired = '1';
-    window.addEventListener('odysseus-integrations-changed', () => {
-      refreshReminderChannelAvailability().catch(e => console.warn('Failed to refresh reminder channels', e));
-    });
-  }
-
-  // Default payload templates for known presets — auto-filled when the user
-  // picks a matching integration so they don't have to write JSON from scratch.
-  // Defined here (before the load block) so both the load path and the change
-  // handler can reference it.
-  const WEBHOOK_PRESET_TEMPLATES = {
-    discord_webhook: '{"embeds": [{"title": "{{title}}", "description": "{{message}}", "color": 5793266}]}',
-  };
-
-  try {
-    const res = await fetch('/api/auth/settings', { credentials: 'same-origin' });
-    const s = await res.json();
-    let savedChannel = s.reminder_channel || 'browser';
-    if (savedChannel === 'email') savedChannel = 'browser';
-    if (savedChannel === 'ntfy' && !ntfyConfigured) savedChannel = 'browser';
-    if (savedChannel === 'webhook' && !webhookConfigured) savedChannel = 'browser';
-    channelSel.value = savedChannel;
-    llmToggle.checked = !!s.reminder_llm_synthesis;
-    // Persona dropdown — populate from built-in PROMPT_TEMPLATES (characters)
-    // plus any custom character preset. Selected value persists to
-    // reminder_llm_persona.
-    const personaSel = el('set-reminder-llm-persona');
-    if (personaSel) {
-      try {
-        const presetsMod = await import('./presets.js');
-        const tpl = presetsMod.PROMPT_TEMPLATES || [];
-        const chars = tpl.filter(t => t.isCharacter);
-        for (const c of chars) {
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          opt.textContent = c.name;
-          personaSel.appendChild(opt);
-        }
-        // Custom character (single-slot preset)
-        try {
-          const all = (presetsMod.getAllPresets && presetsMod.getAllPresets()) || {};
-          if (all.custom && all.custom.character_name) {
-            const opt = document.createElement('option');
-            opt.value = 'custom';
-            opt.textContent = all.custom.character_name + ' (custom)';
-            personaSel.appendChild(opt);
-          }
-        } catch (_) {}
-      } catch (_) {}
-      personaSel.value = s.reminder_llm_persona || '';
-      personaSel.addEventListener('change', () => {
-        save({ reminder_llm_persona: personaSel.value });
-      });
-    }
-    if (ntfyTopicIn) ntfyTopicIn.value = s.reminder_ntfy_topic || 'Reminders';
-    populateWebhookIntegrations(s.reminder_webhook_integration_id || '');
-    if (webhookTemplateIn) {
-      webhookTemplateIn.value = s.reminder_webhook_payload_template || '';
-      // If an integration is already selected but no template was ever saved,
-      // auto-fill with the preset default so the first test works out of the box.
-      if (!webhookTemplateIn.value && webhookIntgSel?.value) {
-        const intg = allIntegrations.find(i => i.id === webhookIntgSel.value);
-        const tpl = WEBHOOK_PRESET_TEMPLATES[intg?.preset] || '';
-        if (tpl) { webhookTemplateIn.value = tpl; save({ reminder_webhook_payload_template: tpl }); }
-      }
-    }
-    if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
-    syncChannelRows();
-  } catch (e) { console.warn('Failed to load reminder settings', e); }
-
-  async function save(patch) {
-    try {
-      await fetch('/api/auth/settings', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-    } catch (e) { console.warn('Failed to save reminder settings', e); }
-  }
-
-  channelSel.addEventListener('change', () => {
-    if (hint) hint.textContent = CHANNEL_HINTS[channelSel.value] || '';
-    syncChannelRows();
-    save({ reminder_channel: channelSel.value });
-  });
-  if (ntfyTopicIn) {
-    let topicDebounce;
-    ntfyTopicIn.addEventListener('input', () => {
-      clearTimeout(topicDebounce);
-      topicDebounce = setTimeout(() => save({ reminder_ntfy_topic: ntfyTopicIn.value.trim() || 'reminders' }), 600);
-    });
-  }
-  if (webhookIntgSel) {
-    webhookIntgSel.addEventListener('change', () => {
-      save({ reminder_webhook_integration_id: webhookIntgSel.value || '' });
-      // If the template is empty and we recognise the integration's preset,
-      // pre-fill with a sensible default so users can test immediately.
-      if (webhookTemplateIn && !webhookTemplateIn.value.trim()) {
-        const intg = allIntegrations.find(i => i.id === webhookIntgSel.value);
-        const tpl = WEBHOOK_PRESET_TEMPLATES[intg?.preset] || '';
-        if (tpl) {
-          webhookTemplateIn.value = tpl;
-          save({ reminder_webhook_payload_template: tpl });
-        }
-      }
-    });
-  }
-  if (webhookTemplateIn) {
-    let templateDebounce;
-    webhookTemplateIn.addEventListener('input', () => {
-      clearTimeout(templateDebounce);
-      templateDebounce = setTimeout(() => save({ reminder_webhook_payload_template: webhookTemplateIn.value.trim() }), 600);
-    });
-  }
-  // Dim the whole AI Synthesis card when off (matches Vision/Utility/etc.).
-  function syncSynthesisDim() {
-    const card = llmToggle.closest('.admin-card');
-    if (card) card.style.opacity = llmToggle.checked ? '' : '0.45';
-  }
-  syncSynthesisDim();
-  llmToggle.addEventListener('change', () => {
-    syncSynthesisDim();
-    save({ reminder_llm_synthesis: llmToggle.checked });
-  });
-
 }
 
 async function initIntegrations() {

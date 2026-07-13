@@ -2184,29 +2184,8 @@ body.bg-pattern-sparkles {
   border-color: color-mix(in srgb, var(--color-save-green, #4caf50) 45%, var(--border));
   background: color-mix(in srgb, var(--color-save-green, #4caf50) 9%, transparent);
 }
-.task-completed-marker {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 7px 0 2px;
-  padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--color-save-green, #4caf50) 42%, var(--border));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-save-green, #4caf50) 9%, transparent);
-  color: var(--color-save-green, #4caf50);
-  font-size: max(0.86em, 14px);
-  font-weight: 600;
-}
-.task-completed-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-save-green, #4caf50) 18%, transparent);
-  flex: 0 0 auto;
-}
+
+
 .rag-sources {
   margin-top: 12px;
   border: 1px solid var(--border);
@@ -4353,14 +4332,12 @@ body.bg-pattern-sparkles {
       }
       /* Search, New Chat & Assistant */
       #sidebar-search-btn,
-      #sidebar-new-chat-btn,
-      .sidebar-assistant-entry {
+#sidebar-new-chat-btn {
         padding: 12px 10px !important;
         min-height: 48px !important;
       }
       #sidebar-search-btn .grow,
-      #sidebar-new-chat-btn .grow,
-      .sidebar-assistant-entry .grow {
+#sidebar-new-chat-btn .grow {
         font-size: max(0.95em, 14px) !important;
         left: 0 !important;
       }
@@ -5033,13 +5010,11 @@ body.bg-pattern-sparkles {
     @media (min-width: 769px) {
       
       #gallery-modal,
-      #tasks-modal,
-      #memory-modal,
-      #doclib-modal,
-      #research-overlay,
-      #queue-overlay,
-      #theme-modal,
-      #settings-modal{
+#memory-modal,
+#doclib-modal,
+#research-overlay,
+#theme-modal,
+#settings-modal {
         left: calc(var(--icon-rail-w, 48px) + var(--sidebar-w, 0px));
         width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
         box-sizing: border-box;
@@ -5064,12 +5039,11 @@ body.bg-pattern-sparkles {
       animation: modal-enter 0.25s ease-out both;
     }
     .memory-modal-content,
-    .tasks-modal-content,
-    .preset-modal-content,
-    #cookbook-modal .modal-content,
-    #theme-popup,
-    .doclib-modal-content,
-    .gallery-modal-content {
+.preset-modal-content,
+#cookbook-modal .modal-content,
+#theme-popup,
+.doclib-modal-content,
+.gallery-modal-content {
       container-type: inline-size;
     }
     .modal-header {
@@ -6225,105 +6199,6 @@ body.bg-pattern-sparkles {
 .hljs { color: var(--hl-fg, #9cdef2); background: none !important; }
 pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
 
-    /* ---------- Search overlay (Ctrl+K command palette) ---------- */
-    .search-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 15vh;
-      z-index: 300;
-      backdrop-filter: blur(6px);
-    }
-    .search-overlay.hidden { display: none; }
-    .search-popup {
-      width: 520px;
-      max-width: 90vw;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--fg) 6%, transparent);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      max-height: 60vh;
-    }
-    .search-popup input#search-input {
-      width: 100%;
-      background: transparent;
-      border: none;
-      border-bottom: 1px solid var(--border);
-      outline: none;
-      color: var(--fg);
-      font-size: 16px;
-      font-family: "Fira Code", monospace;
-      padding: 14px 16px;
-      box-sizing: border-box;
-    }
-    .search-popup input#search-input::placeholder {
-      color: color-mix(in srgb, var(--fg) 30%, transparent);
-    }
-    .search-results {
-      overflow-y: auto;
-      flex: 1;
-      padding: 4px;
-    }
-    .search-results:empty {
-      display: none;
-    }
-    .search-group-header {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--color-subheader);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 10px 12px 4px;
-    }
-    .search-result-item {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.1s;
-    }
-    .search-result-item:hover,
-    .search-result-item.selected {
-      background: color-mix(in srgb, var(--red) 10%, transparent);
-    }
-    .search-result-role {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--color-subheader);
-      flex-shrink: 0;
-      min-width: 24px;
-    }
-    .search-result-snippet {
-      flex: 1;
-      font-size: 14px;
-      color: var(--fg);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .search-result-time {
-      font-size: 14px;
-      color: color-mix(in srgb, var(--fg) 35%, transparent);
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-    mark.search-highlight {
-      /* Was orange-on-orange (0.35 alpha bg + orange text) — too low-contrast
-         to read. Solid accent fill with bg-colored text reads clearly. */
-      background: var(--accent, #e8a830);
-      color: var(--bg, #1a1a1a);
-      border-radius: 2px;
-      padding: 0 2px;
-      font-weight: 600;
-    }
     /* Document library search-term highlight — clear, high-contrast. */
     mark.doclib-search-hl {
       background: var(--accent, #e8a830);
@@ -6331,12 +6206,6 @@ pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
       border-radius: 2px;
       padding: 0 2px;
       font-weight: 600;
-    }
-    .search-empty {
-      text-align: center;
-      color: color-mix(in srgb, var(--fg) 35%, transparent);
-      padding: 24px;
-      font-size: 14px;
     }
 
     /* ---------- Theme popup (uses .modal > .modal-content frame) ---------- */
@@ -6653,10 +6522,9 @@ pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
          bring every tool (cookbook / tasks / memory / settings / email /
          library) to the same top edge. */
       #cookbook-modal .modal-content,
-      #tasks-modal .modal-content,
-      #memory-modal .memory-modal-content,
-      #settings-modal .settings-modal-content,
-      #doclib-modal .doclib-modal-content {
+#memory-modal .memory-modal-content,
+#settings-modal .settings-modal-content,
+#doclib-modal .doclib-modal-content {
         max-height: 100vh !important;
         max-height: 100dvh !important;
         height: 100vh !important;
@@ -6702,9 +6570,8 @@ pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
          very bottom (no wasted vh strip below). The parent modal centers
          them; padding-top reset is in the per-modal rules below. */
       #cookbook-modal .modal-content,
-      #doclib-modal .modal-content,
-      #gallery-modal .modal-content,
-      #tasks-modal .modal-content {
+#doclib-modal .modal-content,
+#gallery-modal .modal-content {
         /* vh-first as fallback for very old browsers, then dvh wins so
            the modal shrinks/grows with the mobile URL bar. Wrong order
            previously made the expanded chat preview extend below the
@@ -6717,27 +6584,15 @@ pre { background: var(--code-bg, var(--hl-bg, #282c34)) !important; }
       }
       /* Anchor those modals to the top so the full height is usable */
       #cookbook-modal,
-      #doclib-modal,
-      #gallery-modal,
-      #tasks-modal {
+#doclib-modal,
+#gallery-modal {
         padding-top: 0 !important;
         align-items: stretch !important;
       }
-      /* Deep Research already gets the swipe grab-handle pill from the
-         shared `.modal-content::before` rule (the pane carries that class).
-         The previous header-level pill was redundant and rendered as a
-         SECOND pill stacked above the real one — removed. */
-      /* The inner body must flex to fill the new full height, and the
-         tasks list inside it must scroll independently — otherwise the
-         list crops at whatever pre-mobile height the desktop layout had. */
-      #tasks-modal .modal-content {
-        display: flex !important;
-        flex-direction: column !important;
-      }
-      #tasks-modal .modal-body {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-      }
+      
+      
+      
+      
       /* Memory/Skills: the body lacks flex:1, so on the fixed-height mobile
          sheet (overflow:hidden) it grew past the viewport and clipped the
          bottom of the skills list + its row action buttons with no way to
@@ -9908,7 +9763,6 @@ textarea.memory-add-input {
 #doclib-chats-bulk #doclib-chats-bulk-archive,
 #doclib-bulk-bar #doclib-bulk-archive,
 #doclib-arc-bulk #doclib-arc-bulk-restore,
-#tasks-bulk-bar #tasks-bulk-delete,
 #gallery-bulk-bar #gallery-bulk-actions,
 #gallery-editor-drafts-bulk #gallery-editor-drafts-bulk-delete,
 #memory-modal .memory-bulk-bar #memory-bulk-delete,
@@ -9927,7 +9781,6 @@ textarea.memory-add-input {
 #doclib-chats-bulk,
 #doclib-bulk-bar,
 #doclib-arc-bulk,
-#tasks-bulk-bar,
 #gallery-bulk-bar,
 #gallery-editor-drafts-bulk,
 #memory-modal .memory-bulk-bar {
@@ -10040,110 +9893,23 @@ textarea.memory-add-input {
   gap: 4px;
 }
 
-.memory-item.task-paused {
-  opacity: 0.45 !important;
-  filter: saturate(0.55);
-  background: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--fg) 2%, transparent),
-    color-mix(in srgb, var(--fg) 2%, transparent) 8px,
-    color-mix(in srgb, var(--fg) 5%, transparent) 8px,
-    color-mix(in srgb, var(--fg) 5%, transparent) 16px
-  ) !important;
-}
-.memory-item.task-paused:hover {
-  opacity: 0.85 !important;
-  filter: saturate(0.9);
-}
-.task-status-badge {
-  appearance: none;
-  -webkit-appearance: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  cursor: pointer;
-  border: 1px solid transparent;
-  line-height: 16px;
-  font-family: "Fira Code", monospace;
-  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, filter 0.12s ease;
-  user-select: none;
-}
-.task-state-badge > svg,
-.task-state-badge > .task-state-label {
-  pointer-events: none;
-}
-.task-state-label-mobile {
-  display: none;
-}
-.task-paused-badge {
-  color: var(--orange, #ffb86c);
-  background: color-mix(in srgb, var(--orange, #ffb86c) 22%, transparent);
-  border-color: color-mix(in srgb, var(--orange, #ffb86c) 35%, transparent);
-}
-.task-active-badge {
-  color: var(--green, #50fa7b);
-  background: color-mix(in srgb, var(--green, #50fa7b) 20%, transparent);
-  border-color: color-mix(in srgb, var(--green, #50fa7b) 35%, transparent);
-}
-.task-run-now-badge {
-  color: var(--accent, var(--red));
-  background: color-mix(in srgb, var(--accent, var(--red)) 16%, transparent);
-  border-color: color-mix(in srgb, var(--accent, var(--red)) 34%, transparent);
-}
-.task-card-run-btn {
-  appearance: none;
-  height: 20px;
-  min-height: 0;
-  box-sizing: border-box;
-  position: relative;
-  top: -4px;
-}
-.task-state-badge svg {
-  position: relative;
-  top: 0;
-}
-.task-status-badge:hover {
-  filter: brightness(1.08) saturate(1.15);
-}
-.task-paused-badge:hover {
-  background: color-mix(in srgb, var(--orange, #ffb86c) 30%, transparent);
-  border-color: color-mix(in srgb, var(--orange, #ffb86c) 55%, transparent);
-}
-.task-active-badge:hover {
-  background: color-mix(in srgb, var(--green, #50fa7b) 28%, transparent);
-  border-color: color-mix(in srgb, var(--green, #50fa7b) 55%, transparent);
-}
-.task-run-now-badge:hover {
-  background: color-mix(in srgb, var(--accent, var(--red)) 24%, transparent);
-  border-color: color-mix(in srgb, var(--accent, var(--red)) 52%, transparent);
-}
 
-.task-builtin-badge {
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--accent, var(--red));
-  background: color-mix(in srgb, var(--accent, var(--red)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 40%, transparent);
-  padding: 1px 6px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.task-builtin-badge.modified {
-  color: var(--orange, #ff9800);
-  border-color: color-mix(in srgb, var(--orange, #ff9800) 40%, transparent);
-  background: color-mix(in srgb, var(--orange, #ff9800) 12%, transparent);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .memory-item {
   display: flex;
   align-items: flex-start;
@@ -14290,33 +14056,28 @@ span[id$="-logo"] svg:not([width]) {
 .gallery-just-opened > :nth-child(20) { animation-delay: 0.40s; }
 .gallery-just-opened > :nth-child(n/**/+21) { animation-delay: 0.42s; }
 
-/* Tasks list domino-in cascade on open — mirrors gallery / doclib. Applied to
-   #tasks-list in tasks.js on the first render after each open, removed after
-   the longest delay so re-renders feel instant. */
-.tasks-just-opened > .task-card {
-  animation: section-domino-in 0.36s cubic-bezier(0.22, 1.61, 0.36, 1) backwards;
-}
-.tasks-just-opened > :nth-child(1)  { animation-delay: 0.02s; }
-.tasks-just-opened > :nth-child(2)  { animation-delay: 0.04s; }
-.tasks-just-opened > :nth-child(3)  { animation-delay: 0.06s; }
-.tasks-just-opened > :nth-child(4)  { animation-delay: 0.08s; }
-.tasks-just-opened > :nth-child(5)  { animation-delay: 0.10s; }
-.tasks-just-opened > :nth-child(6)  { animation-delay: 0.12s; }
-.tasks-just-opened > :nth-child(7)  { animation-delay: 0.14s; }
-.tasks-just-opened > :nth-child(8)  { animation-delay: 0.16s; }
-.tasks-just-opened > :nth-child(9)  { animation-delay: 0.18s; }
-.tasks-just-opened > :nth-child(10) { animation-delay: 0.20s; }
-.tasks-just-opened > :nth-child(11) { animation-delay: 0.22s; }
-.tasks-just-opened > :nth-child(12) { animation-delay: 0.24s; }
-.tasks-just-opened > :nth-child(13) { animation-delay: 0.26s; }
-.tasks-just-opened > :nth-child(14) { animation-delay: 0.28s; }
-.tasks-just-opened > :nth-child(15) { animation-delay: 0.30s; }
-.tasks-just-opened > :nth-child(16) { animation-delay: 0.32s; }
-.tasks-just-opened > :nth-child(17) { animation-delay: 0.34s; }
-.tasks-just-opened > :nth-child(18) { animation-delay: 0.36s; }
-.tasks-just-opened > :nth-child(19) { animation-delay: 0.38s; }
-.tasks-just-opened > :nth-child(20) { animation-delay: 0.40s; }
-.tasks-just-opened > :nth-child(n/**/+21) { animation-delay: 0.42s; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Document library cascade — same recipe as email library, applied per-tab
    the first time content loads (chats / archive / research / documents).
@@ -14369,24 +14130,7 @@ span[id$="-logo"] svg:not([width]) {
    bottom-right that collapses to a circle while the list scrolls and springs
    back out to "New" when scrolling stops. Desktop is unchanged. */
 
-@media (max-width: 768px) {
-  /* The absolute FAB anchors to the email panel card. */
-  
-  /* Hide the toolbar "New" button — the FAB is the mobile entry point. */
 
-  /* Collapsed (while scrolling) → pure circle, icon only. We DON'T set an
-     explicit width: the container is auto-width and shrinks smoothly as the
-     padding + label max-width animate (min-width keeps it circular). Setting a
-     fixed width here made the collapse snap, since auto↔px width can't tween.
-     This (.collapsed) transition governs the COLLAPSE — kept snappy. */
-  
-  
-  /* Entrance: circle-expand-from-middle pop, played once when revealed. No
-     `forwards` fill so the resting transform (scale 1) comes from this rule —
-     that keeps the :active press transform working afterwards. */
-  
-  
-}
 
 
 /* When the modal-content has explicit height (fullscreen or user-resized),
@@ -14602,8 +14346,7 @@ body.right-dock-active .chat-container{
 #doclib-panel-archive .memory-search-input,
 #doclib-panel-research .memory-search-input,
 [data-doclib-panel="documents"] .memory-search-input,
-#memory-modal .memory-search-input,
-#tasks-modal .memory-search-input {
+#memory-modal .memory-search-input {
   height: 30px;
   min-height: 30px;
   font-size: 14px;
@@ -14664,17 +14407,7 @@ body.right-dock-active .chat-container{
    row down 6px / right 2px, bolds the subject, hides the timestamp from the
    meta line (the reader header carries its own date), and pulls the prev/next
    nav arrows in 4px. */
-@media (min-width: 769px) {
-  
-  /* Smaller subject — the reader header below already carries weight. */
-  
-  /* A bit more breathing room around the title row so the smaller bold text
-     doesn't crowd the meta line below. (Timestamp kept — user changed mind.) */
-  
-  /* Nudge the date down/left in the meta row, and give the meta line +4px of
-     extra bottom space so the shifted date isn't clipped. */
 
-}
 /* Skills modal: same mechanism as email above. The default expanded-grid
    rule (overflow:visible, no flex) lets the card expand inline to ~content
    height instead of filling — which is why the skill preview stopped at
@@ -14735,29 +14468,7 @@ body.right-dock-active .chat-container{
    instead of staying at their natural size. The body owns the remaining
    height below the header; the admin-card + grid then expand into it. */
 
-@media (max-width: 768px) {
-  /* Mobile email modal sizing — keep in sync with the rule earlier in the
-     file. 75dvh tall always so flex children (the expanded email reader)
-     have a real height to grow into. */
-  
-  /* Inner panes grow to fill the modal-content — without flex:1 on the
-     body, the expanded email reader sits in a tiny box because there's
-     nothing pushing it to take the remaining height. overflow:hidden +
-     min-height:0 lets each layer pass its constraints down. */
-  
-  
-  /* modal-content keeps its scroll OFF here — the inner flex children
-     (doclib-grid for the list view, email-reader-body for the expanded
-     reader) own the scroll surfaces. Without this, double-scroll layouts
-     trap touches and the reader can't claim full height. */
-  
-  /* Attachment row on phones: cap to ~2 rows so it never dominates the
-     reader. If more chips exist, the row scrolls vertically. Smaller chip
-     padding + max-width keeps each chip compact so two rows usually fit
-     everything anyway. */
-  
-  
-}
+
 
 /* Mobile: only ONE scroll surface inside the cookbook modal. The
    modal-content is the scroller. Everything inside (cookbook-body,
@@ -17140,17 +16851,10 @@ body.gallery-selecting .gallery-dl-btn,
   }
   .gallery-album-chips::-webkit-scrollbar { display: none; }
   .gallery-chip { flex-shrink: 0; }
-  /* Tasks filter chips — same horizontal-swipe behaviour as the gallery
-     albums / library chips on mobile: one row, slide-to-see-more. */
-  .tasks-activity-filters {
-    overflow-x: auto;
-    flex-wrap: nowrap !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-  .tasks-activity-filters::-webkit-scrollbar { display: none; }
-  .tasks-activity-filters > * { flex-shrink: 0; }
+  
+  
+  
+  
   /* Detail view */
   .gallery-detail-body {
     flex-direction: column;
@@ -17426,7 +17130,6 @@ body.gallery-selecting .gallery-dl-btn,
 
 /* Serve "Edit command" modal */
 
-/* Running tasks */
 /* Each running task is a real card with a left accent stripe coloured by
    status, instead of an invisible divider against bg. */
 .cookbook-task {
@@ -17524,53 +17227,10 @@ body.gallery-selecting .gallery-dl-btn,
 }
 
 /* Mobile: hide tab icons so labels don't wrap to a new row */
-@media (max-width: 640px) {
-  
-  
-  /* Mobile cookbook text: matched to the calendar/library modals so
-     cookbook doesn't read noticeably larger than the rest of the app.
-     Inputs stay at 16px specifically — anything smaller triggers iOS
-     Safari's auto-zoom on focus, which yanks the layout. */
 
-}
 
 /* Mobile cookbook sizing — kept in line with calendar/library modals. */
-@media (max-width: 768px) {
-  
-  /* The Speculative control (checkbox + method dropdown + token stepper)
-     is too wide for a phone — the stepper ran off the right edge of the
-     modal. Let the group wrap onto its own line, take full width, and
-     shrink the method dropdown so the +/− stepper stays on-screen. */
 
-  /* Dropdown pickers (Dependencies / Download tabs) don't need the 16px
-     no-zoom-on-focus trick that text inputs do, and 16px reads oversized next
-     to the Serve tab's 11px selects. Shrink just the selects to match. */
-  
-  /* Repo input + model search read oversized at 16px; bring their text and
-     placeholder hints down to match the rest of the cookbook. */
-
-  /* Keep the ascii wave aligned with the badge (both 2px down). */
-  
-  /* Session id (serve-…) + uptime sub-line down 1px. */
-  
-  /* Rest of the header row down 2px to match the status badge + wave: the
-     model title, the serve/download type tag, and the edit/save/menu icons. */
-  
-  /* The ⋮ menu sits higher than the rest of the row. */
-  
-  /* The copied-confirmation checkmark sits 2px higher than the copy icon. */
-
-  /* Settings stack is flex:1 + overflow:hidden with no inner scroll, so on a
-     short mobile viewport its lower half gets clipped. Let it scroll. */
-  
-  /* The Servers card is flex:1 + its own overflow-y:auto — a nested scroll that
-     collapses and crops its list inside the now-scrolling stack. Let both cards
-     take natural height and scroll the whole stack as one instead. */
-
-  /* The serve-panel "Save" split button reads larger than the surrounding
-     controls (it's also bold) — knock it down so it matches the row. */
-
-}
 
 /* Slider — range + text value */
 
@@ -18161,428 +17821,99 @@ body:not(.welcome-ready) #welcome-screen {
 }
 
 /* ── Tasks ── */
-#tool-tasks-btn.task-failure-pending,
-#rail-tasks.task-failure-pending {
-  color: var(--red, #f87171);
-}
-#tool-tasks-btn.task-failure-pending::after,
-#rail-tasks.task-failure-pending::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--red, #f87171);
-  box-shadow: 0 0 7px var(--red, #f87171), 0 0 3px var(--red, #f87171);
-  flex: 0 0 auto;
-}
-@media (min-width: 769px) {
-  #tool-tasks-btn #assistant-notif-dot.sidebar-notif-dot,
-  #tool-tasks-btn.task-failure-pending::after {
-    transform: translateX(-2px);
-  }
-}
-#rail-tasks.task-failure-pending::after {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-}
-.tasks-modal-content { max-width: 900px; width: min(900px, 92vw); background: var(--bg); font-size: 14px; }
-.tasks-activity-card,
-.tasks-activity-list {
-  min-height: 0;
-}
-.tasks-activity-list {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
 
-/* Tasks tabs reuse the .memory-tab look. The Brain window's tab bar is
-   full-bleed (its underline spans the whole modal width). The Tasks bar is a
-   direct child of .modal-content (padding:10px), so cancel that padding with
-   negative side margins to span edge-to-edge, then re-inset the tabs by 10px
-   so they line up with the rest of the modal content — matching the Brain bar. */
-.tasks-modal-content .tasks-tabs {
-  margin: -2px -10px 8px;
-  padding: 0 10px;
-}
 
-/* Activity log — compact by default. Click the row to expand body+actions. */
-.task-log-row {
-  --cat-hue: 220;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 10px;
-  margin-bottom: 3px;
-  background: color-mix(in srgb, var(--fg) 2%, transparent);
-  position: relative;
-  cursor: pointer;
-  transition: padding .12s ease;
-}
-.task-log-row:hover {
-  background: color-mix(in srgb, var(--fg) 4%, transparent);
-}
-.task-log-row.task-log-row-error {
-  border-color: color-mix(in srgb, var(--red, #f87171) 35%, var(--border));
-  background: color-mix(in srgb, var(--red, #f87171) 4%, transparent);
-}
-.task-log-row.task-log-row-error:hover {
-  background: color-mix(in srgb, var(--red, #f87171) 7%, transparent);
-}
-.task-log-row.expanded { padding: 8px 10px 6px; }
-.task-log-row-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  margin-bottom: 0;
-}
-.task-log-row.expanded .task-log-row-head { margin-bottom: 4px; }
-/* Collapsed: body + footer hidden. Expanded: visible. */
-.task-log-row:not(.expanded):not(.is-skipped) .task-log-row-body,
-.task-log-row:not(.expanded):not(.is-skipped) .task-log-row-actions,
-.task-log-row:not(.expanded):not(.is-skipped) .task-log-prompt {
-  display: none;
-}
-.task-log-name {
-  font-weight: 600;
-  /* Pull saturation from the per-row hue but mix with the foreground so the
-     title still reads in dark mode. Lightness stays adaptive. */
-  color: hsl(var(--cat-hue) 60% 60%);
-}
-.task-log-failed-tag {
-  color: var(--red, #f87171);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  margin-left: -2px;
-}
-.task-log-task-icon {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  margin-right: -3px;
-}
-.task-log-row.task-log-row-error .task-log-name,
-.task-log-row.task-log-row-error .task-log-task-icon {
-  color: var(--red, #f87171);
-}
-.task-log-row.task-log-row-error .task-log-task-icon svg {
-  opacity: 0.82 !important;
-}
-.task-log-task-icon svg {
-  top: 0 !important;
-  opacity: 0.46 !important;
-}
-.task-log-row-head .task-ai-mark {
-  top: 0;
-  margin-left: -4px;
-}
-.task-log-repeat {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1;
-  color: color-mix(in srgb, var(--fg) 62%, transparent);
-  border-radius: 999px;
-  padding: 1px 0;
-  white-space: nowrap;
-}
-@media (prefers-color-scheme: light) {
-  .task-log-name { color: hsl(var(--cat-hue) 65% 38%); }
-}
-/* Per-account prefix in fan-out results — e.g. "[Default] No recent emails"
-   becomes a compact accent chip + plain message. Makes multi-account activity
-   rows readable instead of a bracket soup. */
-/* Running / queued status line in the Activity tab — whirlpool + label. */
-.task-log-running {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  font-size: 14px;
-  opacity: 0.75;
-}
-.task-log-running-label { font-style: normal; }
 
-/* New right-side placement: "Running <whirlpool>" sits where the timestamp
-   normally would, on the head row's right edge. */
-.task-log-running-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  font-size: 14px;
-  opacity: 0.75;
-}
-.task-log-running-inline .task-log-running-label { font-weight: 500; }
-.task-log-running-elapsed {
-  margin-left: 6px;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-.task-log-force-run {
-  appearance: none;
-  box-sizing: border-box;
-  border: 0;
-  background: color-mix(in srgb, var(--fg) 7%, transparent);
-  box-shadow: none;
-  color: inherit;
-  opacity: .82;
-  margin-left: 7px;
-  padding: 1px 6px 1px 4px;
-  height: 18px;
-  min-height: 16px;
-  max-height: 18px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  position: relative;
-  top: -3px;
-}
-.task-log-force-run svg,
-.task-log-stop svg {
-  display: block;
-  flex-shrink: 0;
-  transform: translateY(1px);
-}
-.task-log-force-run:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--green, #50fa7b) 16%, transparent);
-  color: var(--green, #50fa7b);
-}
-.task-log-stop {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  opacity: .72;
-  padding: 0;
-  margin-left: 6px;
-  width: 12px;
-  height: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  position: relative;
-  top: -3px;
-}
-.task-log-stop:hover {
-  opacity: 1;
-  color: var(--red, #f87171);
-}
 
-/* Slim single-line row for skipped (noop) runs — body/actions stripped, font
-   shrunk, opacity dropped. Distinguishes "task ran but had nothing to do"
-   from a "real" entry without flooding the feed visually. */
-.task-log-row.is-skipped {
-  padding: 4px 8px;
-  opacity: 0.45;
-  font-size: 14px;
-  background: transparent;
-}
-.task-log-row.is-skipped .task-log-row-head { padding: 0; }
-.task-log-row.is-skipped .task-log-name { font-weight: 500; }
-.task-log-row.is-skipped .task-log-skipped-reason {
-  flex: 1 1 auto;
-  margin-left: 6px;
-  font-style: italic;
-  opacity: 0.85;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.task-log-row.is-skipped:hover { opacity: 0.7; }
 
-.task-log-account-tag {
-  display: inline-block;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 1px 7px;
-  margin-right: 4px;
-  border-radius: 10px;
-  color: var(--accent, var(--red));
-  background: color-mix(in srgb, var(--accent, var(--red)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, var(--red)) 35%, transparent);
-  vertical-align: 1px;
-}
-.task-log-time {
-  opacity: 0.5;
-  font-variant-numeric: tabular-nums;
-}
-.task-log-status {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--fg) 30%, transparent);
-}
-.task-log-status-ok    { background: #4ade80; box-shadow: 0 0 6px #4ade80, 0 0 3px #4ade80; }
-.task-log-status-error { background: var(--red, #f87171); box-shadow: 0 0 6px var(--red, #f87171), 0 0 3px var(--red, #f87171); }
-.task-log-status-info  { background: color-mix(in srgb, var(--fg) 25%, transparent); }
-.task-log-status-queued  { background: #fbbf24; box-shadow: 0 0 0 2px color-mix(in srgb, #fbbf24 30%, transparent); }
-.task-log-status-running { background: #60a5fa; animation: task-log-pulse 1.4s ease-in-out infinite; }
-.task-log-status-skipped { background: color-mix(in srgb, var(--fg) 20%, transparent); }
-.task-log-status-aborted { background: color-mix(in srgb, var(--fg) 30%, transparent); border: 1px dashed color-mix(in srgb, var(--fg) 50%, transparent); }
-@keyframes task-log-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, #60a5fa 60%, transparent); }
-  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, #60a5fa 0%, transparent); }
-}
-.task-log-row-body {
-  font-size: 14px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--fg) 85%, transparent);
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-.task-log-row-body p { margin: 0 0 6px 0; }
-.task-log-row-body p:last-child { margin-bottom: 0; }
-.task-log-row-body pre {
-  margin: 4px 0;
-  padding: 6px 8px;
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
-  border-radius: 4px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 14px;
-  max-height: 180px;
-  overflow: auto;
-}
-.task-log-row-body code {
-  font-size: 14px;
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-.task-log-row-body ul, .task-log-row-body ol {
-  margin: 4px 0;
-  padding-left: 20px;
-}
-.task-log-row-body li { margin: 2px 0; }
-/* Markdown headings inside a task result — without these, ## headings
-   render at browser-default huge sizes and blow out the cramped row. */
-.task-log-row-body h1,
-.task-log-row-body h2,
-.task-log-row-body h3,
-.task-log-row-body h4 {
-  margin: 10px 0 4px;
-  line-height: 1.3;
-  font-weight: 650;
-  color: var(--fg);
-}
-.task-log-row-body h1 { font-size: 14px; }
-.task-log-row-body h2 { font-size: 14px; }
-.task-log-row-body h3,
-.task-log-row-body h4 { font-size: 14px; opacity: 0.9; }
-.task-log-row-body h1:first-child,
-.task-log-row-body h2:first-child,
-.task-log-row-body h3:first-child { margin-top: 0; }
-.task-log-row-body hr {
-  border: none;
-  border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
-  margin: 8px 0;
-}
-.task-log-row-body blockquote {
-  margin: 4px 0;
-  padding: 2px 0 2px 10px;
-  border-left: 2px solid color-mix(in srgb, var(--fg) 20%, transparent);
-  opacity: 0.85;
-}
-.task-log-row-body a { color: var(--accent, #60a5fa); text-decoration: none; }
-.task-log-row-body a:hover { text-decoration: underline; }
-.task-log-row-body strong { font-weight: 650; color: var(--fg); }
-/* Email-summary tables — render compactly instead of default browser ugliness. */
-.task-log-row-body table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 6px 0;
-  font-size: 14px;
-}
-.task-log-row-body th,
-.task-log-row-body td {
-  border: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
-  padding: 3px 6px;
-  text-align: left;
-  vertical-align: top;
-}
-.task-log-row-body th {
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
-  font-weight: 600;
-}
-.task-log-row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-.task-log-open-chat,
-.task-log-open-report,
-.task-log-copy,
-.task-log-clear-cache,
-.task-log-run-again {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  background: none;
-  border: 1px solid color-mix(in srgb, var(--fg) 14%, transparent);
-  border-radius: 5px;
-  color: color-mix(in srgb, var(--fg) 60%, transparent);
-  font-family: inherit;
-  font-size: 14px;
-  padding: 1px 6px;
-  cursor: pointer;
-  transition: background .15s, color .15s, border-color .15s;
-  line-height: 1.4;
-}
-.task-log-open-chat:hover,
-.task-log-open-report:hover,
-.task-log-copy:hover,
-.task-log-clear-cache:hover,
-.task-log-run-again:hover {
-  color: var(--fg);
-  border-color: color-mix(in srgb, var(--fg) 30%, transparent);
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
-}
-.task-log-row-actions > .task-log-open-chat,
-.task-log-row-actions > .task-log-copy {
-  margin-left: auto;
-}
-.task-log-clear-cache svg {
-  position: relative;
-  top: 0;
-}
-/* Activity filter chips — toggle-out model: ON by default (solid),
-   click to toggle OFF (dimmed + strikethrough) to hide that group. */
-.tasks-af-chip {
-  font-size: 14px;
-  padding: 3px 10px;
-  border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--fg) 6%, transparent);
-  color: var(--fg);
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity .12s, background .12s, border-color .12s;
-}
-.tasks-af-chip:hover { border-color: color-mix(in srgb, var(--fg) 32%, transparent); }
-.tasks-af-chip.off {
-  opacity: 0.4;
-  text-decoration: line-through;
-  background: transparent;
-}
-.tasks-af-chip.active {
-  border-color: var(--accent, var(--red));
-  background: color-mix(in srgb, var(--accent, var(--red)) 18%, transparent);
-  opacity: 1;
-}
-.tasks-af-chip-error { border-color: color-mix(in srgb, var(--red, #f87171) 45%, transparent); }
-.tasks-af-chip-error:not(.off) { color: var(--red, #f87171); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* "Open in Deep Research" is now a regular clickable chat link (a
    `#research-<id>` markdown anchor in the assistant's message), rendered as
@@ -18590,388 +17921,104 @@ body:not(.welcome-ready) #welcome-screen {
 a.chat-link[href^="#research-"] {
   margin-left: 4px;
 }
-.task-log-row.is-long .task-log-row-body {
-  max-height: 8.5em;
-  overflow: hidden;
-  position: relative;
-  mask-image: linear-gradient(to bottom, #000 70%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
-}
-.task-log-row.is-long.expanded .task-log-row-body {
-  max-height: none;
-  overflow: visible;
-  mask-image: none;
-  -webkit-mask-image: none;
-}
-.task-log-row-toggle {
-  margin-top: 6px;
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 2px 0;
-  color: transparent;          /* hide raw "Show more" text */
-}
-.task-log-row-toggle::before {
-  color: color-mix(in srgb, var(--accent, var(--fg)) 80%, transparent);
-  opacity: 0.8;
-}
-.task-log-row:not(.expanded) .task-log-row-toggle::before { content: "Show more"; }
-.task-log-row.expanded .task-log-row-toggle::before { content: "Show less"; }
-.task-log-row-toggle:hover::before { opacity: 1; }
-.task-log-prompt {
-  margin-top: 6px;
-  font-size: 14px;
-}
-.task-log-prompt summary {
-  cursor: pointer;
-  opacity: 0.5;
-  user-select: none;
-}
-.task-log-prompt summary:hover { opacity: 0.8; }
-.task-log-prompt pre {
-  margin: 4px 0 0;
-  padding: 6px 8px;
-  background: color-mix(in srgb, var(--fg) 4%, transparent);
-  border-radius: 4px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 14px;
-  opacity: 0.75;
-  max-height: 200px;
-  overflow: auto;
-}
 
-.task-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-bottom: 0;
-  background: color-mix(in srgb, var(--fg) 2%, transparent);
-  min-height: 47px;
-  box-sizing: border-box;
-  align-items: center;
-}
-/* When expanded, height grows to fit the detail panel. */
-.task-card.expanded { align-items: flex-start; }
-/* Nudge the card text up (dot/menu keep their own offsets); the leading icon
-   and built-in tag ride a bit higher to sit on the title's cap line. */
-.task-card .memory-item-title,
-.task-card .memory-item-meta { position: relative; top: -4px; }
-/* Always show the per-card ⋮ kebab on task cards (the default opacity:0 +
-   hover-reveal is unreliable on touch and easy to miss on desktop).
-   pointer-events / z-index belt-and-braces against any sibling overlay,
-   margin reset undoes the global `.modal-body button { margin-top:6px }`
-   that was punting the hit-target down. */
-.task-card .memory-item-actions {
-  opacity: 0.55;
-  pointer-events: auto;
-  position: relative;
-  z-index: 5;
-}
-.task-card:hover .memory-item-actions,
-.task-card .memory-item-actions:hover { opacity: 1; }
-.task-card .memory-item-actions .memory-item-btn {
-  margin: 0 !important;
-  pointer-events: auto;
-  position: relative;
-  z-index: 5;
-  width: 28px;
-  min-width: 28px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Make the SVG inside the kebab transparent to pointer events so the click
-   always lands on the BUTTON itself (some browsers / nested SVG events lose
-   the click when hitting the inner glyph). */
-.task-card .memory-item-actions .memory-item-btn svg { pointer-events: none; }
-.task-card .task-builtin-badge { position: relative; top: -4px; }
-.task-ai-mark {
-  flex: 0 0 auto;
-  color: var(--accent, var(--red));
-  opacity: 0.78;
-  position: relative;
-  top: -4px;
-}
-/* Per-card select checkbox rides up to the title line. The "All" checkbox is
-   #tasks-select-all (not .memory-select-cb), so it stays put. */
-.task-card .memory-select-cb { position: relative; top: -4px; }
-#tasks-pause-all-btn { position: relative; top: -2px; }
-/* Bigger ⋮ dropdown on mobile (its buttons carry inline styles → !important). */
-@media (max-width: 768px) {
-  .task-dropdown { min-width: 160px !important; padding: 6px !important; }
-  .task-dropdown button { font-size: 14px !important; padding: 10px 12px !important; gap: 10px !important; }
-  .task-dropdown button svg { width: 15px !important; height: 15px !important; }
-  .task-card .task-status-badge {
-    padding-left: 9px;
-    padding-right: 10px;
-    gap: 5px;
-    letter-spacing: 0.1px;
-    min-height: 34px;
-    min-width: 72px;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .task-card .task-state-badge {
-    width: auto;
-    min-width: 72px;
-    height: 26px;
-    min-height: 26px;
-    box-sizing: border-box;
-    justify-content: center;
-    top: 0 !important;
-  }
-  .task-card .task-state-badge .task-state-label {
-    display: inline;
-    font-size: 14px;
-    line-height: 1;
-    position: relative;
-    top: 1px;
-  }
-  .task-card .task-state-badge svg,
-  .task-card .task-card-run-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-}
 
-.task-card-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
 
-.task-card-name {
-  font-size: 14px;
-  font-weight: 600;
-}
 
-.task-card-schedule {
-  font-size: 14px;
-  opacity: 0.5;
-  margin-left: auto;
-}
 
-.task-card-output {
-  font-size: 14px;
-  opacity: 0.45;
-}
 
-.task-card-prompt {
-  font-size: 14px;
-  opacity: 0.55;
-  margin: 4px 0;
-  line-height: 1.4;
-}
 
-.task-card-meta {
-  font-size: 14px;
-  opacity: 0.45;
-  margin-bottom: 6px;
-}
 
-.task-card-actions {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
 
-.task-btn {
-  font-family: inherit;
-  font-size: 14px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: none;
-  color: var(--fg);
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s, background 0.15s;
-}
-.task-btn:hover { opacity: 1; }
-.task-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-.task-btn-primary {
-  background: var(--red);
-  color: #fff;
-  border-color: transparent;
-  opacity: 1;
-}
-.task-btn-primary:hover { opacity: 0.85; }
 
-.task-btn-danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
-.task-btn-danger:hover { opacity: 1; border-color: var(--red); }
 
-.tasks-clock {
-  font-size: 14px;
-  opacity: 0.35;
-  text-align: center;
-  padding: 6px 0 8px;
-}
 
-.task-preset-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;
-}
-.task-preset-card {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: 12px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg); cursor: pointer; transition: all 0.15s; text-align: left;
-  color: var(--fg);
-}
-.task-preset-card:hover {
-  border-color: var(--accent, #cc6a3a); background: color-mix(in srgb, var(--accent, #cc6a3a) 8%, var(--bg));
-}
-.task-preset-icon { font-size: 20px; margin-bottom: 2px; }
-.task-preset-label { font-size: 14px; font-weight: 600; }
-.task-preset-desc { font-size: 14px; opacity: 0.5; line-height: 1.3; }
 
-.task-form { display: flex; flex-direction: column; gap: 4px; }
-.task-form-label {
-  font-size: 14px;
-  opacity: 0.55;
-  font-weight: 500;
-  display: block;
-  /* Consistent rhythm: 8px above each label (section gap), 4px below to the
-     field — same spacing for Name/Prompt/Trigger/Output/Model/Chain. */
-  margin: 8px 0 4px;
-}
-.task-form-input {
-  font-family: inherit;
-  font-size: 14px;
-  padding: 6px 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--fg);
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-/* A <select>'s closed width otherwise grows to its widest option (the long
-   action descriptions), overflowing the modal — clip it to the field width. */
-select.task-form-input { text-overflow: ellipsis; }
-.task-form-input:focus {
-  outline: none;
-  border-color: var(--red);
-}
-.task-form-textarea { resize: vertical; min-height: 60px; }
-.task-form-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 
-.task-form-notif-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 9px 0 3px;
-  cursor: pointer;
-  color: var(--fg);
-}
-.task-form-notif-toggle input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.task-form-notif-switch {
-  width: 30px;
-  height: 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--fg) 8%, transparent);
-  position: relative;
-  flex: 0 0 auto;
-  transition: background 0.15s, border-color 0.15s;
-}
-.task-form-notif-switch::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  left: 3px;
-  top: 2px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--fg) 62%, transparent);
-  transition: transform 0.15s, background 0.15s;
-}
-.task-form-notif-toggle input:checked + .task-form-notif-switch {
-  border-color: color-mix(in srgb, var(--accent, var(--red)) 58%, transparent);
-  background: color-mix(in srgb, var(--accent, var(--red)) 20%, transparent);
-}
-.task-form-notif-toggle input:checked + .task-form-notif-switch::after {
-  transform: translateX(13px);
-  background: var(--accent, var(--red));
-}
-.task-form-notif-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 14px;
-  font-weight: 500;
-}
-.task-form-notif-copy span:last-child {
-  font-size: 14px;
-  font-weight: 400;
-  opacity: 0.52;
-}
 
-.task-form-toggle {
-  display: flex; gap: 4px;
-}
-.task-toggle-btn {
-  flex: 1; padding: 4px 8px; font-size: 14px; font-family: inherit;
-  border: 1px solid var(--border); border-radius: 6px; background: transparent;
-  color: var(--fg); opacity: 0.4; cursor: pointer; transition: all 0.15s;
-}
-.task-toggle-btn:hover { opacity: 0.7; border-color: var(--fg); }
-.task-toggle-btn.active {
-  opacity: 1; border-color: var(--red); color: var(--red);
-  background: color-mix(in srgb, var(--red) 10%, transparent);
-}
 
-.task-time-picker, .task-date-picker {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.task-time-select, .task-date-select {
-  width: auto;
-  min-width: 48px;
-  font-size: 14px;
-}
-.task-time-sep { opacity: 0.4; font-size: 14px; }
 
-.task-history-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .task-runs-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
-.task-run-item {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-.task-run-item-header {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-}
-.task-run-time { margin-left: auto; font-size: 14px; opacity: 0.45; }
-.task-run-result {
-  font-size: 14px;
-  opacity: 0.6;
-  margin-top: 4px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+
+
+
+
 
 /* ── Settings Form Utilities ── */
 
@@ -21760,7 +20807,6 @@ input.settings-select::placeholder { color: color-mix(in srgb, var(--fg) 35%, tr
   60%  { background: color-mix(in srgb, var(--accent, var(--red)) 18%, transparent); }
   100% { background: transparent; }
 }
-.task-card-flash,
 .skill-row-flash,
 .research-card-flash {
   animation: anchor-item-flash 2s ease-out;
@@ -24884,14 +23930,7 @@ body.doc-find-active mark.doc-find-mark.current {
    (was 24px / dim / no border on desktop, easy to miss). Accent-tinted
    background + border makes it read as a real action. */
 
-@media (max-width: 768px) {
-  
-  /* Mobile: keep the pill but ensure a comfortable touch target. */
 
-  /* Attachment chip body — modest minimum height so the open icon sits
-     neatly without dominating. */
-
-}
 
 /* Compose attachment chips (when sending new email) */
 
@@ -24919,10 +23958,7 @@ body.doc-find-active mark.doc-find-mark.current {
    easy to spot at any size. The SVG already uses stroke=currentColor,
    so a color: rule on the svg propagates. */
 
-@media (max-width: 768px) {
-  /* On mobile they're 1px higher than desktop. */
-  
-}
+
 
 /* On mobile, the "New" (compose) button deserves a touch-friendly size
    so it stands out from the smaller toolbar buttons next to it. Lift
@@ -25148,13 +24184,7 @@ body.notes-view .chat-container { flex: 1; min-width: 0; }
 /* Hide the "Add a to-do…" quick-add bar in archive view — you can't add
    new items from the archive. */
 
-@media (max-width: 768px) {
-  
-  
-  /* Mobile header is tight — keep Archive / Toggle View icon-only. */
-  
-  
-}
+
 
 /* ⋯ corner menu button (replaced the copy corner button) */
 
@@ -25165,13 +24195,7 @@ body.notes-view .chat-container { flex: 1; min-width: 0; }
 
 /* Mobile: bigger, more legible note cards + a sticky quick-add bar so you can
    add a to-do without scrolling back up; and keep media inside the card. */
-@media (max-width: 768px) {
-  
-  
-  /* Sticky create-todo bar — pin it to the top of the scrolling list pane.
-     Safe now that the cards no longer shrink (the list actually overflows). */
-  
-}
+
 
 
 @keyframes note-reminder-pulse {
@@ -25300,12 +24324,7 @@ body.notes-view .chat-container { flex: 1; min-width: 0; }
 
 /* Mobile: thumb-sized Note/Todo toggle. The 22px desktop pill is too
    small to hit reliably on a phone. */
-@media (max-width: 768px) {
 
-  /* Match the input + photo button heights to the bigger toggle so the
-     row reads as one consistent bar. */
-
-}
 
 
 /* Loading skeleton */
@@ -25377,15 +24396,7 @@ body.notes-view .chat-container { flex: 1; min-width: 0; }
    on every card after render. Pure CSS multi-column was tried but its
    `column-span: all` interaction with sticky positioning broke clicks on
    the quick-add bar (Firefox mobile). */
-@media (max-width: 768px) {
-  
-  
-  /* Full-width quick-add + edit form. Quick-add stays sticky at top so
-     the user can always reach it; it's NOT inside the masonry pack. */
 
-  /* Pinned-section break: first unpinned card jumps to column 1. */
-  
-}
 
 /* Label filter bar */
 
@@ -25553,16 +24564,7 @@ body.notes-view .chat-container { flex: 1; min-width: 0; }
    --cal-detail-h) and shrinks the grid visually as it grows. */
 
 
-@media (max-width: 768px) {
-  /* Let the calendar pane shrink to nothing on mobile so the day-detail
-     splitter can be dragged all the way to the top, hiding the calendar
-     entirely. Without min-height:0 the grid (or the week-wrap below)
-     refuses to shrink past its built-in floor. */
-  
-  /* Let the week grid fill the calendar pane and scroll its hours internally
-     instead of overflowing #cal-body (which clips it and feels cramped). */
-  
-}
+
 
 
 /* Quick-add bar: natural-language event creation. Sits directly under
@@ -25755,179 +24757,81 @@ button.cal-add-btn.cal-add-btn-text:hover .cal-add-plus {
   padding-right: 8px;
 }
 
-/* Nudge the subject + sender/date meta line 4px right inside each
-   email card so they don't sit flush against the read/unread/done
-   markers on the left. Includes #email-lib-modal selector to
-   override the expanded card's `padding: 4px 0 6px` shorthand
-   which was zeroing out the title's padding-left. */
-
-/* Refresh button now lives top-right in the modal header next to the close X.
-   Borderless (matches the close X), and a fixed square box so the spin and the
-   refresh→checkmark icon swap never change its size or nudge neighbours. */
-
-/* Bump the icon up on mobile for a bigger visual — but keep the button BOX at
-   24px so it never exceeds the header's natural height (the title/close set
-   that). A taller box would grow the sticky header and push the list down. */
-
-/* Toolbar holds only the toggle button; the chip row renders below the
-   toolbar on its own line and wraps freely. */
-
-/* Round the native color-input swatch in calendar settings. The outer
-   <input> wraps a colored fill drawn by the browser; we need to round both
-   the wrapper and the fill so it actually appears circular. */
-
-/* Match the toolbar's other buttons (cal-nav, cal-view-btn, cal-add-btn-text):
-   24px tall, 11px font, 5px corners. */
-
-/* The grid is now a flex column: one row of weekday headers + six
-   .cal-week-row rows. Each row holds the 7 day cells in its own
-   internal grid plus the absolute-positioned multi-day overlays.
-   --bars on a week-row is the number of multi-day events overlapping
-   it; cells in that row use it to reserve top padding so the bar
-   overlays don't cover the day numbers or single-event rows. */
-
-/* Selected day — same square geometry as `.cal-today` so the two read as
-   peers, but rendered as an outline + softer fill instead of a solid
-   accent block. Today wins when both classes are on the same cell. */
-
-/* Multi-day bar — positioned as an absolute overlay inside its
-   .cal-week-row so it spans uninterrupted across every column it
-   covers. --col is the starting column (0–6), --span is the number
-   of days it covers within the row, --slot stacks parallel bars. */
 
 
-/* Splitter between the month/week grid and the day-tasks panel — drag
-   vertically to give the day panel more room. Height clamped by the
-   `--cal-detail-h` variable set on #cal-body by the splitter drag JS. */
-
-/* Mobile: fat hitbox so the splitter is easy to grab with a thumb,
-   without changing how the grip itself looks. */
-
-/* ── Week view: hour grid ──────────────────────────────────────────
-   Vertical hour rail on the left, 7 day columns on the right with their
-   own all-day strip and an absolute-positioned hour grid below it. */
-
-/* Sunday: a softer rest-day tint so the week edge reads visually, even
-   when today is mid-week. Falls back gracefully under the .cal-wk-today
-   rules above (today on a Sunday still gets the accent treatment). */
-
-/* Today on a Sunday still wins the accent treatment. */
-
-/* Hour grid body */
-
-/* "Now" line */
 
 
-/* Event blocks */
 
-@media (max-width: 768px) {
-  /* Mobile week view: the hour rail already shows the time, so drop it from the
-     card and let the title wrap to fill the freed space (more readable text). */
-  
-  
-}
-/* Resize handle: a 6 px hit zone along the block's bottom edge. The
-   visible 2-px stripe only shows on hover so blocks at rest stay clean. */
 
-/* Body of a block while it's being repositioned: lifted shadow + above
-   siblings so the drop target reads clearly. */
 
-/* Drag-to-create ghost */
 
-/* Search input — in-panel variant lives inside the day-detail panel and
-   spans its width; no width animation since growing/shrinking on every
-   keystroke would jitter beside the events list. */
 
-/* Wrap for the search input so the magnifying-glass icon can be absolute-
-   positioned inside the field. */
 
-/* Agenda view */
 
-/* ── Personal Assistant ── */
-.sidebar-assistant-entry { gap: 6px; min-height: 29px; box-sizing: border-box; align-items: center; }
-.sidebar-assistant-entry .sidebar-action-icon { position: relative; left: -2px; }
-#sidebar-assistant-gear:hover { opacity: 0.8 !important; }
-.assistant-settings-form { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 2px; }
-.assistant-field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: color-mix(in srgb, var(--fg) 70%, transparent); }
-.assistant-field > span { font-size: 14px; opacity: 0.6; }
-.assistant-field input[type="text"],
-.assistant-field input[type="time"],
-.assistant-field select,
-.assistant-field textarea {
-  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 7px 10px;
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-  box-sizing: border-box;
-}
-.assistant-field textarea { resize: vertical; min-height: 60px; }
-.assistant-field input:focus,
-.assistant-field select:focus,
-.assistant-field textarea:focus { outline: none; border-color: var(--accent, var(--red)); }
-.assistant-field-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-.assistant-field-row > .assistant-field { flex: 1 1 180px; }
-.assistant-field-check { flex-direction: row !important; align-items: center; gap: 6px; padding-bottom: 7px; }
-.assistant-checkins { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
-.assistant-checkins h5 { margin: 0 0 2px; font-size: 14px; font-weight: 600; opacity: 0.8; }
-.assistant-checkin-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--fg) 3%, transparent);
-}
-.assistant-checkin-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.assistant-checkin-head input[type="text"],
-.assistant-checkin-head input[type="time"] {
-  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-}
-.assistant-checkin-head input[type="text"] { flex: 1; min-width: 120px; }
-.assistant-checkin-head input[type="time"] { width: 90px; }
-.assistant-checkin-run {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: 14px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-.assistant-checkin-run:hover { opacity: 1; }
-.assistant-checkin-prompt {
-  background: color-mix(in srgb, var(--fg) 5%, var(--bg));
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 8px;
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
-  min-height: 48px;
-}
-.assistant-checkin-prompt:focus { outline: none; border-color: var(--accent, var(--red)); }
-.assistant-checkin-meta { font-size: 14px; opacity: 0.45; }
-.assistant-settings-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 .assistant-tools-grid {
   display: flex;
   flex-direction: column;
@@ -26036,17 +24940,7 @@ button.cal-btn.cal-btn-primary { background:var(--accent, var(--red)); color:var
 button.cal-btn.cal-btn-primary:hover { opacity:0.9; background:var(--accent, var(--red)); }
 
 
-@media (max-width: 600px) {
 
-  /* Two-row toolbar on mobile:
-        Row 1 — Title (full width)
-        Row 2 — [← Today →] [view toggle] [settings/sync/filters/+New]
-     Title gets its own row so it isn't squeezed to nothing when the
-     right-side group is wide. The .cal-toolbar-nav (which now only
-     contains the title since JS moved the date-nav to the right) is
-     width:100% so it forces a wrap before .cal-toolbar-right. */
-
-}
 
 /* ═══ Research Panel ═══ */
 body.research-panel-view #research-divider { display:none; }
@@ -27839,8 +26733,7 @@ body.theme-frosted .modal {
 /* Pinned below the sidebar (400), its backdrop (390) and the raised
    hamburger so navigation always stays reachable. !important beats the
    window manager's inline z-index bumps. */
-.modal.tool-page,
-#search-overlay.tool-page {
+.modal.tool-page {
   z-index: 240 !important;
   align-items: stretch;
   padding: 0;
@@ -27863,8 +26756,7 @@ body.tool-page-view .incognito-indicator { display: none !important; }
 /* The page surface fills its wrapper (already chat-area-sized on desktop,
    full-viewport on mobile). Neutralize every windowing leftover: inline
    drag/resize geometry, size caps, sheet radii, shadows. */
-.modal.tool-page > .modal-content,
-#search-overlay.tool-page > .search-popup {
+.modal.tool-page > .modal-content {
   position: static !important;
   transform: none !important;
   margin: 0 !important;
@@ -27913,37 +26805,23 @@ body.tool-page-view .incognito-indicator { display: none !important; }
 
 /* Desktop: a hairline between sidebar and page, like a content pane. */
 @media (min-width: 769px) {
-  .modal.tool-page > .modal-content,
-  #search-overlay.tool-page > .search-popup {
+  .modal.tool-page > .modal-content {
     border-left: 1px solid var(--border) !important;
-  }
-  /* Search wasn't part of the original chat-area offset list (it was a
-     viewport-wide palette) — give it the same page geometry. */
-  #search-overlay.tool-page {
-    left: calc(var(--icon-rail-w, 48px) + var(--sidebar-w, 0px));
-    width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
-    box-sizing: border-box;
-  }
-  body:has(.sidebar.right-side) #search-overlay.tool-page {
-    left: 0;
   }
   /* The chat-area offset rule (see "Tool windows open centered in the CHAT
      AREA") assumes the sidebar is on the LEFT. With a right-side sidebar
      (the default), anchor the page to the left edge and reserve the
      sidebar/rail width on the right instead. */
   body:has(.sidebar.right-side) #gallery-modal.tool-page,
-  body:has(.sidebar.right-side) #tasks-modal.tool-page,
-  body:has(.sidebar.right-side) #memory-modal.tool-page,
-  body:has(.sidebar.right-side) #doclib-modal.tool-page,
-  body:has(.sidebar.right-side) #research-overlay.tool-page,
-  body:has(.sidebar.right-side) #queue-overlay.tool-page,
-  body:has(.sidebar.right-side) #theme-modal.tool-page,
-  body:has(.sidebar.right-side) #settings-modal.tool-page {
+body:has(.sidebar.right-side) #memory-modal.tool-page,
+body:has(.sidebar.right-side) #doclib-modal.tool-page,
+body:has(.sidebar.right-side) #research-overlay.tool-page,
+body:has(.sidebar.right-side) #theme-modal.tool-page,
+body:has(.sidebar.right-side) #settings-modal.tool-page {
     left: 0;
     width: calc(100% - (var(--icon-rail-w, 48px) + var(--sidebar-w, 0px)));
   }
-  body:has(.sidebar.right-side) .modal.tool-page > .modal-content,
-  body:has(.sidebar.right-side) #search-overlay.tool-page > .search-popup {
+  body:has(.sidebar.right-side) .modal.tool-page > .modal-content {
     border-left: none !important;
     border-right: 1px solid var(--border) !important;
   }
@@ -27952,8 +26830,8 @@ body.tool-page-view .incognito-indicator { display: none !important; }
 /* ── Settings-page visual language on every tool page ──
    The Settings page (admin-cards + pill nav + vertical flow) is the model.
    Memory, Library and Gallery-settings already build from .admin-card;
-   these rules bring their tab strips, Research's sections and the Search
-   page up to the same look. */
+   these rules bring their tab strips and Research's sections up to the
+   same look. */
 
 /* Tab strips become wrapped pill rows (Settings-nav look). They toggle in
    place and WRAP instead of scrolling sideways. */
@@ -28011,33 +26889,6 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
-/* Search page: header + one card-style input + vertically scrolling results. */
-#search-overlay.tool-page > .search-popup {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 12px;
-  font-size: 15px;
-}
-#search-overlay.tool-page #search-input {
-  flex-shrink: 0;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 12px;
-  font-size: 15px;
-  font-family: inherit;
-  color: var(--fg);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  outline: none;
-  margin-bottom: 8px;
-}
-#search-overlay.tool-page .search-results {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
 
 /* Two-level vertical settings nav — back row (hidden on wide layouts). */
 .settings-back-row {
@@ -28071,8 +26922,7 @@ body.tool-page-view .incognito-indicator { display: none !important; }
      pages win: static, full-height, square, whole page scrolls. */
   .modal.tool-page > .modal-content,
   #theme-modal.tool-page > #theme-popup,
-  #research-overlay.tool-page > #research-pane,
-  #search-overlay.tool-page > .search-popup {
+  #research-overlay.tool-page > #research-pane {
     position: static !important;
     width: 100% !important;
     max-width: none !important;
@@ -28086,8 +26936,6 @@ body.tool-page-view .incognito-indicator { display: none !important; }
     /* A page is not a sheet: plain fade instead of a slide-up. */
     animation: fadeIn 0.18s ease-out both;
   }
-  /* The search page keeps its column layout so results scroll internally. */
-  #search-overlay.tool-page > .search-popup { overflow-y: hidden !important; }
   /* No bottom-sheet grab pill on a page. */
   .modal.tool-page > .modal-content::before,
   #theme-modal.tool-page > #theme-popup::before { content: none !important; }
@@ -28141,86 +26989,6 @@ body.tool-page-view .incognito-indicator { display: none !important; }
   .tool-page .settings-modal-content:not(.settings-panel-active) .settings-panels { display: none; }
   .tool-page .settings-modal-content.settings-panel-active .settings-sidebar { display: none; }
   .tool-page .settings-modal-content.settings-panel-active .settings-back-row { display: flex; }
-}
-
-/* ── Queue page (improvement queue) ──
-   Reuses the research panel's card/form classes for the Deep-Research look;
-   these rules only add the queue-specific bits: compose row, type badges,
-   done checkmark, skipped dimming, test-confidence chips, inline edit. */
-#queue-pane { min-height: 0; }
-#queue-pane .queue-pane-body {
-  flex: 1 1 auto; min-height: 0;
-  display: flex; flex-direction: column;
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
-}
-#queue-pane .queue-items-list { flex: 0 0 auto; }
-
-.queue-compose-row {
-  display: flex; align-items: flex-end; gap: 10px; margin-top: 8px;
-}
-.queue-compose-row .research-add-btn { margin-left: auto; }
-.queue-type-setting { display: flex; flex-direction: column; gap: 3px; }
-.queue-type-setting select {
-  padding: 6px 8px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
-  font-family: inherit; font-size: 14px;
-}
-.queue-error {
-  margin-top: 8px; font-size: 14px; color: #f44336;
-}
-.queue-empty { padding: 6px 2px; }
-
-/* Type badges — tinted variants of the research category badge. */
-.queue-type-badge { flex-shrink: 0; text-transform: none; }
-.queue-type-skill  { color: #7c9eff; background: color-mix(in srgb, #7c9eff 14%, transparent); }
-.queue-type-rag    { color: #4fc38a; background: color-mix(in srgb, #4fc38a 14%, transparent); }
-.queue-type-memory { color: #d9a44f; background: color-mix(in srgb, #d9a44f 14%, transparent); }
-.queue-type-test   { color: #c77dff; background: color-mix(in srgb, #c77dff 14%, transparent); }
-
-.queue-card .research-job-query { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-
-/* Completed: green check pinned to the header's right edge. */
-.queue-done-check {
-  display: inline-flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-left: auto;
-  width: 20px; height: 20px; border-radius: 50%;
-  color: var(--color-success, #34c759);
-  background: color-mix(in srgb, var(--color-success, #34c759) 14%, transparent);
-}
-.queue-done .research-job-query { opacity: 0.85; }
-
-/* Skipped: parked look, eye-off restores. */
-.queue-skipped { opacity: 0.55; }
-.queue-skip-note {
-  flex-shrink: 0; margin-left: auto; font-size: 14px;
-  color: color-mix(in srgb, var(--fg) 60%, transparent);
-  font-style: italic;
-}
-
-/* Test success-confidence chip (high / mid / low). */
-.queue-conf-chip {
-  flex-shrink: 0; font-size: 14px; font-weight: 600;
-  padding: 1px 7px; border-radius: 9px;
-}
-.queue-conf-high { color: var(--color-success, #34c759); background: color-mix(in srgb, var(--color-success, #34c759) 14%, transparent); }
-.queue-conf-mid  { color: #d9a44f; background: color-mix(in srgb, #d9a44f 14%, transparent); }
-.queue-conf-low  { color: #f44336; background: color-mix(in srgb, #f44336 14%, transparent); }
-
-.queue-test-skill {
-  flex-shrink: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 14px; opacity: 0.75;
-}
-.queue-result-summary {
-  margin-top: 4px; font-size: 14px;
-  color: color-mix(in srgb, var(--fg) 75%, transparent);
-}
-
-.queue-edit-form { display: flex; flex-direction: column; gap: 6px; }
-.queue-edit-form .queue-compose-row { align-items: center; }
-.queue-edit-form .queue-compose-row .research-job-action:first-of-type { margin-left: auto; }
-
-@media (max-width: 768px) {
-  .queue-compose-row { flex-wrap: wrap; }
 }
 
 /* ── Chat readability: AI responses render in ONE text color ──

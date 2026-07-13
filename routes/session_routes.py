@@ -429,9 +429,6 @@ def setup_session_routes(session_manager: SessionManager, config: dict, webhook_
             webhook_manager.fire_and_forget("session.created", {
                 "session_id": sid, "name": session.name, "model": model_to_use,
             })
-        # Fire event for automation tasks
-        from src.event_bus import fire_event
-        fire_event("session_created", user)
         return SessionResponse(
             id=sid,
             name=session.name,
@@ -835,8 +832,6 @@ def setup_session_routes(session_manager: SessionManager, config: dict, webhook_
         )
         session.headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
         session_manager.save_sessions()
-        from src.event_bus import fire_event
-        fire_event("session_created", user)
         return {"id": sid, "name": "", "model": model}
     
     @router.post("/session/{session_id}/important")

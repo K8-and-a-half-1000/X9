@@ -59,11 +59,6 @@ async def create_session(content: str, session_id: Optional[str] = None, owner: 
         sess = _session_manager.get_session(sid)
         if sess and headers:
             sess.headers = headers
-        try:
-            from src.event_bus import fire_event
-            fire_event("session_created", owner)
-        except Exception:
-            logger.debug("session_created event dispatch failed", exc_info=True)
 
         return {"session_id": sid, "name": name, "model": model, "endpoint_url": url}
     except Exception as e:
@@ -443,11 +438,6 @@ async def manage_session(content: str, session_id: Optional[str] = None, owner: 
             new_sess = _session_manager.get_session(new_sid)
             for msg in history:
                 new_sess.add_message(InMemoryMsg(msg["role"], msg["content"]))
-            try:
-                from src.event_bus import fire_event
-                fire_event("session_created", owner)
-            except Exception:
-                logger.debug("session_created event dispatch failed", exc_info=True)
 
             return {"action": "fork", "session_id": new_sid,
                     "source_session": target_sid, "messages_copied": len(history),

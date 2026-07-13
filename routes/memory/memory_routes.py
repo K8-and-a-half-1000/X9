@@ -122,11 +122,6 @@ def setup_memory_routes(memory_manager: MemoryManager, session_manager: SessionM
         # Sync vector index
         if memory_vector and memory_vector.healthy:
             memory_vector.add(new_entry["id"], text)
-        try:
-            from src.event_bus import fire_event
-            fire_event("memory_added", user)
-        except Exception:
-            logger.debug("memory_added event dispatch failed", exc_info=True)
         return {"ok": True, "count": len([m for m in all_mem if m.get("owner") == user])}
 
     @router.get("")

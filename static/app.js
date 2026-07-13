@@ -12,7 +12,6 @@ import presetsModule from './js/presets.js';
 import searchModule from './js/search.js';
 import chatModule from './js/chat.js';
 import documentModule from './js/document.js';
-import searchChatModule from './js/search-chat.js';
 import { makeWindowDraggable } from './js/windowDrag.js';
 import markdownModule from './js/markdown.js';
 import chatRenderer from './js/chatRenderer.js';
@@ -21,7 +20,6 @@ import memoryModule from './js/memory.js';
 import voiceRecorderModule from './js/voiceRecorder.js';
 import censorModule from './js/censor.js';
 import galleryModule from './js/gallery.js';
-import tasksModule from './js/tasks.js?v=20260630tasksactivity';
 import adminModule from './js/admin.js';
 import settingsModule from './js/settings.js';
 // Eagerly bind unified minimize/restore behavior across all tool modals.
@@ -31,8 +29,7 @@ import './js/tileManager.js';
 import themeModule from './js/theme.js';
 
 import groupModule from './js/group.js';
-import * as researchPanelModule from './js/research/panel.js?v=20260712researchformats';
-import * as queuePanelModule from './js/queue/panel.js?v=20260712queue';
+import * as researchPanelModule from './js/research/panel.js?v=20260713menu';
 import ttsModule from './js/tts-ai.js';
 import spinnerModule from './js/spinner.js';
 import { initKeyboardShortcuts } from './js/keyboard-shortcuts.js';
@@ -81,16 +78,14 @@ initForegroundActivityHeartbeat();
 
 function initRailHoverLabels() {
   const labels = {
-    'rail-search-btn': 'Search',
     'rail-new-session': 'New',
     'rail-delete-session': 'Delete',
     'rail-chats': 'Chat',
     'rail-documents': 'Docs',
     'rail-research': 'Research',
     'rail-gallery': 'Gallery',
-    'rail-archive': 'Library',
-    'rail-memory': 'Brain',
-    'rail-tasks': 'Tasks',
+    'rail-archive': 'RAG',
+    'rail-memory': 'Skills',
     'rail-theme': 'Theme',
     'rail-settings': 'Settings',
   };
@@ -542,11 +537,6 @@ function initializeEventListeners() {
       // Priority order: topmost overlay first. Close exactly one per press
       // so a stacked window only dismisses the top one, not both.
 
-      if (searchChatModule && searchChatModule.isOpen()) {
-        searchChatModule.closeSearch();
-        return;
-      }
-
       // Theme popup
       const themeModal = document.getElementById('theme-modal');
       if (themeModal && !themeModal.classList.contains('hidden')) {
@@ -571,7 +561,7 @@ function initializeEventListeners() {
       };
 
       // Dynamic modals (removed from DOM on close)
-      const dynamicModals = ['library-modal', 'archive-modal', 'doclib-modal', 'gallery-modal', 'tasks-modal'];
+      const dynamicModals = ['library-modal', 'archive-modal', 'doclib-modal', 'gallery-modal'];
       for (const id of dynamicModals) {
         const m = document.getElementById(id);
         if (id === 'gallery-modal') {
@@ -619,7 +609,7 @@ function initializeEventListeners() {
     'memory-modal': null,
     'theme-modal': null,
   };
-  const _dynamicModalIds = ['library-modal', 'archive-modal', 'doclib-modal', 'gallery-modal', 'tasks-modal'];
+  const _dynamicModalIds = ['library-modal', 'archive-modal', 'doclib-modal', 'gallery-modal'];
   function dismissModal(modal) {
     if (!modal || modal.classList.contains('hidden')) return;
     if (modal.id === 'gallery-modal') {
@@ -821,13 +811,6 @@ function initializeEventListeners() {
     });
   }
 
-  const toolQueueBtn = el('tool-queue-btn');
-  if (toolQueueBtn) {
-    toolQueueBtn.addEventListener('click', () => {
-      queuePanelModule.toggle();
-    });
-  }
-
   // Document library tool button
   const toolDoclibBtn = el('tool-doclib-btn');
   if (toolDoclibBtn) {
@@ -851,16 +834,6 @@ function initializeEventListeners() {
       if (!Modals.toggle('gallery-modal')) {
         if (galleryModule.isGalleryOpen()) galleryModule.closeGallery();
         else galleryModule.openGallery();
-      }
-    });
-  }
-
-  // Tasks tool button
-  const toolTasksBtn = el('tool-tasks-btn');
-  if (toolTasksBtn) {
-    toolTasksBtn.addEventListener('click', () => {
-      if (tasksModule) {
-        tasksModule.isTasksOpen() ? tasksModule.closeTasks() : tasksModule.openTasks();
       }
     });
   }
@@ -925,9 +898,8 @@ function initializeEventListeners() {
     }
   }
   const _routeOpen = {
-    '/memory':   () => document.getElementById('tool-memory-btn')?.click(),
+    '/memory':   () => sessionModule && sessionModule.openLibrary && sessionModule.openLibrary('memory'),
     '/gallery':  () => document.getElementById('tool-gallery-btn')?.click(),
-    '/tasks':    () => document.getElementById('tool-tasks-btn')?.click(),
     '/library':  () => sessionModule && sessionModule.openLibrary && sessionModule.openLibrary(),
   };
   const _opener = _routeOpen[urlPath];
@@ -1321,8 +1293,11 @@ function initializeEventListeners() {
   if (toolMemoryBtn && memoryModal) {
     toolMemoryBtn.addEventListener('click', () => {
       memoryModal.classList.remove('hidden');
-      if (memoryModule && memoryModule.renderMemoryList) memoryModule.renderMemoryList();
-      if (memoryModule && memoryModule.updateMemoryCount) memoryModule.updateMemoryCount();
+      // Skills is the window's default tab now — load it on open.
+      import('./js/skills.js').then(m => {
+        const load = m.loadSkills || (m.default && m.default.loadSkills);
+        if (load) load(true);
+      }).catch(() => {});
     });
   }
 
@@ -2220,18 +2195,15 @@ function initializeEventListeners() {
   const UI_VIS_MAP = {
     'sidebar-brand':       '.sidebar-brand-title',
     'sidebar-new-chat':    '#sidebar-new-chat-btn',
-    'sidebar-search':      '#sidebar-search-btn',
     'sessions-section':    '#sessions-section',
     'models-section':      '#models-section',
     'tools-section':       '#tools-section',
     // Per-tool visibility — fine-grained control over which entries show
     // inside the Tools section in the sidebar.
     'tool-research':       '#tool-research-btn',
-    'tool-queue':          '#tool-queue-btn',
     'tool-gallery':        '#tool-gallery-btn',
     'tool-library':        '#tool-library-btn',
     'tool-memory':         '#tool-memory-btn',
-    'tool-tasks':          '#tool-tasks-btn',
     'tool-theme':          '#tool-theme-btn',
     'sidebar-settings-btn':'#tool-settings-btn',
     'chat-meta':           '.chat-meta-overlay',
@@ -3158,7 +3130,7 @@ function initializeEventListeners() {
   // Keyboard shortcuts (extracted to js/keyboard-shortcuts.js)
   initKeyboardShortcuts({
     el, Storage, sessionModule, uiModule, chatModule,
-    adminModule, settingsModule, searchChatModule,
+    adminModule, settingsModule,
     _deactivateIncognito, API_BASE
   });
   
@@ -3216,7 +3188,6 @@ function startADApp() {
   chatModule.initListeners();
   groupModule.init(API_BASE);
   researchPanelModule.init(API_BASE, markdownModule, sessionModule);
-  queuePanelModule.init(API_BASE);
   // Initialize document editor module
   if (documentModule) {
     documentModule.init(API_BASE);
@@ -3226,25 +3197,11 @@ function startADApp() {
       documentModule.loadSessionDocs(_curSession);
     }
   }  
-  // Initialize search chat module
-  if (searchChatModule) {
-    searchChatModule.init(API_BASE);
-  }
-
-  // Search buttons — icon rail + sidebar
-  const railSearchBtn = el('rail-search-btn');
-  if (railSearchBtn) {
-    railSearchBtn.addEventListener('click', () => {
-      if (searchChatModule) searchChatModule.openSearch();
-    });
-  }
-
   // Rail tool buttons — delegate to sidebar tool buttons
   const _railToolMap = {
     'rail-research':  'tool-research-btn',
     'rail-archive':   'tool-library-btn',
     'rail-gallery':   'tool-gallery-btn',
-    'rail-tasks':     'tool-tasks-btn',
     'rail-memory':    'tool-memory-btn',
     'rail-theme':     'tool-theme-btn',
   };
@@ -3326,12 +3283,6 @@ function startADApp() {
   setInterval(_syncRailDynamic, 1000);
   document.addEventListener('overflow-state-change', _syncRailDynamic);
 
-  const sidebarSearchBtn = el('sidebar-search-btn');
-  if (sidebarSearchBtn) {
-    sidebarSearchBtn.addEventListener('click', () => {
-      if (searchChatModule) searchChatModule.openSearch();
-    });
-  }
   // Modify form submit to handle special modes
   const chatForm = document.getElementById('chat-form');
   const originalSubmit = chatModule.handleChatSubmit;

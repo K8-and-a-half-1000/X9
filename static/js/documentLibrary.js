@@ -1592,6 +1592,7 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
     _libraryDocs = [];
 
     // Create modal
+    _parkMemoryHost();
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.id = 'doclib-modal';
@@ -1602,16 +1603,18 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
                Documents / Research / Archive) so the user sees ONE icon at
                the top representing the section they're in, with the tab
                strip below as sub-navigation. _switchLibTab() updates this. -->
-          <h4 id="doclib-header-title"><span id="doclib-header-icon" style="vertical-align:-2px;margin-right:4px;display:inline-flex;"></span><span id="doclib-header-text">Library</span></h4>
+          <h4 id="doclib-header-title"><span id="doclib-header-icon" style="vertical-align:-2px;margin-right:4px;display:inline-flex;"></span><span id="doclib-header-text">RAG</span></h4>
           <button class="close-btn" id="doclib-close">\u2716</button>
         </div>
         <div class="lib-tabs" id="doclib-lib-tabs" style="padding:0 10px;">
           <button class="lib-tab" data-doclib-tab="chats"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chats</button>
           <button class="lib-tab active" data-doclib-tab="documents"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>Documents</button>
           <button class="lib-tab" data-doclib-tab="research"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>Research</button>
+          <button class="lib-tab" data-doclib-tab="memory"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Memory <span id="memory-count" class="memory-count" style="font-size:max(0.8em, 14px);opacity:0.6;font-weight:normal;margin-left:2px"></span></button>
           <button class="lib-tab" data-doclib-tab="archive"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>Archive</button>
         </div>
         <div class="modal-body" style="display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+          <div id="doclib-panel-memory" data-doclib-panel="memory" style="display:none;flex:1;flex-direction:column;gap:10px;overflow-y:auto;min-height:0;"></div>
           <div id="doclib-panel-chats" data-doclib-panel="chats" class="admin-card" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
             <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;">
               <h2 style="margin:0;padding:0;line-height:1;">Chats <span id="doclib-chats-stats" class="memory-count" style="font-size:max(0.6em, 14px);opacity:0.6;font-weight:normal"></span></h2>
@@ -1850,6 +1853,10 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
         label: 'Research',
         svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
       },
+      memory: {
+        label: 'Memory',
+        svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>',
+      },
       archive: {
         label: 'Archive',
         svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
@@ -1877,6 +1884,26 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
       if (tab === 'chats') _renderLibChats();
       else if (tab === 'archive') _renderLibArchive();
       else if (tab === 'research') _renderLibResearch();
+      else if (tab === 'memory') _renderLibMemory();
+    }
+
+    // Memory tab: adopt the static #memory-tab-host (browser + add + settings
+    // cards moved out of the old Brain window). closeLibrary parks it back on
+    // <body> before the modal is torn down.
+    function _renderLibMemory() {
+      const panel = document.getElementById('doclib-panel-memory');
+      const host = document.getElementById('memory-tab-host');
+      if (!panel || !host) return;
+      if (host.parentElement !== panel) panel.appendChild(host);
+      host.classList.remove('hidden');
+      const mm = window.memoryModule;
+      if (mm) {
+        try {
+          mm.renderMemoryList();
+          mm.updateMemoryCount();
+          if (mm.buildCategoryChips) mm.buildCategoryChips();
+        } catch (e) { console.warn('memory tab render failed', e); }
+      }
     }
 
     _tabBtns.forEach(btn => {
@@ -3386,9 +3413,20 @@ let _libraryArchivedView = false;   // Documents tab showing archived docs?
     if (window.innerWidth >= 768) searchInput.focus();
   }
 
+  /** Re-parent the memory host back to <body> so tearing down the dynamic
+   *  doclib modal never destroys the (static, stateful) memory UI. */
+  function _parkMemoryHost() {
+    const host = document.getElementById('memory-tab-host');
+    if (host && host.parentElement !== document.body) {
+      host.classList.add('hidden');
+      document.body.appendChild(host);
+    }
+  }
+
   export function closeLibrary() {
     if (!_libraryOpen) return;
     _libraryOpen = false;
+    _parkMemoryHost();
     _librarySelectMode = false;
     _librarySelectedIds.clear();
     _libraryImportMode = false;

@@ -68,7 +68,7 @@ standard.
 | **Session / history / DB** | Session lifecycle, history, schema, ownership at the data layer | `test_session_*`, `test_sqlite_foreign_keys.py` | `tests/services/` or `tests/unit/` |
 | **Security / owner-scope / regression** | Owner isolation, auth, SSRF, path confinement, XSS, prompt injection, pinned regressions | `*_owner_scope.py`, `test_security_regressions.py`, `test_*ssrf*`, `test_*confinement*` | `tests/security/` |
 | **Cookbook / bootstrap** | Model serve lifecycle, dependency completion | `test_cookbook_*` | `tests/services/` |
-| **Scheduler / background** | Cron computation, background jobs, delivery | `test_compute_next_run_*`, `test_bg_*`, `test_task_scheduler_*` | `tests/services/` |
+| **Background** | Background jobs, delivery | `test_bg_*` | `tests/services/` |
 | **Import / module isolation** | The isolation helpers themselves and their guarantees | `test_helpers_import_state.py` | `tests/unit/` |
 
 A test that genuinely spans categories (e.g. a route test that also pins a

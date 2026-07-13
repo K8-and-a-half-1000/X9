@@ -432,14 +432,11 @@ def add_user_message(sess, chat_handler, preprocessed: PreprocessedMessage, inco
 
 
 def fire_message_event(request, webhook_manager, session_id: str, sess, message: str):
-    """Fire webhook and event_bus events for a new user message."""
+    """Fire webhook event for a new user message."""
     if webhook_manager:
         webhook_manager.fire_and_forget("chat.message", {
             "session_id": session_id, "model": sess.model, "message": message[:2000],
         })
-    from src.event_bus import fire_event
-    user = effective_user(request)
-    fire_event("message_sent", user)
 
 
 def _session_url_matches_endpoint(session_url: str, endpoint_base: str) -> bool:

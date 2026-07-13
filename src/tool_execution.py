@@ -610,10 +610,9 @@ async def _execute_tool_block_impl(
     events while the command is in flight. Ignored by other tools.
     """
     from src.tool_implementations import (
-        do_search_chats, do_manage_tasks,
+        do_search_chats,
         do_manage_skills, do_api_call,
-        do_edit_image, do_trigger_research, do_manage_research, do_manage_queue,
-        do_resolve_contact,
+        do_edit_image, do_trigger_research, do_manage_research, do_resolve_contact,
         do_manage_contact,
         do_vault_search, do_vault_get, do_vault_unlock,
         do_app_api,
@@ -654,10 +653,6 @@ async def _execute_tool_block_impl(
                         "To call a tool, use the tool name as the fence tag, e.g.\n"
                         "```resolve_contact\n"
                         "{\"name\": \"...\"}\n"
-                        "```\n"
-                        "or\n"
-                        "```manage_tasks\n"
-                        "{\"action\": \"list\"}\n"
                         "```"
                     ),
                     "exit_code": 1,
@@ -777,9 +772,6 @@ async def _execute_tool_block_impl(
     elif tool in ("pipeline", "manage_memory", "ui_control"):
         from src.ai_interaction import dispatch_ai_tool
         desc, result = await dispatch_ai_tool(tool, content, session_id, owner=owner)
-    elif tool == "manage_tasks":
-        desc = "manage_tasks"
-        result = await do_manage_tasks(content, owner=owner)
     elif tool == "manage_skills":
         desc = "manage_skills"
         result = await do_manage_skills(content, owner=owner)
@@ -807,9 +799,6 @@ async def _execute_tool_block_impl(
     elif tool == "manage_research":
         desc = "manage_research"
         result = await do_manage_research(content, owner=owner)
-    elif tool == "manage_queue":
-        desc = "manage_queue"
-        result = await do_manage_queue(content, owner=owner)
     elif tool == "resolve_contact":
         desc = "resolve_contact"
         result = await do_resolve_contact(content, owner=owner)

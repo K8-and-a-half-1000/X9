@@ -28,7 +28,7 @@ import src.tool_implementations as ti
 _EXPECTED = [
     "do_api_call", "do_app_api", "do_edit_image", "do_manage_contact",
     "do_manage_endpoints", "do_manage_mcp", "do_manage_research", "do_manage_settings", "do_manage_skills",
-    "do_manage_tasks", "do_manage_tokens", "do_manage_webhooks",
+    "do_manage_tokens", "do_manage_webhooks",
     "do_resolve_contact", "do_search_chats", "do_trigger_research", "do_vault_get",
     "do_vault_search", "do_vault_unlock",
     # module-private helpers (importable by name too)

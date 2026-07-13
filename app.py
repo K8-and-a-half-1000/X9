@@ -574,13 +574,6 @@ app.include_router(setup_chat_routes(
 from routes.research.research_routes import setup_research_routes
 app.include_router(setup_research_routes(research_handler, session_manager=session_manager))
 
-# Improvement queue (planned skill/rag/memory/test improvements, run like research)
-from src.improvement_queue import get_improvement_queue
-improvement_queue = get_improvement_queue()
-improvement_queue.configure(research_handler=research_handler, skills_manager=skills_manager)
-from routes.queue_routes import setup_queue_routes
-app.include_router(setup_queue_routes(improvement_queue))
-
 # History
 from routes.history_routes import setup_history_routes
 app.include_router(setup_history_routes(session_manager))
@@ -640,18 +633,6 @@ app.include_router(setup_gallery_routes())
 # Persisted image-editor drafts (server-backed projects)
 from routes.editor_draft_routes import setup_editor_draft_routes
 app.include_router(setup_editor_draft_routes())
-
-# Scheduled tasks + event bus
-from src.task_scheduler import TaskScheduler
-task_scheduler = TaskScheduler(session_manager)
-from src.event_bus import set_task_scheduler
-set_task_scheduler(task_scheduler)
-from routes.task_routes import setup_task_routes
-app.include_router(setup_task_routes(task_scheduler))
-
-from routes.assistant_routes import setup_assistant_routes
-app.include_router(setup_assistant_routes(task_scheduler))
-
 
 # Shell (user-facing command execution)
 from routes.shell_routes import setup_shell_routes
@@ -915,52 +896,6 @@ async def _startup_event():
 
         _startup_tasks.append(asyncio.create_task(_keepalive_loop()))
 
-    async def _ensure_default_tasks():
-        # Reconcile default automation tasks for owners already present in
-        # scheduled_tasks (single-user: typically one owner or none).
-        owners = set()
-        try:
-            from core.database import SessionLocal, ScheduledTask
-            from src.task_scheduler import HOUSEKEEPING_DEFAULTS
-            builtin_names = []
-            for defs in HOUSEKEEPING_DEFAULTS.values():
-                builtin_names.append(defs["name"])
-                builtin_names.extend(defs.get("legacy_names") or [])
-            db_seed = SessionLocal()
-            try:
-                rows = db_seed.query(ScheduledTask.owner).filter(
-                    (ScheduledTask.action.in_(list(HOUSEKEEPING_DEFAULTS.keys())))
-                    | (ScheduledTask.name.in_(builtin_names))
-                ).distinct().all()
-                owners.update(row[0] for row in rows if row[0])
-            finally:
-                db_seed.close()
-        except Exception as e:
-            logger.debug(f"Default task existing-owner scan: {e}")
-
-        try:
-            for uname in sorted(owners):
-                try:
-                    await task_scheduler.ensure_defaults(uname)
-                except Exception as e:
-                    logger.debug(f"ensure_defaults({uname}): {e}")
-        except Exception as e:
-            logger.debug(f"Default tasks: {e}")
-
-    # Reconcile built-in tasks before the runner starts. Otherwise legacy
-    # scheduled built-ins can fire once before being converted to event tasks.
-    await _ensure_default_tasks()
-
-    # Start scheduled task runner — skip when running under a cron-driven
-    # deployment where an external worker drives task firing.
-    _tasks_inprocess = os.environ.get("AD_INPROCESS_TASKS", "1").strip().lower()
-    if _tasks_inprocess not in ("0", "false", "no", "off", ""):
-        await task_scheduler.start()
-    else:
-        logger.info(
-            "In-process task scheduler disabled (AD_INPROCESS_TASKS=0); "
-            "drive task firing externally (e.g. cron)."
-        )
     # Periodic null-owner sweep — re-runs the legacy-owner assignment hourly
     # so any data created while auth was disabled / localhost-bypassed gets
     # claimed by the admin instead of staying world-visible (M19).
@@ -1016,11 +951,6 @@ async def _shutdown_event():
             await upload_cleanup_task
         except asyncio.CancelledError:
             pass
-    # Stop task scheduler (no-op if it never started under the gate)
-    try:
-        await task_scheduler.stop()
-    except Exception:
-        pass
     # Close webhook manager
     try:
         await webhook_manager.close()

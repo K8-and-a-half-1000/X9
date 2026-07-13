@@ -311,11 +311,6 @@ class CreateDocumentTool:
             db.commit()
 
             set_active_document(doc_id)
-            try:
-                from src.event_bus import fire_event
-                fire_event("document_created", _owner)
-            except Exception:
-                logger.debug("document_created event dispatch failed", exc_info=True)
 
             return {
                 "action": "create",

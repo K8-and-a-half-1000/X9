@@ -18,7 +18,6 @@ import asyncio
 import tempfile
 
 import src.llm_core
-import src.event_bus
 from src.memory import MemoryManager
 from services.memory.memory_extractor import extract_and_store
 
@@ -62,8 +61,6 @@ def test_extraction_persists_facts_when_vector_store_fails_at_runtime(monkeypatc
         return facts_json
 
     monkeypatch.setattr(src.llm_core, "llm_call_async", _fake_llm)
-    # fire_event touches an async event loop / disk — neutralize it.
-    monkeypatch.setattr(src.event_bus, "fire_event", lambda *a, **k: None)
 
     with tempfile.TemporaryDirectory() as data_dir:
         mgr = MemoryManager(data_dir)
@@ -97,7 +94,6 @@ def test_healthy_vector_store_still_dedups_normally(monkeypatch):
         return '[{"text": "Alice lives in Lisbon", "category": "fact"}]'
 
     monkeypatch.setattr(src.llm_core, "llm_call_async", _fake_llm)
-    monkeypatch.setattr(src.event_bus, "fire_event", lambda *a, **k: None)
 
     with tempfile.TemporaryDirectory() as data_dir:
         mgr = MemoryManager(data_dir)

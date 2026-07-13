@@ -141,7 +141,7 @@
         '/memory': 'Memory — AD',
         '/gallery': 'Gallery — AD',
         '/tasks': 'Tasks — AD',
-        '/library': 'Library — AD',
+        '/library': 'RAG — AD',
       };
       if (titles[path]) document.title = titles[path];
       // Per-route Android home-screen icon. We swap the <link rel="manifest">
@@ -197,8 +197,8 @@
       }, { once: true });
     })();
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=20260713ad">
-  <link rel="modulepreload" href="/static/app.js?v=20260713ad">
+  <link rel="stylesheet" href="/static/style.css?v=20260713menu">
+  <link rel="modulepreload" href="/static/app.js?v=20260713menu">
   <link rel="modulepreload" href="/static/js/chat.js">
   <link rel="modulepreload" href="/static/js/ui.js">
   <link rel="modulepreload" href="/static/js/sessions.js">
@@ -226,82 +226,19 @@
   </script>
   <!-- Memory Management Modal -->
   <div id="memory-modal" class="modal hidden">
-    <div class="modal-content memory-modal-content" role="dialog" aria-label="Brain" style="background:var(--bg)">
+    <div class="modal-content memory-modal-content" role="dialog" aria-label="Skills" style="background:var(--bg)">
       <div class="modal-header">
-        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg>Brain</h4>
+        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Skills</h4>
         <button class="close-btn" id="close-memory-modal" aria-label="Close memory modal">✖</button>
       </div>
       <div class="modal-body memory-modal-body">
         <div class="memory-tabs">
-          <button class="memory-tab active" data-memory-tab="browse"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Memories <span id="memory-count" class="memory-count" style="font-size:max(0.8em, 14px);opacity:0.6;font-weight:normal;margin-left:4px">0</span></button>
-          <button class="memory-tab" data-memory-tab="skills"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Skills <span id="skills-count" class="memory-count" style="font-size:max(0.8em, 14px);opacity:0.6;font-weight:normal;margin-left:4px">0</span></button>
+          <button class="memory-tab active" data-memory-tab="skills"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Skills <span id="skills-count" class="memory-count" style="font-size:max(0.8em, 14px);opacity:0.6;font-weight:normal;margin-left:4px">0</span></button>
           <button class="memory-tab" data-memory-tab="add"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Add</button>
           <button class="memory-tab" data-memory-tab="settings"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
         </div>
-        <!-- ── Browse tab ── -->
-        <div class="memory-tab-panel" data-memory-panel="browse">
-          <div class="admin-card" style="display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-              <h2 style="display:flex;align-items:center;gap:6px;margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Memories <span id="memory-count-h2" class="memory-count" style="font-size:max(0.6em, 14px);opacity:0.6;font-weight:normal"></span></h2>
-              <span style="flex:1"></span>
-              <span class="admin-toggle-state"></span>
-              <label class="admin-switch" title="Include memories in chat context"><input type="checkbox" id="memory-enabled-header-toggle" checked /><span class="admin-slider"></span></label>
-            </div>
-            <p class="memory-desc doclib-desc" style="margin-top:6px;">Long-term facts the AI remembers across chats — recall, edit, or curate.</p>
-            <div class="memory-toolbar">
-              <div class="memory-toolbar-row">
-                <div class="memory-sort-picker" id="memory-sort-picker" style="position:relative;">
-                  <select id="memory-sort" class="memory-sort-select" aria-label="Sort memories" style="display:none;">
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="alpha">A-Z</option>
-                    <option value="uses">Most used</option>
-                  </select>
-                  <button type="button" class="memory-sort-btn" id="memory-sort-btn" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="memory-sort-current"><span class="memory-sort-icon-cur"></span><span class="memory-sort-label">Newest</span></span>
-                    <svg class="memory-sort-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  <div class="memory-sort-menu" id="memory-sort-menu" role="listbox" hidden></div>
-                </div>
-                <button id="memory-tidy-btn" class="memory-toolbar-btn" title="AI tidy: deduplicate and clean up memories"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:2px;color:var(--accent, var(--red));"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg> Tidy</button>
-                <button id="memory-select-btn" class="memory-toolbar-btn" title="Select multiple memories" style="position:relative;left:-2px;"><svg class="memory-select-btn-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>Select</button>
-              </div>
-              <input type="text" id="memory-search" placeholder="Search memories…" class="memory-search-input" aria-label="Search memories" />
-              <div id="memory-category-filters" class="memory-category-filters">
-                <button class="memory-cat-chip active" data-cat="all">all</button>
-              </div>
-            </div>
-            <div id="memory-bulk-bar" class="memory-bulk-bar hidden">
-              <label class="memory-bulk-check-all" style="position:relative;top:0px;"><input type="checkbox" id="memory-select-all" /> All</label>
-              <span id="memory-selected-count">0 Selected</span>
-              <button id="memory-bulk-delete" class="memory-toolbar-btn danger" disabled><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Delete</button>
-              <button id="memory-bulk-cancel" class="memory-toolbar-btn" title="Cancel (Esc)" style="margin-left:4px;padding:3px 6px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-            <div id="memory-list" class="memory-list"></div>
-            <div id="memory-suggestions-body" class="memory-suggestions hidden"></div>
-          </div>
-        </div>
         <!-- ── Add tab ── -->
         <div class="memory-tab-panel hidden" data-memory-panel="add">
-          <div class="admin-card">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-              <h2 style="margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;color:var(--accent, var(--red));"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Add Memory</h2>
-              <span style="flex:1"></span>
-              <button id="memory-import-btn" class="theme-io-btn" title="Import memories from a file" style="height:26px;font-size:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import</button>
-              <button id="memory-export-btn" class="theme-io-btn" title="Export all memories as JSON" style="height:26px;font-size:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Export</button>
-              <input type="file" id="memory-import-file" accept=".txt,.md,.pdf,.csv,.log,.json,.py,.js,.html" hidden />
-            </div>
-            <p class="memory-desc doclib-desc" style="margin:4px 0 6px;">
-              Import a <code>.txt</code>, <code>.md</code>, <code>.pdf</code>, <code>.csv</code>, <code>.log</code>, <code>.json</code>, <code>.py</code>, <code>.js</code>, or <code>.html</code> file &mdash; the AI reads it and suggests candidate memories you can approve.
-            </p>
-            <div class="memory-add-row" style="margin-top:8px;">
-              <div class="skill-ph-wrap" style="flex:1;min-width:0;">
-                <input type="text" id="new-memory-input" placeholder=" " class="memory-add-input skill-hint-input" aria-label="New memory text" />
-                <span class="skill-rich-ph"><span class="k">Add a memory</span> &mdash; e.g. 'I prefer concise replies' <svg class="k" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px;" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></span>
-              </div>
-              <select id="new-memory-category" class="memory-edit-cat-select" aria-label="Memory category"></select>
-            </div>
-          </div>
           <div class="admin-card">
             <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;">
               <h2 style="margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;color:var(--accent, var(--red));"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Add Skill</h2>
@@ -337,7 +274,7 @@
           </div>
         </div>
         <!-- ── Skills tab ── -->
-        <div class="memory-tab-panel hidden" data-memory-panel="skills">
+        <div class="memory-tab-panel" data-memory-panel="skills">
           <div class="admin-card" style="display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
               <h2 style="display:flex;align-items:center;gap:6px;margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Skills <span id="skills-count-h2" class="memory-count" style="font-size:max(0.6em, 14px);opacity:0.6;font-weight:normal"></span></h2>
@@ -387,13 +324,6 @@
         </div>
         <!-- ── Settings tab ── -->
         <div class="memory-tab-panel hidden" data-memory-panel="settings">
-          <div class="admin-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
-              <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent, var(--red))" aria-hidden="true"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg>Auto-extract memories</h2>
-              <label class="admin-switch" style="flex-shrink:0"><input type="checkbox" id="auto-memory-toggle" checked /><span class="admin-slider"></span></label>
-            </div>
-            <span class="admin-toggle-sub" style="display:block;margin-top:6px">Automatically extract memories from conversations.</span>
-          </div>
           <div class="admin-card">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
               <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent, var(--red))" aria-hidden="true"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg>Auto-extract skills</h2>
@@ -475,6 +405,82 @@
   </div>
 
   <!-- Theme Popup (floating panel) -->
+
+  <!-- Memory browser + add + auto-extract — rendered inside the RAG window's
+       Memory tab (documentLibrary.js adopts this host on tab switch and
+       re-parents it back here on close). Hidden while unadopted. -->
+  <div id="memory-tab-host" class="hidden">
+        <!-- Memory browser (lives in the RAG window's Memory tab) -->
+        <div class="memory-tab-panel">
+          <div class="admin-card" style="display:flex;flex-direction:column;overflow:hidden;flex:1;min-height:0;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+              <h2 style="display:flex;align-items:center;gap:6px;margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent, var(--red));flex-shrink:0;"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Memories <span id="memory-count-h2" class="memory-count" style="font-size:max(0.6em, 14px);opacity:0.6;font-weight:normal"></span></h2>
+              <span style="flex:1"></span>
+              <span class="admin-toggle-state"></span>
+              <label class="admin-switch" title="Include memories in chat context"><input type="checkbox" id="memory-enabled-header-toggle" checked /><span class="admin-slider"></span></label>
+            </div>
+            <p class="memory-desc doclib-desc" style="margin-top:6px;">Long-term facts the AI remembers across chats — recall, edit, or curate.</p>
+            <div class="memory-toolbar">
+              <div class="memory-toolbar-row">
+                <div class="memory-sort-picker" id="memory-sort-picker" style="position:relative;">
+                  <select id="memory-sort" class="memory-sort-select" aria-label="Sort memories" style="display:none;">
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="alpha">A-Z</option>
+                    <option value="uses">Most used</option>
+                  </select>
+                  <button type="button" class="memory-sort-btn" id="memory-sort-btn" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="memory-sort-current"><span class="memory-sort-icon-cur"></span><span class="memory-sort-label">Newest</span></span>
+                    <svg class="memory-sort-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="memory-sort-menu" id="memory-sort-menu" role="listbox" hidden></div>
+                </div>
+                <button id="memory-tidy-btn" class="memory-toolbar-btn" title="AI tidy: deduplicate and clean up memories"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px;margin-right:2px;color:var(--accent, var(--red));"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg> Tidy</button>
+                <button id="memory-select-btn" class="memory-toolbar-btn" title="Select multiple memories" style="position:relative;left:-2px;"><svg class="memory-select-btn-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>Select</button>
+              </div>
+              <input type="text" id="memory-search" placeholder="Search memories…" class="memory-search-input" aria-label="Search memories" />
+              <div id="memory-category-filters" class="memory-category-filters">
+                <button class="memory-cat-chip active" data-cat="all">all</button>
+              </div>
+            </div>
+            <div id="memory-bulk-bar" class="memory-bulk-bar hidden">
+              <label class="memory-bulk-check-all" style="position:relative;top:0px;"><input type="checkbox" id="memory-select-all" /> All</label>
+              <span id="memory-selected-count">0 Selected</span>
+              <button id="memory-bulk-delete" class="memory-toolbar-btn danger" disabled><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>Delete</button>
+              <button id="memory-bulk-cancel" class="memory-toolbar-btn" title="Cancel (Esc)" style="margin-left:4px;padding:3px 6px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="memory-list" class="memory-list"></div>
+            <div id="memory-suggestions-body" class="memory-suggestions hidden"></div>
+          </div>
+        </div>
+        <div class="admin-card">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+              <h2 style="margin:0;padding:0;line-height:1;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;color:var(--accent, var(--red));"><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z"/><line x1="10" y1="22" x2="14" y2="22"/></svg>Add Memory</h2>
+              <span style="flex:1"></span>
+              <button id="memory-import-btn" class="theme-io-btn" title="Import memories from a file" style="height:26px;font-size:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import</button>
+              <button id="memory-export-btn" class="theme-io-btn" title="Export all memories as JSON" style="height:26px;font-size:14px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Export</button>
+              <input type="file" id="memory-import-file" accept=".txt,.md,.pdf,.csv,.log,.json,.py,.js,.html" hidden />
+            </div>
+            <p class="memory-desc doclib-desc" style="margin:4px 0 6px;">
+              Import a <code>.txt</code>, <code>.md</code>, <code>.pdf</code>, <code>.csv</code>, <code>.log</code>, <code>.json</code>, <code>.py</code>, <code>.js</code>, or <code>.html</code> file &mdash; the AI reads it and suggests candidate memories you can approve.
+            </p>
+            <div class="memory-add-row" style="margin-top:8px;">
+              <div class="skill-ph-wrap" style="flex:1;min-width:0;">
+                <input type="text" id="new-memory-input" placeholder=" " class="memory-add-input skill-hint-input" aria-label="New memory text" />
+                <span class="skill-rich-ph"><span class="k">Add a memory</span> &mdash; e.g. 'I prefer concise replies' <svg class="k" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:4px;" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></span>
+              </div>
+              <select id="new-memory-category" class="memory-edit-cat-select" aria-label="Memory category"></select>
+            </div>
+          </div>
+        <div class="admin-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:32px">
+              <h2 style="margin:0;display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="var(--accent, var(--red))" aria-hidden="true"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg>Auto-extract memories</h2>
+              <label class="admin-switch" style="flex-shrink:0"><input type="checkbox" id="auto-memory-toggle" checked /><span class="admin-slider"></span></label>
+            </div>
+            <span class="admin-toggle-sub" style="display:block;margin-top:6px">Automatically extract memories from conversations.</span>
+          </div>
+  </div>
+
   <div id="theme-modal" class="modal hidden">
   <div id="theme-popup" class="modal-content admin-modal-content" role="dialog" aria-label="Theme" style="background:var(--bg)">
     <div class="modal-header theme-popup-header" id="theme-popup-header">
@@ -697,7 +703,6 @@
   <div class="icon-rail" id="icon-rail">
     <div class="rail-resize-handle" id="rail-resize-handle"></div>
     <!-- Static: core actions -->
-    <button class="icon-rail-btn" id="rail-search-btn" title="Search conversations (Ctrl+K)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg></button>
     <button class="icon-rail-btn rail-new-chat" id="rail-new-session" title="New chat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     <button class="icon-rail-btn" id="rail-delete-session" title="Delete session">&#x2715;</button>
     <div class="rail-separator"></div>
@@ -707,9 +712,8 @@
     <!-- Tool launchers — always visible, alphabetical -->
     <button class="icon-rail-btn" id="rail-research" title="Deep Research"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg></button>
     <button class="icon-rail-btn" id="rail-gallery" title="Gallery"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
-    <button class="icon-rail-btn" id="rail-archive" title="Library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6M9 11h4"/></svg></button>
-    <button class="icon-rail-btn" id="rail-memory" title="Brain"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg></button>
-    <button class="icon-rail-btn" id="rail-tasks" title="Tasks"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg></button>
+    <button class="icon-rail-btn" id="rail-archive" title="RAG"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6M9 11h4"/></svg></button>
+    <button class="icon-rail-btn" id="rail-memory" title="Skills"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg></button>
     <button class="icon-rail-btn" id="rail-theme" title="Theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20 5 5 0 0 0 5-5 3 3 0 0 0-3-3h-2a3 3 0 0 1-3-3 5 5 0 0 1 5-5"/></svg></button>
     <div style="flex:1"></div>
     <!-- Static: bottom -->
@@ -729,10 +733,6 @@
         <svg class="sidebar-action-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:relative;left:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span class="grow" style="position:relative;left:-3px;">New Chat</span>
       </div>
-      <div class="list-item" id="sidebar-search-btn" title="Search conversations (Ctrl+K)">
-        <svg class="sidebar-action-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-        <span class="grow" style="position:relative;left:-1px;">Search</span>
-      </div>
       <!-- Assistant sidebar entry removed — its log + settings live inside
            the Tasks modal (Activity + Settings tabs). The backend
            assistant session is still maintained for log_to_assistant()
@@ -743,11 +743,9 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             style="flex-shrink:0;opacity:0.5;">
-            <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
-            <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
-            <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-          <span class="grow">Brain</span>
+          <span class="grow">Skills</span>
         </div>
         <div class="list-item" id="tool-research-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:0.5;"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
@@ -767,24 +765,11 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.5;">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6M9 11h4"/>
           </svg>
-          <span class="grow">Library</span>
+          <span class="grow">RAG</span>
           <button type="button" class="list-item-plus-btn" id="library-new-doc-btn" title="New document">
             <svg class="list-item-plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span class="list-item-plus-label">document</span>
           </button>
-        </div>
-        <div class="list-item" id="tool-tasks-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            style="flex-shrink:0;opacity:0.5;">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-            <path d="M9 16l2 2 4-4"/>
-          </svg>
-          <span class="grow">Tasks</span>
-          <span id="assistant-notif-dot" class="sidebar-notif-dot" style="display:none"></span>
         </div>
 
         <div class="list-item" id="tool-theme-btn">
@@ -798,20 +783,6 @@
             <circle cx="9" cy="15" r="1.5" fill="currentColor"/>
           </svg>
           <span class="grow">Theme</span>
-        </div>
-
-        <div class="list-item" id="tool-queue-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            style="flex-shrink:0;opacity:0.5;">
-            <line x1="9" y1="6" x2="21" y2="6"/>
-            <line x1="9" y1="12" x2="21" y2="12"/>
-            <line x1="9" y1="18" x2="21" y2="18"/>
-            <polygon points="3,4 6.5,6 3,8" fill="currentColor" stroke="none"/>
-            <circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
-            <circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/>
-          </svg>
-          <span class="grow">Queue</span>
         </div>
 
         <div class="list-item" id="tool-settings-btn">
@@ -829,7 +800,7 @@
         <div class="section-header-flex">
           <span class="section-title" id="chats-section-title"><svg class="section-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span id="chats-section-label" class="section-title-label">Chats</span><span id="chats-notif-dot" class="sidebar-notif-dot" style="display:none"></span></span>
           <div style="position:relative; display:inline-block; display:flex; gap:4px; align-items:center;">
-            <button type="button" class="section-header-btn list-item-plus-btn chats-manage-btn" id="chats-library-btn" title="Manage Chats (Library)">
+            <button type="button" class="section-header-btn list-item-plus-btn chats-manage-btn" id="chats-library-btn" title="Manage Chats (RAG)">
               <span aria-hidden="true" style="display:inline-block;width:13px;height:13px;"></span>
               <span class="list-item-plus-label">manage</span>
             </button>
@@ -1338,10 +1309,6 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             <span>Integrations</span>
           </button>
-          <button class="settings-nav-item" data-settings-tab="reminders">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <span>Reminders</span>
-          </button>
           <div class="settings-sidebar-divider"></div>
           <!-- Section 3: UX (Appearance → Shortcuts) -->
           <button class="settings-nav-item" data-settings-tab="appearance">
@@ -1672,11 +1639,6 @@
                 <input type="checkbox" checked data-ui-key="sidebar-brand"><span class="vis-switch"></span>
               </label>
               <label class="vis-row">
-                <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span>
-                <span class="vis-label">Search</span>
-                <input type="checkbox" checked data-ui-key="sidebar-search"><span class="vis-switch"></span>
-              </label>
-              <label class="vis-row">
                 <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
                 <span class="vis-label">New Chat</span>
                 <input type="checkbox" checked data-ui-key="sidebar-new-chat"><span class="vis-switch"></span>
@@ -1698,7 +1660,7 @@
               </label>
               <label class="vis-row">
                 <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg></span>
-                <span class="vis-label">Brain</span>
+                <span class="vis-label">Skills</span>
                 <input type="checkbox" checked data-ui-key="tool-memory"><span class="vis-switch"></span>
               </label>
               <label class="vis-row">
@@ -1713,13 +1675,8 @@
               </label>
               <label class="vis-row">
                 <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></span>
-                <span class="vis-label">Library</span>
+                <span class="vis-label">RAG</span>
                 <input type="checkbox" checked data-ui-key="tool-library"><span class="vis-switch"></span>
-              </label>
-              <label class="vis-row">
-                <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg></span>
-                <span class="vis-label">Tasks</span>
-                <input type="checkbox" checked data-ui-key="tool-tasks"><span class="vis-switch"></span>
               </label>
               <label class="vis-row">
                 <span class="vis-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20 5 5 0 0 0 5-5 3 3 0 0 0-3-3h-2a3 3 0 0 1-3-3 5 5 0 0 1 5-5"/></svg></span>
@@ -1840,66 +1797,6 @@
 
 
         <!-- ═══ REMINDERS TAB ═══ -->
-        <div data-settings-panel="reminders" class="hidden">
-          <div class="admin-card">
-            <h2 style="display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;opacity:0.6"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>How you're reminded</h2>
-            <div class="admin-toggle-sub" style="margin-bottom:8px">Controls how fired note reminders are delivered.</div>
-            <div class="settings-col">
-              <div class="settings-row">
-                <label class="settings-label">Channel</label>
-                <select id="set-reminder-channel" class="settings-select">
-                  <option value="browser">Browser notification (default)</option>
-                  <option value="ntfy" id="set-reminder-channel-ntfy-opt">ntfy</option>
-                  <option value="webhook" id="set-reminder-channel-webhook-opt">Webhook</option>
-                </select>
-              </div>
-              <div id="set-reminder-ntfy-topic-row" class="settings-row" style="display:none">
-                <label class="settings-label">ntfy topic</label>
-                <input id="set-reminder-ntfy-topic" class="settings-select" type="text" placeholder="reminders" />
-              </div>
-              <div id="set-reminder-webhook-intg-row" class="settings-row" style="display:none">
-                <label class="settings-label">Integration</label>
-                <select id="set-reminder-webhook-intg" class="settings-select"></select>
-              </div>
-              <div id="set-reminder-webhook-template-row" class="settings-row" style="display:none;align-items:flex-start">
-                <label class="settings-label" style="padding-top:6px">Payload</label>
-                <textarea id="set-reminder-webhook-template" class="settings-select" rows="3" style="font-family:inherit;resize:vertical;flex:1" placeholder='{"content": "{{title}}: {{message}}"}'></textarea>
-              </div>
-              <div id="set-reminder-channel-hint" style="font-size:14px;opacity:0.6;"></div>
-              <div style="font-size:14px;opacity:0.6;margin-top:4px;">Configure the ntfy server, webhooks, etc. in <a href="#" id="set-reminders-open-integrations" style="color:var(--accent, var(--red));text-decoration:none;font-weight:600;">Integrations</a>.</div>
-            </div>
-          </div>
-          <div class="admin-card">
-            <h2 style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:1px;opacity:0.6;flex-shrink:0"><path d="M12 0L14.59 8.41L23 12L14.59 15.59L12 24L9.41 15.59L1 12L9.41 8.41Z"/></svg>AI Synthesis<span style="flex:1"></span><label class="admin-switch" title="Use the utility model to write reminder messages"><input type="checkbox" id="set-reminder-llm-toggle"><span class="admin-slider"></span></label></h2>
-            <div class="admin-toggle-sub" style="margin-bottom:8px">When on, the utility model writes a short, warm one-line reminder for browser, ntfy, and webhook reminders instead of just the raw note content.</div>
-            <div class="settings-col">
-              <div class="settings-row">
-                <label class="settings-label" title="Optional — write the reminder in the voice of a saved character">Persona</label>
-                <select id="set-reminder-llm-persona" class="settings-select" style="flex:1;">
-                  <option value="">Default (warm, neutral)</option>
-                </select>
-              </div>
-              <div style="font-size:14px;opacity:0.7;margin-top:2px;">
-                <a href="#" data-open-prompt-modal style="color:var(--accent, var(--red));text-decoration:underline;font-weight:600;">Edit persona settings here →</a>
-              </div>
-              <div id="set-reminder-llm-persona-msg" style="font-size:14px;color:color-mix(in srgb, var(--fg) 55%, transparent);"></div>
-            </div>
-          </div>
-          <div class="admin-card">
-            <h2><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;opacity:0.6"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Public App URL</h2>
-            <div class="admin-toggle-sub" style="margin-bottom:8px">Used to build clickable links back to the app inside outgoing reminders (e.g. <code>https://chat.yourdomain.com</code>). Leave blank to omit links.</div>
-            <div class="settings-col">
-              <div class="settings-row">
-                <label class="settings-label">URL</label>
-                <input id="set-app-public-url" class="settings-select" type="url" placeholder="https://chat.example.com" style="flex:1;" />
-              </div>
-              <div id="set-app-public-url-msg" style="font-size:14px;color:color-mix(in srgb, var(--fg) 55%, transparent);"></div>
-            </div>
-          </div>
-        </div>
-
-
-        <!-- ═══ SERVICES TAB ═══ -->
         <div data-settings-panel="services">
 
           <!-- ── Local card ─────────────────────────────────────────── -->
@@ -2242,18 +2139,6 @@
     </div>
   </div>
 
-  <!-- Search overlay (Ctrl+K command palette) -->
-  <div class="search-overlay hidden" id="search-overlay">
-    <div class="search-popup">
-      <div class="modal-header search-page-header">
-        <h4><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px;margin-right:6px;opacity:0.6"><circle cx="10" cy="10" r="7"/><path d="M21 21l-4.35-4.35"/></svg>Search</h4>
-        <button class="close-btn" id="search-page-close" aria-label="Close search">&#x2716;</button>
-      </div>
-      <input type="text" id="search-input" placeholder="Search conversations..." autocomplete="off" />
-      <div class="search-results" id="search-results"></div>
-    </div>
-  </div>
-
   <!-- Toast container (aria-live for screen readers) -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
@@ -2283,13 +2168,11 @@
 <script type="module" src="/static/js/codeRunner.js"></script>
 <script type="module" src="/static/js/chatStream.js"></script>
 <script type="module" src="/static/js/chat.js?v=20260630toolmetrics"></script>
-<script type="module" src="/static/js/search-chat.js"></script>
 <script type="module" src="/static/js/theme.js"></script>
 <script type="module" src="/static/js/censor.js"></script>
 <script type="module" src="/static/js/settings.js"></script>
 <script type="module" src="/static/js/admin.js"></script>
-<script type="module" src="/static/js/assistant.js"></script>
-<script type="module" src="/static/app.js?v=20260713ad"></script>  <!-- app.js must be LAST -->
+<script type="module" src="/static/app.js?v=20260713menu"></script>  <!-- app.js must be LAST -->
 <script type="module" src="/static/js/init.js"></script>
 <script type="module" src="/static/js/a11y.js"></script>
 <script nonce="{{CSP_NONCE}}">

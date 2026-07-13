@@ -371,7 +371,7 @@ function _buildPanelHTML() {
         </div>
         <p class="memory-desc doclib-desc" style="margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span>Multi-step web research with an LLM-in-the-loop agent</span>
-          <span id="research-no-past-hint" style="display:none;font:inherit;opacity:1;position:static;">All past research found in: <button type="button" class="research-library-link" style="background:none;border:none;padding:0;font:inherit;color:var(--accent, var(--red));cursor:pointer;text-decoration:underline;">Library, Research</button></span>
+          <span id="research-no-past-hint" style="display:none;font:inherit;opacity:1;position:static;">All past research found in: <button type="button" class="research-library-link" style="background:none;border:none;padding:0;font:inherit;color:var(--accent, var(--red));cursor:pointer;text-decoration:underline;">RAG, Research</button></span>
         </p>
         <textarea id="research-query" class="research-query" placeholder="${_pickResearchHint()}" rows="4"></textarea>
         <button id="research-settings-toggle" class="research-settings-toggle${chevronCls}">
@@ -383,7 +383,7 @@ function _buildPanelHTML() {
             <select id="research-rounds">${roundOpts}</select>
           </label>
           <label class="research-setting">
-            <span class="research-setting-label">Format <span class="hwfit-help-chip hwfit-help-chip-inline" title="Auto lets the LLM pick the output shape. How-to writes a step-by-step guide. Skill researches a new skill and installs it. RAG gathers data and ingests it into the RAG store. Memory distills best practices from trusted sources into memories. Configure each format in Brain.">?</span></span>
+            <span class="research-setting-label">Format <span class="hwfit-help-chip hwfit-help-chip-inline" title="Auto lets the LLM pick the output shape. How-to writes a step-by-step guide. Skill researches a new skill and installs it. RAG gathers data and ingests it into the RAG store. Memory distills best practices from trusted sources into memories. Configure each format in Skills.">?</span></span>
             <select id="research-category">
               <option value="" selected>Auto</option>
               <option value="howto">How-to</option>
@@ -784,7 +784,7 @@ function _renderJobs() {
     if (key === 'past') {
       const hint = document.createElement('span');
       hint.className = 'research-library-hint';
-      hint.innerHTML = '<span>All past research found in:</span> <button type="button" class="research-library-link">Library, Research</button>';
+      hint.innerHTML = '<span>All past research found in:</span> <button type="button" class="research-library-link">RAG, Research</button>';
       hint.querySelector('.research-library-link').addEventListener('click', (e) => {
         e.stopPropagation();
         // Close the research panel first so the Library opens ABOVE it on mobile

@@ -31,8 +31,8 @@ def _null_owner_stubs(monkeypatch):
         ("core.database", (
             "Base", "SessionLocal",
             "Document", "DocumentVersion", "Session", "ChatMessage",
-            "GalleryImage", "GalleryAlbum", "Note", "ScheduledTask",
-            "TaskRun", "ModelEndpoint", "Webhook",
+            "GalleryImage", "GalleryAlbum", "Note",
+            "ModelEndpoint", "Webhook",
         )),
         ("core.auth", ("AuthManager",)),
         ("src.endpoint_resolver", ()),

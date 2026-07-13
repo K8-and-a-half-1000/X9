@@ -6,7 +6,7 @@ sqlalchemy = pytest.importorskip("sqlalchemy")
 if not isinstance(sqlalchemy, types.ModuleType):
     pytest.skip("sqlalchemy is stubbed in this environment", allow_module_level=True)
 
-from core.database import ChatMessage, DocumentVersion, Session, TaskRun, UserToolData, utcnow_naive
+from core.database import ChatMessage, DocumentVersion, Session, UserToolData, utcnow_naive
 
 
 def test_utcnow_naive_returns_naive_utc_datetime():
@@ -26,7 +26,6 @@ def test_database_timestamp_defaults_use_utcnow_naive():
         UserToolData.created_at.default.arg,
         UserToolData.updated_at.default.arg,
         UserToolData.updated_at.onupdate.arg,
-        TaskRun.started_at.default.arg,
     )
 
     for fn in defaults:
